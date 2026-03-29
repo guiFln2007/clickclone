@@ -178,6 +178,7 @@ export default function ToolPage() {
   const [userPlano, setUserPlano] = useState('pro')
   const [userCreatedAt, setUserCreatedAt] = useState('')
   const [creditos, setCreditos] = useState<number | null>(null)
+  const [analises, setAnalises] = useState<number | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
@@ -188,6 +189,7 @@ export default function ToolPage() {
       if (d.user?.plano) setUserPlano(d.user.plano)
       if (d.user?.created_at) setUserCreatedAt(d.user.created_at)
       if (typeof d.user?.creditos === 'number') setCreditos(d.user.creditos)
+      if (typeof d.user?.analises === 'number') setAnalises(d.user.analises)
     }).catch(() => {})
   }, [])
 
@@ -364,11 +366,12 @@ export default function ToolPage() {
         buffer = parts.pop() ?? ''
         for (const part of parts) {
           if (!part.startsWith('data: ')) continue
-          let ev: { step: string; message: string; percent?: number; data?: { analysis: unknown; generatedHtml: string } }
+          let ev: { step: string; message: string; percent?: number; data?: { analysis: unknown; generatedHtml: string; analises?: number } }
           try { ev = JSON.parse(part.slice(6)) } catch { continue }
           if (ev.step === 'error') throw new Error(ev.message)
           if (ev.step === 'done' && ev.data) {
             setDashProgress(100)
+            if (typeof ev.data.analises === 'number') setAnalises(ev.data.analises)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const a = ev.data.analysis as any
             const proj: Project = {
@@ -1077,6 +1080,14 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
                     {userCreatedAt && (
                       <div style={{ fontSize: 10.5, color: '#444' }}>Renova em {getResetDate(userCreatedAt)}</div>
                     )}
+                  </div>
+
+                  {/* Análises */}
+                  <div style={{ padding: '10px 14px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 11, color: '#555', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Análises</span>
+                    <span style={{ fontSize: 12, color: analises === 0 ? '#ef4444' : analises !== null && analises <= 3 ? '#eab308' : '#999' }}>
+                      {analises !== null ? `${analises} restantes este mês` : '—'}
+                    </span>
                   </div>
 
                   {/* Plano */}
