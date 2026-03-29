@@ -173,6 +173,13 @@ export default function ToolPage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [paneWidth, setPaneWidth] = useState(0)
   const [upgradeModal, setUpgradeModal] = useState(false)
+  const [userName, setUserName] = useState('')
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      if (d.user?.nome) setUserName(d.user.nome.split(' ')[0])
+    }).catch(() => {})
+  }, [])
 
   const [isListening, setIsListening] = useState(false)
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
@@ -966,8 +973,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
             </div>
 
             <div className="sb-workspace">
-              <div className="sb-avatar">G</div>
-              <span className="sb-ws-name">Guilherme</span>
+              <div className="sb-avatar">{userName ? userName[0].toUpperCase() : '?'}</div>
+              <span className="sb-ws-name">{userName || '...'}</span>
               <span className="sb-chevron">⌄</span>
             </div>
 
