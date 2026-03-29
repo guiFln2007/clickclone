@@ -174,15 +174,48 @@ export default function ToolPage() {
   const [paneWidth, setPaneWidth] = useState(0)
   const [upgradeModal, setUpgradeModal] = useState(false)
   const [userName, setUserName] = useState('')
+  const [userEmail, setUserEmail] = useState('')
+  const [userPlano, setUserPlano] = useState('pro')
+  const [userCreatedAt, setUserCreatedAt] = useState('')
   const [creditos, setCreditos] = useState<number | null>(null)
-  const [creditDropdownOpen, setCreditDropdownOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (d.user?.nome) setUserName(d.user.nome.split(' ')[0])
+      if (d.user?.email) setUserEmail(d.user.email)
+      if (d.user?.plano) setUserPlano(d.user.plano)
+      if (d.user?.created_at) setUserCreatedAt(d.user.created_at)
       if (typeof d.user?.creditos === 'number') setCreditos(d.user.creditos)
     }).catch(() => {})
   }, [])
+
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+    window.location.href = '/login'
+  }
+
+  function getResetDate(createdAt: string) {
+    if (!createdAt) return ''
+    try {
+      const d = new Date(createdAt)
+      const next = new Date(d)
+      next.setMonth(next.getMonth() + 1)
+      return next.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+    } catch { return '' }
+  }
 
   const [isListening, setIsListening] = useState(false)
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
@@ -991,10 +1024,96 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
               <img src="/logo.png" alt="clickclone" />
             </div>
 
-            <div className="sb-workspace">
-              <div className="sb-avatar">{userName ? userName[0].toUpperCase() : '?'}</div>
-              <span className="sb-ws-name">{userName || '...'}</span>
-              <span className="sb-chevron">⌄</span>
+            {/* Profile dropdown */}
+            <div ref={profileRef} style={{ position: 'relative', margin: '8px 8px 0' }}>
+              <div
+                className="sb-workspace"
+                onClick={() => setProfileOpen(o => !o)}
+                style={{ margin: 0 }}
+              >
+                <div className="sb-avatar">{userName ? userName[0].toUpperCase() : '?'}</div>
+                <span className="sb-ws-name">{userName || '...'}</span>
+                <span className="sb-chevron" style={{ transition: 'transform .2s', transform: profileOpen ? 'rotate(180deg)' : 'none' }}>⌄</span>
+              </div>
+
+              {profileOpen && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
+                  background: '#111', border: '1px solid #1e1e1e', borderRadius: 12,
+                  boxShadow: '0 8px 32px rgba(0,0,0,.6)', zIndex: 200, overflow: 'hidden',
+                }}>
+                  {/* Header */}
+                  <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                      background: 'linear-gradient(135deg,#E8692A,#f07340)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 15, fontWeight: 800, color: '#fff',
+                    }}>
+                      {userName ? userName[0].toUpperCase() : '?'}
+                    </div>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName || '...'}</div>
+                      <div style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userEmail}</div>
+                    </div>
+                  </div>
+
+                  {/* Créditos */}
+                  <div style={{ padding: '12px 14px', borderBottom: '1px solid #1a1a1a' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+                      <span style={{ fontSize: 11, color: '#555', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Créditos</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: creditos === 0 ? '#ef4444' : creditos !== null && creditos <= 20 ? '#eab308' : '#ccc' }}>
+                        {creditos ?? '—'}
+                      </span>
+                    </div>
+                    <div style={{ background: '#1a1a1a', borderRadius: 3, height: 4, marginBottom: 6 }}>
+                      <div style={{
+                        height: 4, borderRadius: 3,
+                        width: `${creditos !== null ? Math.min(100, (creditos / 100) * 100) : 0}%`,
+                        background: creditos === 0 ? '#ef4444' : creditos !== null && creditos <= 20 ? '#eab308' : '#E8692A',
+                        transition: 'width .4s ease',
+                      }} />
+                    </div>
+                    {userCreatedAt && (
+                      <div style={{ fontSize: 10.5, color: '#444' }}>Renova em {getResetDate(userCreatedAt)}</div>
+                    )}
+                  </div>
+
+                  {/* Plano */}
+                  <div style={{ padding: '10px 14px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 11, color: '#555', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Plano</span>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+                      background: userPlano === 'pro' ? 'rgba(232,105,42,.15)' : '#1a1a1a',
+                      color: userPlano === 'pro' ? '#E8692A' : '#555',
+                      textTransform: 'capitalize',
+                    }}>
+                      {userPlano === 'pro' ? 'Pro' : 'Free'}
+                    </span>
+                  </div>
+
+                  {/* Menu */}
+                  <div style={{ padding: '6px 6px' }}>
+                    <a
+                      href="/settings/plans"
+                      onClick={() => setProfileOpen(false)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 7, fontSize: 13, color: '#888', textDecoration: 'none', transition: 'background .15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <span>⚙️</span> Configurações
+                    </a>
+                    <button
+                      onClick={handleLogout}
+                      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 7, fontSize: 13, color: '#888', background: 'transparent', border: 'none', fontFamily: 'inherit', width: '100%', cursor: 'pointer', textAlign: 'left', transition: 'background .15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <span>🚪</span> Sair
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <nav className="sb-nav" style={{ marginTop: 12 }}>
@@ -1031,68 +1150,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
             )}
 
             <div className="sb-bottom">
-              {/* Credits badge */}
-              {creditos !== null && (
-                <div style={{ position: 'relative', marginBottom: 8 }}>
-                  <button
-                    onClick={() => setCreditDropdownOpen(o => !o)}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '8px 12px', borderRadius: 8, border: '1px solid #222',
-                      background: '#111', cursor: 'pointer', fontFamily: 'inherit',
-                      color: creditos === 0 ? '#ef4444' : creditos <= 20 ? '#eab308' : '#ccc',
-                    }}
-                  >
-                    <span style={{ fontSize: 14 }}>⚡</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>
-                      {creditos} crédito{creditos !== 1 ? 's' : ''}
-                    </span>
-                    <span style={{ fontSize: 10, color: '#444' }}>⌄</span>
-                  </button>
-                  {creditDropdownOpen && (
-                    <div style={{
-                      position: 'absolute', bottom: '110%', left: 0, right: 0,
-                      background: '#111', border: '1px solid #222', borderRadius: 10,
-                      padding: 16, zIndex: 100,
-                    }}>
-                      <div style={{ fontSize: 12, color: '#666', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Créditos</div>
-                      {/* Progress bar */}
-                      <div style={{ background: '#1a1a1a', borderRadius: 4, height: 6, marginBottom: 10 }}>
-                        <div style={{
-                          height: 6, borderRadius: 4,
-                          width: `${Math.min(100, (creditos / 100) * 100)}%`,
-                          background: creditos === 0 ? '#ef4444' : creditos <= 20 ? '#eab308' : '#E8692A',
-                          transition: 'width .4s ease',
-                        }} />
-                      </div>
-                      <div style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
-                        {creditos === 0
-                          ? '⚠️ Créditos esgotados'
-                          : creditos <= 20
-                            ? `⚡ Restam ${creditos} créditos`
-                            : `${creditos} créditos disponíveis`}
-                      </div>
-                      <a
-                        href="/settings/plans"
-                        style={{
-                          display: 'block', textAlign: 'center', padding: '8px 12px',
-                          background: '#E8692A', color: '#fff', borderRadius: 7,
-                          fontSize: 13, fontWeight: 700, textDecoration: 'none',
-                        }}
-                        onClick={() => setCreditDropdownOpen(false)}
-                      >
-                        Comprar créditos
-                      </a>
-                    </div>
-                  )}
-                </div>
-              )}
-              <Link href="/settings/plans">
+              <a href="/settings/plans" style={{ textDecoration: 'none' }}>
                 <button className="sb-upgrade">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                   Upgrade
                 </button>
-              </Link>
+              </a>
             </div>
           </aside>
 
