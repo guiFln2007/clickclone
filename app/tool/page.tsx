@@ -1555,7 +1555,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
               Assine o ClickClone Pro e ganhe <strong style={{ color:'#fff' }}>10 análises/mês</strong> + edição ilimitada por apenas <strong style={{ color:'#E8692A' }}>R$57,90/mês</strong>.
             </p>
             <a
-              href="https://pay.kirvano.com/clickclone"
+              href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9"
               target="_blank"
               rel="noreferrer"
               style={{ display:'block',background:'#E8692A',color:'#fff',padding:'13px 0',borderRadius:8,fontWeight:700,fontSize:15,textDecoration:'none',marginBottom:10 }}

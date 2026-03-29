@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
-const CREDITS_CHECKOUT_URL = process.env.NEXT_PUBLIC_CREDITS_CHECKOUT_URL || 'https://pay.kirvano.com/clickclone-creditos'
+const PRO_CHECKOUT_URL = 'https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9'
+const CREDITS_CHECKOUT_URL = process.env.NEXT_PUBLIC_CREDITS_CHECKOUT_URL || PRO_CHECKOUT_URL
 
 interface UserInfo {
   nome: string
@@ -107,7 +108,7 @@ export default function PlansPage() {
         </div>
 
         {/* Subscription card */}
-        <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 14, padding: 24 }}>
+        <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 14, padding: 24, marginBottom: 20 }}>
           <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>Seu plano mensal inclui</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
             {['100 créditos renovados todo mês', '10 análises de concorrentes', 'Geração ilimitada de páginas'].map(item => (
@@ -118,6 +119,27 @@ export default function PlansPage() {
             ))}
           </div>
         </div>
+
+        {/* Assinar plano Pro */}
+        {user && user.plano === 'inativo' && (
+          <div style={{ background: 'linear-gradient(135deg,#1a0e00,#0f0f0f)', border: '1px solid #3a2000', borderRadius: 14, padding: 24 }}>
+            <div style={{ fontSize: 11, color: '#E8692A', fontWeight: 700, letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 8 }}>Plano inativo</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Reativar ClickClone Pro</div>
+            <div style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>R$57,90/mês — cancele quando quiser</div>
+            <a
+              href={PRO_CHECKOUT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'block', textAlign: 'center', padding: '14px 24px',
+                background: '#E8692A', color: '#fff', borderRadius: 10,
+                textDecoration: 'none', fontWeight: 700, fontSize: 15,
+              }}
+            >
+              Assinar agora → R$57,90/mês
+            </a>
+          </div>
+        )}
 
       </div>
     </div>
