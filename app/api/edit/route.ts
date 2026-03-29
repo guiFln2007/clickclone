@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export const maxDuration = 300
 
-const client = new Anthropic()
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 function stripBase64Images(html: string): { stripped: string; map: Record<string, string> } {
   const map: Record<string, string> = {}
@@ -133,27 +133,24 @@ export async function POST(req: NextRequest) {
       `Edição: ${message}`,
     ].filter(Boolean).join('\n\n')
 
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      systemInstruction: SYSTEM_PROMPT,
+    })
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
           let fullText = ''
 
-          const anthropicStream = client.messages.stream({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 8192,
-            system: SYSTEM_PROMPT,
-            messages: [{ role: 'user', content: prompt }],
-          })
+          const result = await model.generateContentStream(prompt)
 
-          for await (const event of anthropicStream) {
-            if (
-              event.type === 'content_block_delta' &&
-              event.delta.type === 'text_delta'
-            ) {
-              const chunk = event.delta.text
-              fullText += chunk
+          for await (const chunk of result.stream) {
+            const chunkText = chunk.text()
+            if (chunkText) {
+              fullText += chunkText
               controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk })}\n\n`),
+                encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: chunkText })}\n\n`),
               )
             }
           }
@@ -168,8 +165,8 @@ export async function POST(req: NextRequest) {
           let editType = 'patch'
 
           if (hasPatch) {
-            const { result, applied } = applyPatches(strippedHtml, fullText)
-            updatedHtml = restoreBase64Images(applied > 0 ? result : strippedHtml, b64Map)
+            const { result: patched, applied } = applyPatches(strippedHtml, fullText)
+            updatedHtml = restoreBase64Images(applied > 0 ? patched : strippedHtml, b64Map)
             reply = fullText.split('<CC_PATCH>')[0].trim() || 'Feito!'
             editType = 'patch'
           } else if (hasFullHtml) {
