@@ -17,8 +17,8 @@ const FREE_API_PATHS = ['/api/analyze', '/api/edit']
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Admin login sempre público
-  if (pathname === '/admin/login') return NextResponse.next()
+  // Admin login sempre público (página e API)
+  if (pathname === '/admin/login' || pathname === '/api/admin/login') return NextResponse.next()
 
   // Proteção das rotas /admin e /api/admin
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
