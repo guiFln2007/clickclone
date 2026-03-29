@@ -1,45 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@anthropic-ai/claude-agent-sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { load } from 'cheerio'
 
 export const maxDuration = 300
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
-async function callClaude(prompt: string, systemPrompt?: string, model = 'claude-sonnet-4-6'): Promise<string> {
-  let assistantText = ''
-  let resultText = ''
+async function callClaude(prompt: string, systemPrompt?: string): Promise<string> {
   try {
-    for await (const msg of query({
-      prompt,
-      options: {
-        ...(systemPrompt ? { systemPrompt } : {}),
-        allowedTools: [],
-        disallowedTools: ['Write', 'Edit', 'Bash', 'Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch', 'AskUserQuestion', 'Agent', 'TodoWrite', 'TodoRead'],
-        maxTurns: 3,
-        model,
-      },
-    })) {
-      const m = msg as Record<string, unknown>
-      // AssistantMessage: o texto está em m.message.content[], não em m.content[]
-      if (m.type === 'assistant' && m.message) {
-        const inner = m.message as Record<string, unknown>
-        if (Array.isArray(inner.content)) {
-          for (const block of inner.content as Array<{ type: string; text?: string }>) {
-            if (block.type === 'text' && block.text) assistantText += block.text
-          }
-        }
-      }
-      // ResultMessage: fallback
-      if (m.type === 'result' && typeof m.result === 'string' && m.result) {
-        resultText = m.result
-      }
-    }
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      ...(systemPrompt ? { systemInstruction: systemPrompt } : {}),
+    })
+    const result = await model.generateContent(prompt)
+    return result.response.text()
   } catch (err) {
-    console.error('[callClaude] ERRO:', err)
+    console.error('[callGemini] ERRO:', err)
+    return ''
   }
-  console.log('[callClaude] assistant:', assistantText.length, '| result:', resultText.length)
-  return assistantText || resultText
 }
 
 function sleep(ms: number) {
@@ -785,7 +764,7 @@ Retorne exatamente esta estrutura JSON:`, `Você é um estrategista de marketing
       "script": "<roteiro>"
     }
   ]
-}`, 'claude-haiku-4-5-20251001')
+}`)
     let analysis
     try {
       const cleaned = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
@@ -811,8 +790,7 @@ Retorne exatamente esta estrutura JSON:`, `Você é um estrategista de marketing
     console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
     const rawText = await callClaude(
       buildHtmlPrompt(analysis, landingPage, hero, product, persons, others, videos, adCopies),
-      `Você é o melhor copywriter e desenvolvedor front-end do Brasil. Especialista em páginas de vendas low ticket que já geraram mais de R$5 milhões em vendas diretas no Meta Ads. RETORNE APENAS HTML puro, sem markdown, sem explicação.`,
-      'claude-sonnet-4-6'
+      `Você é o melhor copywriter e desenvolvedor front-end do Brasil. Especialista em páginas de vendas low ticket que já geraram mais de R$5 milhões em vendas diretas no Meta Ads. RETORNE APENAS HTML puro, sem markdown, sem explicação.`
     )
     // Remove markdown wrapper se houver, extrai só o HTML
     let generatedHtml = rawText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim()
