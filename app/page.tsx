@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
+const CHECKOUT_URL = process.env.NEXT_PUBLIC_CHECKOUT_URL || 'https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9'
+
 const USERS = [
   { img: 'https://lp.thecopypocket.com/wp-content/uploads/2026/02/IMG_8477-1-scaled.jpg', name: 'Lucas Ferreira', role: 'Produtor low ticket', quote: 'Analisei 3 concorrentes em 10 minutos. Lancei no mesmo dia com a página já modelada.' },
   { img: 'https://lp.thecopypocket.com/wp-content/uploads/2026/02/IMG_8481-1-scaled.jpg', name: 'Marina Costa', role: 'Afiliada Meta Ads', quote: 'Antes eu ficava chutando se a oferta valia. Agora eu sei antes de gastar R$1.' },
@@ -379,7 +381,7 @@ export default function LandingPage() {
         </div>
         <div className="nav-r">
           <a href="#como-funciona" className="btn btn-nav-ghost nav-hide-mobile">Como funciona</a>
-          <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noopener noreferrer" className="btn btn-nav-cta">Começar →</a>
+          <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-nav-cta">Começar →</a>
         </div>
       </nav>
 
@@ -597,7 +599,7 @@ export default function LandingPage() {
                 </div>
                 <h3 style={{ fontSize: 'clamp(18px,3vw,24px)', fontWeight: 900, marginBottom: 8, letterSpacing: '-.02em' }}>Adquira um plano para desbloquear</h3>
                 <p style={{ fontSize: 13.5, color: '#444', marginBottom: 22, maxWidth: 380 }}>Score completo · Ângulo · 4 pontos fracos · 3 scripts de CTV · Página de vendas editável</p>
-                <a href="#preco" className="btn btn-orange-lg glow">Adquirir Plano →</a>
+                <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange-lg glow">Adquirir Plano →</a>
               </div>
             </div>
           </div>
@@ -634,7 +636,7 @@ export default function LandingPage() {
             ].map(f => (
               <div className="pf" key={f}><span className="pc">✦</span><span>{f}</span></div>
             ))}
-            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 26, fontSize: 15, padding: '17px 32px', borderRadius: 8 }}>
+            <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 26, fontSize: 15, padding: '17px 32px', borderRadius: 8 }}>
               Começar agora →
             </a>
             <p style={{ textAlign: 'center', fontSize: 11.5, color: '#333', marginTop: 10 }}>Acesso imediato · Cancele quando quiser</p>
@@ -675,7 +677,7 @@ export default function LandingPage() {
             <span className="badge" style={{ marginBottom: 24 }}>Comece agora</span>
             <h2 className="title" style={{ marginBottom: 16 }}>Pare de chutar.<br /><span className="acc">Analise antes de investir.</span></h2>
             <p style={{ fontSize: 16, color: '#444', marginBottom: 36, lineHeight: 1.8 }}>Cole o link. IA analisa. Página pronta.<br />Do zero à oferta em minutos.</p>
-            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noopener noreferrer" className="btn btn-orange-lg glow" style={{ display: 'inline-flex' }}>
+            <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange-lg glow" style={{ display: 'inline-flex' }}>
               Analisar minha primeira oferta →
             </a>
           </div>
