@@ -379,7 +379,7 @@ export default function LandingPage() {
         </div>
         <div className="nav-r">
           <a href="#como-funciona" className="btn btn-nav-ghost nav-hide-mobile">Como funciona</a>
-          <Link href="/tool" className="btn btn-nav-cta">Começar →</Link>
+          <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noopener noreferrer" className="btn btn-nav-cta">Começar →</a>
         </div>
       </nav>
 
@@ -634,9 +634,9 @@ export default function LandingPage() {
             ].map(f => (
               <div className="pf" key={f}><span className="pc">✦</span><span>{f}</span></div>
             ))}
-            <Link href="/tool" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 26, fontSize: 15, padding: '17px 32px', borderRadius: 8 }}>
+            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 26, fontSize: 15, padding: '17px 32px', borderRadius: 8 }}>
               Começar agora →
-            </Link>
+            </a>
             <p style={{ textAlign: 'center', fontSize: 11.5, color: '#333', marginTop: 10 }}>Acesso imediato · Cancele quando quiser</p>
           </div>
         </div>
@@ -675,9 +675,9 @@ export default function LandingPage() {
             <span className="badge" style={{ marginBottom: 24 }}>Comece agora</span>
             <h2 className="title" style={{ marginBottom: 16 }}>Pare de chutar.<br /><span className="acc">Analise antes de investir.</span></h2>
             <p style={{ fontSize: 16, color: '#444', marginBottom: 36, lineHeight: 1.8 }}>Cole o link. IA analisa. Página pronta.<br />Do zero à oferta em minutos.</p>
-            <Link href="/tool" className="btn btn-orange-lg glow" style={{ display: 'inline-flex' }}>
+            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noopener noreferrer" className="btn btn-orange-lg glow" style={{ display: 'inline-flex' }}>
               Analisar minha primeira oferta →
-            </Link>
+            </a>
           </div>
         </div>
       </section>
