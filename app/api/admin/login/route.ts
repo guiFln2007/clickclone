@@ -4,7 +4,7 @@ import { signAdminToken } from '@/lib/admin-jwt'
 export async function POST(req: NextRequest) {
   const { password } = await req.json()
   const adminSecret = process.env.ADMIN_SECRET
-  if (!adminSecret || password !== adminSecret) {
+if (!adminSecret || password !== adminSecret) {
     return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 })
   }
   const token = await signAdminToken()
