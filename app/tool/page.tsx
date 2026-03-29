@@ -710,28 +710,29 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
         /* Sidebar */
         .sb{width:220px;flex-shrink:0;background:#111;border-right:1px solid #1a1a1a;display:flex;flex-direction:column;height:100svh;position:sticky;top:0;overflow-y:auto}
         @media(max-width:768px){.sb{display:none}}
-        .sb-logo{padding:18px 16px 12px;border-bottom:1px solid #1a1a1a;flex-shrink:0}
-        .sb-logo img{height:22px;width:auto}
-        .sb-workspace{display:flex;align-items:center;gap:10px;padding:10px 14px;margin:8px 8px 0;border-radius:8px;background:#1a1a1a;border:1px solid #222;cursor:pointer;transition:background .15s}
-        .sb-workspace:hover{background:#222}
-        .sb-avatar{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#E8692A,#f07340);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
-        .sb-ws-name{font-size:13px;font-weight:600;flex:1;color:#ccc}
-        .sb-chevron{color:#444;font-size:10px}
-        .sb-nav{padding:8px 8px 0;display:flex;flex-direction:column;gap:1px}
-        .sb-nav-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;font-size:13px;color:#666;transition:all .15s;cursor:pointer;border:none;background:transparent;font-family:inherit;width:100%;text-align:left}
-        .sb-nav-item:hover{background:#1a1a1a;color:#ccc}
-        .sb-nav-item.active{background:#1e1e1e;color:#fff}
-        .sb-section{padding:16px 8px 0}
-        .sb-section-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:0 6px;margin-bottom:4px}
-        .sb-sub-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:7px;font-size:12px;color:#555;transition:all .15s;cursor:pointer;border:none;background:transparent;font-family:inherit;width:100%;text-align:left}
-        .sb-sub-item:hover{background:#181818;color:#aaa}
-        .sb-sub-item.active{color:#ccc;background:#181818}
-        .sb-diamond{font-size:8px;color:#444}
-        .sb-bottom{margin-top:auto;padding:12px 8px;border-top:1px solid #1a1a1a;display:flex;flex-direction:column;gap:6px}
-        .sb-share-card{padding:10px 12px;background:#1a1a1a;border-radius:8px;font-size:11px;color:#555;line-height:1.5}
-        .sb-share-card strong{color:#888;display:block;margin-bottom:2px;font-size:12px}
-        .sb-upgrade{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#E8692A;border-radius:8px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;border:none;font-family:inherit;width:100%;transition:background .15s}
-        .sb-upgrade:hover{background:#c4551d}
+        .sb-logo{padding:16px 14px 12px;flex-shrink:0}
+        .sb-logo img{height:20px;width:auto;opacity:.85}
+        .sb-workspace{display:flex;align-items:center;gap:9px;padding:7px 10px;margin:0 8px;border-radius:8px;background:#111;border:1px solid #1e1e1e;cursor:pointer;transition:border-color .15s}
+        .sb-workspace:hover{border-color:#333}
+        .sb-avatar{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#E8692A,#f07340);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:#fff}
+        .sb-ws-name{font-size:13px;font-weight:500;flex:1;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .sb-chevron{color:#555;font-size:10px;flex-shrink:0;line-height:1}
+        .sb-nav{padding:10px 8px 0;display:flex;flex-direction:column;gap:1px}
+        .sb-nav-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;font-size:13px;color:#555;transition:color .12s;cursor:pointer;border:none;background:transparent;font-family:inherit;width:100%;text-align:left}
+        .sb-nav-item svg{color:#555;transition:color .12s;flex-shrink:0}
+        .sb-nav-item:hover{color:#ccc}
+        .sb-nav-item:hover svg{color:#ccc}
+        .sb-nav-item.active{background:#111;color:#e8e8e8}
+        .sb-nav-item.active svg{color:#e8e8e8}
+        .sb-section{padding:20px 8px 0}
+        .sb-section-label{font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#333;padding:0 8px;margin-bottom:2px}
+        .sb-sub-item{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:6px;font-size:12px;color:#484848;transition:color .12s;cursor:pointer;border:none;background:transparent;font-family:inherit;width:100%;text-align:left}
+        .sb-sub-item:hover{color:#999}
+        .sb-sub-item.active{color:#bbb}
+        .sb-diamond{font-size:7px;color:#2e2e2e;flex-shrink:0}
+        .sb-bottom{margin-top:auto;padding:12px 8px;display:flex;flex-direction:column;gap:6px}
+        .sb-upgrade{display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;background:#E8692A;border-radius:8px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;border:none;font-family:inherit;width:100%;transition:background .15s}
+        .sb-upgrade:hover{background:#d4581f}
 
         /* Main content */
         .dash-main{flex:1;display:flex;flex-direction:column;min-width:0;overflow-y:auto}
@@ -1027,113 +1028,108 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
               <img src="/logo.png" alt="clickclone" />
             </div>
 
-            {/* Profile dropdown */}
-            <div ref={profileRef} style={{ position: 'relative', margin: '8px 8px 0' }}>
-              <div
-                className="sb-workspace"
-                onClick={() => setProfileOpen(o => !o)}
-                style={{ margin: 0 }}
-              >
+            {/* Profile / workspace selector */}
+            <div ref={profileRef} style={{ position: 'relative', padding: '0 0 8px' }}>
+              <div className="sb-workspace" onClick={() => setProfileOpen(o => !o)}>
                 <div className="sb-avatar">{userName ? userName[0].toUpperCase() : '?'}</div>
                 <span className="sb-ws-name">{userName || '...'}</span>
-                <span className="sb-chevron" style={{ transition: 'transform .2s', transform: profileOpen ? 'rotate(180deg)' : 'none' }}>⌄</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sb-chevron" style={{ transition: 'transform .2s', transform: profileOpen ? 'rotate(180deg)' : 'none' }}><path d="m6 9 6 6 6-6"/></svg>
               </div>
 
               {profileOpen && (
                 <div style={{
-                  position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
-                  background: '#111', border: '1px solid #1e1e1e', borderRadius: 12,
-                  boxShadow: '0 8px 32px rgba(0,0,0,.6)', zIndex: 200, overflow: 'hidden',
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 8, right: 8,
+                  background: 'rgba(17,17,17,0.97)', backdropFilter: 'blur(20px)',
+                  border: '1px solid #1e1e1e', borderRadius: 12,
+                  boxShadow: '0 8px 24px rgba(0,0,0,.5)', zIndex: 200, overflow: 'hidden',
                 }}>
                   {/* Header */}
                   <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
-                      width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
                       background: 'linear-gradient(135deg,#E8692A,#f07340)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 15, fontWeight: 800, color: '#fff',
+                      fontSize: 16, fontWeight: 800, color: '#fff',
                     }}>
                       {userName ? userName[0].toUpperCase() : '?'}
                     </div>
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName || '...'}</div>
-                      <div style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userEmail}</div>
+                    <div style={{ overflow: 'hidden', flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName || '...'}</div>
+                      <div style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userEmail}</div>
                     </div>
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20,
+                      background: userPlano === 'pro' ? 'rgba(232,105,42,.1)' : 'rgba(255,255,255,.05)',
+                      color: userPlano === 'pro' ? '#E8692A' : '#555',
+                      border: `1px solid ${userPlano === 'pro' ? 'rgba(232,105,42,.2)' : 'rgba(255,255,255,.06)'}`,
+                      textTransform: 'capitalize', flexShrink: 0,
+                    }}>
+                      {userPlano === 'pro' ? 'Pro' : 'Free'}
+                    </span>
                   </div>
 
                   {/* Créditos */}
                   <div style={{ padding: '12px 14px', borderBottom: '1px solid #1a1a1a' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
-                      <span style={{ fontSize: 11, color: '#555', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Créditos</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: creditos === 0 ? '#ef4444' : creditos !== null && creditos <= 20 ? '#eab308' : '#ccc' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, color: '#555', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '.08em' }}>Créditos</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: creditos === 0 ? '#ef4444' : creditos !== null && creditos <= 20 ? '#eab308' : '#e8e8e8' }}>
                         {creditos ?? '—'}
                       </span>
                     </div>
-                    <div style={{ background: '#1a1a1a', borderRadius: 3, height: 4, marginBottom: 6 }}>
+                    <div style={{ background: '#1a1a1a', borderRadius: 4, height: 4, marginBottom: 6 }}>
                       <div style={{
-                        height: 4, borderRadius: 3,
+                        height: 4, borderRadius: 4,
                         width: `${creditos !== null ? Math.min(100, (creditos / 100) * 100) : 0}%`,
                         background: creditos === 0 ? '#ef4444' : creditos !== null && creditos <= 20 ? '#eab308' : '#E8692A',
                         transition: 'width .4s ease',
                       }} />
                     </div>
                     {userCreatedAt && (
-                      <div style={{ fontSize: 10.5, color: '#444' }}>Renova em {getResetDate(userCreatedAt)}</div>
+                      <div style={{ fontSize: 11, color: '#3a3a3a' }}>Renova em {getResetDate(userCreatedAt)}</div>
                     )}
                   </div>
 
                   {/* Análises */}
                   <div style={{ padding: '10px 14px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 11, color: '#555', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Análises</span>
-                    <span style={{ fontSize: 12, color: analises === 0 ? '#ef4444' : analises !== null && analises <= 3 ? '#eab308' : '#999' }}>
-                      {analises !== null ? `${analises} restantes este mês` : '—'}
-                    </span>
-                  </div>
-
-                  {/* Plano */}
-                  <div style={{ padding: '10px 14px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 11, color: '#555', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Plano</span>
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                      background: userPlano === 'pro' ? 'rgba(232,105,42,.15)' : '#1a1a1a',
-                      color: userPlano === 'pro' ? '#E8692A' : '#555',
-                      textTransform: 'capitalize',
-                    }}>
-                      {userPlano === 'pro' ? 'Pro' : 'Free'}
+                    <span style={{ fontSize: 10, color: '#555', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '.08em' }}>Análises</span>
+                    <span style={{ fontSize: 12, fontWeight: 400, color: analises === 0 ? '#ef4444' : analises !== null && analises <= 3 ? '#eab308' : '#666' }}>
+                      {analises !== null ? `${analises} restantes` : '—'}
                     </span>
                   </div>
 
                   {/* Menu */}
-                  <div style={{ padding: '6px 6px' }}>
+                  <div style={{ padding: '5px 6px' }}>
                     <a
                       href="/settings/plans"
                       onClick={() => setProfileOpen(false)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 7, fontSize: 13, color: '#888', textDecoration: 'none', transition: 'background .15s' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 6, fontSize: 13, color: '#888', textDecoration: 'none', transition: 'background .12s, color .12s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#111'; e.currentTarget.style.color = '#ccc' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#888' }}
                     >
-                      <span>⚙️</span> Configurações
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ color: '#555', flexShrink: 0 }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                      Configurações
                     </a>
                     <button
                       onClick={handleLogout}
-                      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 7, fontSize: 13, color: '#888', background: 'transparent', border: 'none', fontFamily: 'inherit', width: '100%', cursor: 'pointer', textAlign: 'left', transition: 'background .15s' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 6, fontSize: 13, color: '#666', background: 'transparent', border: 'none', fontFamily: 'inherit', width: '100%', cursor: 'pointer', textAlign: 'left', transition: 'background .12s, color .12s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,.08)'; e.currentTarget.style.color = '#ef4444' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#666' }}
                     >
-                      <span>🚪</span> Sair
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0 }}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                      Sair
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            <nav className="sb-nav" style={{ marginTop: 12 }}>
+            <nav className="sb-nav">
               <button className="sb-nav-item active">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 Início
               </button>
               <button className="sb-nav-item">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 Buscar
               </button>
             </nav>
@@ -1161,7 +1157,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
             )}
 
             <div className="sb-bottom">
-              <a href="/settings/plans" style={{ textDecoration: 'none' }}>
+              <a href="/settings/plans" style={{ textDecoration: 'none', display: 'block' }}>
                 <button className="sb-upgrade">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                   Upgrade
