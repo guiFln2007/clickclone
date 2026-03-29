@@ -115,6 +115,9 @@ export async function POST(req: NextRequest) {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown'
     const sessionId = req.headers.get('x-session-id') || 'anonymous'
 
+    const { html, message, analysis, history = [], estimatedCost } = await req.json()
+    const cost = typeof estimatedCost === 'number' ? estimatedCost : 1
+
     if (!userId) {
       const freeUsage = await dbGetFreeUsage(ip, sessionId)
       if ((freeUsage?.creditos_usados ?? 0) >= 5) {
@@ -143,9 +146,6 @@ export async function POST(req: NextRequest) {
         }, { status: 402 })
       }
     }
-
-    const { html, message, analysis, history = [], estimatedCost } = await req.json()
-    const cost = typeof estimatedCost === 'number' ? estimatedCost : 1
 
     const encoder = new TextEncoder()
     const { stripped: strippedHtml, map: b64Map } = stripBase64Images(html)
