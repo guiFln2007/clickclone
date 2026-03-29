@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { query } from '@anthropic-ai/claude-agent-sdk'
+import Anthropic from '@anthropic-ai/sdk'
 import {
   dbGetUserById,
   dbDecrementCreditos,
@@ -8,6 +8,8 @@ import {
 } from '@/lib/db'
 
 export const maxDuration = 300
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 function stripBase64Images(html: string): { stripped: string; map: Record<string, string> } {
   const map: Record<string, string> = {}
@@ -163,23 +165,25 @@ export async function POST(req: NextRequest) {
         try {
           let fullText = ''
 
-          for await (const message of query({
-            prompt,
-            options: {
-              allowedTools: [],
-              maxTurns: 1,
-              systemPrompt: SYSTEM_PROMPT,
-            },
-          })) {
-            if ('result' in message && typeof (message as { result: string }).result === 'string') {
-              const chunkText = (message as { result: string }).result
+          const claudeStream = anthropic.messages.stream({
+            model: 'claude-opus-4-6',
+            max_tokens: 64000,
+            system: SYSTEM_PROMPT,
+            messages: [{ role: 'user', content: prompt }],
+          })
+
+          for await (const event of claudeStream) {
+            if (
+              event.type === 'content_block_delta' &&
+              event.delta.type === 'text_delta'
+            ) {
+              const chunkText = event.delta.text
               if (chunkText) {
                 fullText += chunkText
                 controller.enqueue(
                   encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: chunkText })}\n\n`),
                 )
               }
-              break
             }
           }
 
