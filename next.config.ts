@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: '10mb' }
   },
-  serverExternalPackages: ['@anthropic-ai/claude-agent-sdk', '@google/generative-ai'],
+  serverExternalPackages: ['@anthropic-ai/claude-agent-sdk', '@anthropic-ai/claude-code'],
 }
 
 export default nextConfig

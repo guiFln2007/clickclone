@@ -5,13 +5,13 @@ const SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'clickclone-secret-change-in-prod'
 )
 
-const PUBLIC_PATHS = ['/', '/login', '/api/auth', '/api/webhook', '/_next', '/favicon']
+const PUBLIC_PATHS = ['/login', '/api/auth', '/api/webhook', '/_next', '/favicon']
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // Allow public paths
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  if (pathname === '/' || PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next()
   }
 

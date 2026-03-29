@@ -1,22 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { query } from '@anthropic-ai/claude-agent-sdk'
 import { load } from 'cheerio'
 
 export const maxDuration = 300
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 async function callClaude(prompt: string, systemPrompt?: string): Promise<string> {
   try {
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      ...(systemPrompt ? { systemInstruction: systemPrompt } : {}),
-    })
-    const result = await model.generateContent(prompt)
-    return result.response.text()
+    let result = ''
+    for await (const message of query({
+      prompt,
+      options: {
+        allowedTools: [],
+        maxTurns: 1,
+        ...(systemPrompt ? { systemPrompt } : {}),
+      },
+    })) {
+      if ('result' in message && typeof (message as { result: string }).result === 'string') {
+        result = (message as { result: string }).result
+        break
+      }
+    }
+    return result
   } catch (err) {
-    console.error('[callGemini] ERRO:', err)
+    console.error('[callClaude] ERRO:', err)
     return ''
   }
 }

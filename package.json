@@ -8,7 +8,8 @@
     "start": "next start"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.87",
+    "@anthropic-ai/claude-code": "^2.1.87",
     "@libsql/client": "^0.17.2",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.8.0",

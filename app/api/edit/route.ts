@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { query } from '@anthropic-ai/claude-agent-sdk'
 
 export const maxDuration = 300
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 function stripBase64Images(html: string): { stripped: string; map: Record<string, string> } {
   const map: Record<string, string> = {}
@@ -133,25 +131,28 @@ export async function POST(req: NextRequest) {
       `Edição: ${message}`,
     ].filter(Boolean).join('\n\n')
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: SYSTEM_PROMPT,
-    })
-
     const stream = new ReadableStream({
       async start(controller) {
         try {
           let fullText = ''
 
-          const result = await model.generateContentStream(prompt)
-
-          for await (const chunk of result.stream) {
-            const chunkText = chunk.text()
-            if (chunkText) {
-              fullText += chunkText
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: chunkText })}\n\n`),
-              )
+          for await (const message of query({
+            prompt,
+            options: {
+              allowedTools: [],
+              maxTurns: 1,
+              systemPrompt: SYSTEM_PROMPT,
+            },
+          })) {
+            if ('result' in message && typeof (message as { result: string }).result === 'string') {
+              const chunkText = (message as { result: string }).result
+              if (chunkText) {
+                fullText += chunkText
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: chunkText })}\n\n`),
+                )
+              }
+              break
             }
           }
 
