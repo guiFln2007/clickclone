@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Email e senha obrigatórios' }, { status: 400 })
     }
 
-    const user = dbGetUserByEmail(email.toLowerCase().trim())
+    const user = await dbGetUserByEmail(email.toLowerCase().trim())
 
     if (!user) {
       return Response.json({ error: 'Usuário não encontrado' }, { status: 404 })
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     // First login — no hash yet → set password
     if (!user.hash) {
       const hash = await bcrypt.hash(password, 10)
-      dbSetHash(email, hash)
+      await dbSetHash(email, hash)
     } else {
       const ok = await bcrypt.compare(password, user.hash)
       if (!ok) {

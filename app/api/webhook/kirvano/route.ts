@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Email ausente no payload' }, { status: 400 })
     }
 
-    const user = dbActivateUser(kirvano_id, email, name)
+    const user = await dbActivateUser(kirvano_id, email, name)
 
     // Send welcome email async (don't block response)
     sendWelcomeEmail(email, name).catch(console.error)

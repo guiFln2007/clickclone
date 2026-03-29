@@ -1,30 +1,30 @@
-import Database from 'better-sqlite3'
-import path from 'path'
-import fs from 'fs'
+import { createClient } from '@libsql/client'
 
-const DATA_DIR = path.join(process.cwd(), 'data')
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
+const db = createClient({
+  url: process.env.TURSO_DATABASE_URL || 'file:local.db',
+  authToken: process.env.TURSO_AUTH_TOKEN,
+})
 
-const DB_PATH = path.join(DATA_DIR, 'clickclone.db')
-const db = new Database(DB_PATH)
-
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    email       TEXT    NOT NULL UNIQUE,
-    name        TEXT,
-    hash        TEXT,
-    plano       TEXT    NOT NULL DEFAULT 'pro',
-    analises    INTEGER NOT NULL DEFAULT 20,
-    creditos    INTEGER NOT NULL DEFAULT 100,
-    ativo       INTEGER NOT NULL DEFAULT 1,
-    kirvano_id  TEXT,
-    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-  )
-`)
+// Run once on cold start to ensure schema exists
+let initialized = false
+export async function initDb() {
+  if (initialized) return
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS users (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      email       TEXT    NOT NULL UNIQUE,
+      name        TEXT,
+      hash        TEXT,
+      plano       TEXT    NOT NULL DEFAULT 'pro',
+      analises    INTEGER NOT NULL DEFAULT 20,
+      creditos    INTEGER NOT NULL DEFAULT 100,
+      ativo       INTEGER NOT NULL DEFAULT 1,
+      kirvano_id  TEXT,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+  initialized = true
+}
 
 export type User = {
   id: number
@@ -39,52 +39,83 @@ export type User = {
   created_at: string
 }
 
-export function dbGetUserByEmail(email: string): User | undefined {
-  return db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined
+function rowToUser(row: Record<string, unknown>): User {
+  return {
+    id: row.id as number,
+    email: row.email as string,
+    name: (row.name as string) ?? null,
+    hash: (row.hash as string) ?? null,
+    plano: row.plano as string,
+    analises: row.analises as number,
+    creditos: row.creditos as number,
+    ativo: row.ativo as number,
+    kirvano_id: (row.kirvano_id as string) ?? null,
+    created_at: row.created_at as string,
+  }
 }
 
-export function dbGetUserById(id: number): User | undefined {
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined
+export async function dbGetUserByEmail(email: string): Promise<User | undefined> {
+  await initDb()
+  const res = await db.execute({ sql: 'SELECT * FROM users WHERE email = ?', args: [email] })
+  if (!res.rows[0]) return undefined
+  return rowToUser(res.rows[0] as Record<string, unknown>)
 }
 
-export function dbCreateUser(data: {
+export async function dbGetUserById(id: number): Promise<User | undefined> {
+  await initDb()
+  const res = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [id] })
+  if (!res.rows[0]) return undefined
+  return rowToUser(res.rows[0] as Record<string, unknown>)
+}
+
+export async function dbCreateUser(data: {
   email: string
   name?: string
   hash?: string
   kirvano_id?: string
-}): User {
-  const stmt = db.prepare(
-    'INSERT INTO users (email, name, hash, kirvano_id) VALUES (?, ?, ?, ?) RETURNING *'
-  )
-  return stmt.get(data.email, data.name ?? null, data.hash ?? null, data.kirvano_id ?? null) as User
+}): Promise<User> {
+  await initDb()
+  await db.execute({
+    sql: 'INSERT INTO users (email, name, hash, kirvano_id) VALUES (?, ?, ?, ?)',
+    args: [data.email, data.name ?? null, data.hash ?? null, data.kirvano_id ?? null],
+  })
+  return (await dbGetUserByEmail(data.email))!
 }
 
-export function dbSetHash(email: string, hash: string) {
-  db.prepare('UPDATE users SET hash = ? WHERE email = ?').run(hash, email)
+export async function dbSetHash(email: string, hash: string) {
+  await initDb()
+  await db.execute({ sql: 'UPDATE users SET hash = ? WHERE email = ?', args: [hash, email] })
 }
 
-export function dbActivateUser(kirvano_id: string, email: string, name: string) {
-  const existing = dbGetUserByEmail(email)
+export async function dbActivateUser(kirvano_id: string, email: string, name: string): Promise<User> {
+  await initDb()
+  const existing = await dbGetUserByEmail(email)
   if (existing) {
-    db.prepare('UPDATE users SET ativo = 1, kirvano_id = ?, name = ? WHERE email = ?')
-      .run(kirvano_id, name, email)
-    return dbGetUserByEmail(email)!
+    await db.execute({
+      sql: 'UPDATE users SET ativo = 1, kirvano_id = ?, name = ? WHERE email = ?',
+      args: [kirvano_id, name, email],
+    })
+    return (await dbGetUserByEmail(email))!
   }
   return dbCreateUser({ email, name, kirvano_id })
 }
 
-export function dbDecrementCreditos(userId: number): boolean {
-  const result = db
-    .prepare('UPDATE users SET creditos = creditos - 1 WHERE id = ? AND creditos > 0')
-    .run(userId)
-  return result.changes > 0
+export async function dbDecrementCreditos(userId: number): Promise<boolean> {
+  await initDb()
+  const res = await db.execute({
+    sql: 'UPDATE users SET creditos = creditos - 1 WHERE id = ? AND creditos > 0',
+    args: [userId],
+  })
+  return (res.rowsAffected ?? 0) > 0
 }
 
-export function dbDecrementAnalises(userId: number): boolean {
-  const result = db
-    .prepare('UPDATE users SET analises = analises - 1 WHERE id = ? AND analises > 0')
-    .run(userId)
-  return result.changes > 0
+export async function dbDecrementAnalises(userId: number): Promise<boolean> {
+  await initDb()
+  const res = await db.execute({
+    sql: 'UPDATE users SET analises = analises - 1 WHERE id = ? AND analises > 0',
+    args: [userId],
+  })
+  return (res.rowsAffected ?? 0) > 0
 }
 
 export default db
