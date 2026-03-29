@@ -158,6 +158,23 @@ export async function dbDecrementCreditos(userId: number): Promise<boolean> {
   return (res.rowsAffected ?? 0) > 0
 }
 
+export async function dbDecrementCreditosN(userId: number, n: number): Promise<boolean> {
+  await initDb()
+  const res = await db.execute({
+    sql: 'UPDATE users SET creditos = creditos - ? WHERE id = ? AND creditos >= ?',
+    args: [n, userId, n],
+  })
+  return (res.rowsAffected ?? 0) > 0
+}
+
+export async function dbAddCreditos(email: string, count: number): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: 'UPDATE users SET creditos = creditos + ? WHERE email = ?',
+    args: [count, email],
+  })
+}
+
 export async function dbDecrementAnalises(userId: number): Promise<boolean> {
   await initDb()
   const res = await db.execute({

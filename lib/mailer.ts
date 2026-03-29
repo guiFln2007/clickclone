@@ -15,43 +15,99 @@ const BASE_URL = process.env.NEXT_PUBLIC_URL || 'https://clickclone.com.br'
 export async function sendWelcomeEmail(email: string, name: string, tempPassword: string) {
   if (!process.env.SMTP_USER) return // skip if not configured
 
+  const firstName = name ? name.split(' ')[0] : ''
+
   await transporter.sendMail({
     from: `"ClickClone" <${process.env.SMTP_USER}>`,
     to: email,
-    subject: 'Seu acesso ao ClickClone está pronto! 🎉',
-    html: `
-      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#111;background:#fff;padding:32px;border-radius:12px">
-        <h2 style="margin-top:0;color:#E8692A">Olá${name ? ', ' + name : ''}! 👋</h2>
-        <p style="color:#444">Seu acesso ao ClickClone foi ativado. Use os dados abaixo para entrar:</p>
+    subject: 'Seu acesso ao ClickClone está pronto ⚡',
+    html: `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Bem-vindo ao ClickClone</title>
+</head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 16px">
 
-        <div style="background:#f5f5f5;border-radius:8px;padding:20px;margin:20px 0;border-left:4px solid #E8692A">
-          <p style="margin:0 0 8px 0;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:.5px">Seus dados de acesso</p>
-          <p style="margin:4px 0"><strong>Login:</strong> ${email}</p>
-          <p style="margin:4px 0"><strong>Senha temporária:</strong> <code style="background:#e0e0e0;padding:2px 6px;border-radius:4px;font-size:15px">${tempPassword}</code></p>
-        </div>
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:32px">
+      <img src="${BASE_URL}/logo.png" alt="ClickClone" height="32" style="height:32px;width:auto"/>
+    </div>
 
-        <p style="color:#666;font-size:13px">
-          ⚠️ No primeiro acesso você poderá definir sua senha permanente.<br>
-          Basta fazer login com a senha acima e digitar a nova senha que quiser.
-        </p>
+    <!-- Card principal -->
+    <div style="background:#111;border:1px solid #222;border-radius:16px;overflow:hidden">
 
-        <p style="color:#444">Você começa com:</p>
-        <ul style="color:#444">
-          <li>✅ 10 análises de concorrentes</li>
-          <li>✅ 100 créditos de edição</li>
-          <li>✅ Geração ilimitada de páginas</li>
-        </ul>
-
-        <a href="${BASE_URL}/login"
-           style="display:inline-block;background:#E8692A;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;margin-top:8px">
-          Fazer login agora →
-        </a>
-
-        <p style="color:#999;font-size:12px;margin-top:24px">
-          Dúvidas? Responda este email ou fale no WhatsApp.<br>
-          <a href="${BASE_URL}/login" style="color:#E8692A">${BASE_URL}/login</a>
+      <!-- Header laranja -->
+      <div style="background:linear-gradient(135deg,#E8692A 0%,#f07340 100%);padding:32px 32px 28px">
+        <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.7);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Acesso ativado</div>
+        <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;line-height:1.2">
+          ${firstName ? `Olá, ${firstName}! 👋` : 'Bem-vindo! 👋'}
+        </h1>
+        <p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,.85)">
+          Sua conta no ClickClone foi criada. Use os dados abaixo para entrar.
         </p>
       </div>
-    `,
+
+      <!-- Body -->
+      <div style="padding:32px">
+
+        <!-- Credenciais -->
+        <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:20px;margin-bottom:24px">
+          <div style="font-size:11px;font-weight:700;color:#666;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">Suas credenciais</div>
+
+          <div style="margin-bottom:12px">
+            <div style="font-size:12px;color:#555;margin-bottom:4px">Login</div>
+            <div style="font-size:15px;color:#ccc;font-weight:500">${email}</div>
+          </div>
+
+          <div style="border-top:1px solid #222;padding-top:12px">
+            <div style="font-size:12px;color:#555;margin-bottom:4px">Senha temporária</div>
+            <div style="display:inline-block;background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 14px;font-family:monospace;font-size:18px;font-weight:700;color:#E8692A;letter-spacing:2px">${tempPassword}</div>
+          </div>
+        </div>
+
+        <!-- Aviso senha -->
+        <div style="background:#1a1500;border:1px solid #2a2000;border-radius:8px;padding:12px 16px;margin-bottom:24px">
+          <div style="font-size:13px;color:#b8860b">⚠️ &nbsp;No primeiro acesso, você pode definir sua senha definitiva.</div>
+        </div>
+
+        <!-- O que você tem -->
+        <div style="margin-bottom:28px">
+          <div style="font-size:11px;font-weight:700;color:#444;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">Seu plano inclui</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${[
+              ['⚡', '100 créditos de edição com IA'],
+              ['🔍', '10 análises de concorrentes'],
+              ['🚀', 'Geração ilimitada de páginas'],
+            ].map(([icon, text]) => `
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:32px;height:32px;border-radius:8px;background:#1a1a1a;border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${icon}</div>
+              <span style="font-size:14px;color:#999">${text}</span>
+            </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <a href="${BASE_URL}/login"
+           style="display:block;text-align:center;background:#E8692A;color:#fff;padding:16px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px">
+          Entrar no ClickClone →
+        </a>
+
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align:center;margin-top:24px">
+      <p style="font-size:12px;color:#333;margin:0 0 6px">
+        Dúvidas? Responda este email que te ajudamos.
+      </p>
+      <a href="${BASE_URL}" style="font-size:12px;color:#555;text-decoration:none">${BASE_URL}</a>
+    </div>
+
+  </div>
+</body>
+</html>`,
   })
 }

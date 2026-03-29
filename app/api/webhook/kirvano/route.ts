@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { dbActivateUser, dbRenewUser, dbDeactivateUser } from '@/lib/db'
+import { dbActivateUser, dbRenewUser, dbDeactivateUser, dbAddCreditos } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/mailer'
 
 function extractCustomer(body: Record<string, unknown>) {
@@ -62,6 +62,17 @@ export async function POST(req: NextRequest) {
       await dbDeactivateUser(email)
       console.log(`[kirvano] ${normalizedEvent}: ${email} — conta desativada`)
       return Response.json({ ok: true })
+    }
+
+    // ── COMPRA DE CRÉDITOS ────────────────────────────────────────────────────
+    if (normalizedEvent === 'CREDITS_PURCHASE' || normalizedEvent === 'PURCHASE_APPROVED_CREDITS') {
+      const { email } = extractCustomer(body)
+      if (!email) return Response.json({ error: 'Email ausente no payload' }, { status: 400 })
+
+      const creditsToAdd = Number(body.credits || body.quantity || 50)
+      await dbAddCreditos(email, creditsToAdd)
+      console.log(`[kirvano] CREDITS_PURCHASE: ${email} +${creditsToAdd} créditos`)
+      return Response.json({ ok: true, credits_added: creditsToAdd })
     }
 
     // Evento não reconhecido — OK para não quebrar o webhook

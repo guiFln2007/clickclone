@@ -6,5 +6,5 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ user: null })
   const user = await dbGetUserById(Number(userId))
   if (!user) return NextResponse.json({ user: null })
-  return NextResponse.json({ user: { nome: user.name, email: user.email } })
+  return NextResponse.json({ user: { nome: user.name, email: user.email, creditos: user.creditos, plano: user.plano } })
 }

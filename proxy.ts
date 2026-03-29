@@ -84,6 +84,7 @@ export async function proxy(req: NextRequest) {
 export const config = {
   matcher: [
     '/tool/:path*',
+    '/settings/:path*',
     '/api/analyze/:path*',
     '/api/edit/:path*',
     '/admin/:path*',

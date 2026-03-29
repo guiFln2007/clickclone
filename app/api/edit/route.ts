@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import {
   dbGetUserById,
-  dbDecrementCreditos,
+  dbDecrementCreditosN,
   dbGetFreeUsage,
   dbIncrementFreeCreditos,
 } from '@/lib/db'
@@ -130,13 +130,22 @@ export async function POST(req: NextRequest) {
       }
       if (user.creditos <= 0) {
         return Response.json({
-          error: 'Créditos esgotados. Faça upgrade para continuar.',
+          error: 'Créditos esgotados. Compre mais créditos para continuar.',
           upgrade: true,
+          creditos: 0,
+        }, { status: 402 })
+      }
+      if (user.creditos < cost) {
+        return Response.json({
+          error: `Créditos insuficientes. Esta edição custa ${cost} créditos, mas você tem ${user.creditos}.`,
+          upgrade: true,
+          creditos: user.creditos,
         }, { status: 402 })
       }
     }
 
-    const { html, message, analysis, history = [] } = await req.json()
+    const { html, message, analysis, history = [], estimatedCost } = await req.json()
+    const cost = typeof estimatedCost === 'number' ? estimatedCost : 1
 
     const encoder = new TextEncoder()
     const { stripped: strippedHtml, map: b64Map } = stripBase64Images(html)
@@ -209,18 +218,26 @@ export async function POST(req: NextRequest) {
             editType = 'none'
           }
 
-          // Decrementa crédito após edição bem-sucedida
+          // Decrementa créditos após edição bem-sucedida (proporcional)
+          const actualCost = editType === 'full' ? Math.max(cost, 3) : editType === 'patch' ? cost : 0
           if (editType !== 'none') {
             if (userId) {
-              await dbDecrementCreditos(userId)
+              await dbDecrementCreditosN(userId, actualCost)
             } else {
               await dbIncrementFreeCreditos(ip, sessionId)
             }
           }
 
+          // Fetch new credit balance
+          let newCreditos: number | undefined
+          if (userId && editType !== 'none') {
+            const updatedUser = await dbGetUserById(userId)
+            newCreditos = updatedUser?.creditos
+          }
+
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: 'done', html: updatedHtml, message: reply, editType })}\n\n`,
+              `data: ${JSON.stringify({ type: 'done', html: updatedHtml, message: reply, editType, creditosGastos: actualCost, creditos: newCreditos })}\n\n`,
             ),
           )
           controller.close()

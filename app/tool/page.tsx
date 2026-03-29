@@ -174,10 +174,13 @@ export default function ToolPage() {
   const [paneWidth, setPaneWidth] = useState(0)
   const [upgradeModal, setUpgradeModal] = useState(false)
   const [userName, setUserName] = useState('')
+  const [creditos, setCreditos] = useState<number | null>(null)
+  const [creditDropdownOpen, setCreditDropdownOpen] = useState(false)
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (d.user?.nome) setUserName(d.user.nome.split(' ')[0])
+      if (typeof d.user?.creditos === 'number') setCreditos(d.user.creditos)
     }).catch(() => {})
   }, [])
 
@@ -517,11 +520,24 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
     reader.readAsDataURL(file)
   }
 
+  function estimateCost(msg: string): number {
+    const lower = msg.toLowerCase()
+    if (/rebuild|redesign|refaz|refazer|completo|completa|reescreve|tudo|full|página inteira|do zero/.test(lower)) return 3
+    return Math.max(1, Math.ceil(msg.length / 200))
+  }
+
   async function sendChat(e: React.FormEvent) {
     e.preventDefault()
     const msg = chatInput.trim()
     const imageToSend = pendingImage
     if ((!msg && !imageToSend) || chatLoading) return
+
+    // Block if out of credits
+    if (creditos !== null && creditos <= 0) {
+      setUpgradeModal(true)
+      return
+    }
+
     setChatInput('')
     setPendingImage(null)
     const userMsg: Message = { role: 'user', content: msg, image: imageToSend?.dataUrl }
@@ -533,6 +549,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
     const effectiveMessage = imageToSend
       ? `${msg ? msg + '\n\n' : ''}Analise esta imagem e aplique as mudanças necessárias na página:\n${imageToSend.dataUrl}`
       : msg
+    const cost = estimateCost(msg)
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 240000)
     try {
@@ -545,6 +562,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
           message: effectiveMessage,
           analysis: currentProject?.analysis,
           history: history.slice(-6).map(m => ({ role: m.role, content: m.content })),
+          estimatedCost: cost,
         }),
       })
       if (res.status === 402) {
@@ -596,6 +614,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
                 localStorage.setItem('cc_projects', JSON.stringify(saved))
                 setProjects(saved)
               }
+              if (typeof event.creditos === 'number') setCreditos(event.creditos)
               setMessages(prev => [...prev, { role: 'assistant', content: event.message || 'Feito!' }])
             }
           } catch { /* skip */ }
@@ -1012,10 +1031,68 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
             )}
 
             <div className="sb-bottom">
-              <button className="sb-upgrade">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                Upgrade
-              </button>
+              {/* Credits badge */}
+              {creditos !== null && (
+                <div style={{ position: 'relative', marginBottom: 8 }}>
+                  <button
+                    onClick={() => setCreditDropdownOpen(o => !o)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 12px', borderRadius: 8, border: '1px solid #222',
+                      background: '#111', cursor: 'pointer', fontFamily: 'inherit',
+                      color: creditos === 0 ? '#ef4444' : creditos <= 20 ? '#eab308' : '#ccc',
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>⚡</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>
+                      {creditos} crédito{creditos !== 1 ? 's' : ''}
+                    </span>
+                    <span style={{ fontSize: 10, color: '#444' }}>⌄</span>
+                  </button>
+                  {creditDropdownOpen && (
+                    <div style={{
+                      position: 'absolute', bottom: '110%', left: 0, right: 0,
+                      background: '#111', border: '1px solid #222', borderRadius: 10,
+                      padding: 16, zIndex: 100,
+                    }}>
+                      <div style={{ fontSize: 12, color: '#666', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Créditos</div>
+                      {/* Progress bar */}
+                      <div style={{ background: '#1a1a1a', borderRadius: 4, height: 6, marginBottom: 10 }}>
+                        <div style={{
+                          height: 6, borderRadius: 4,
+                          width: `${Math.min(100, (creditos / 100) * 100)}%`,
+                          background: creditos === 0 ? '#ef4444' : creditos <= 20 ? '#eab308' : '#E8692A',
+                          transition: 'width .4s ease',
+                        }} />
+                      </div>
+                      <div style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
+                        {creditos === 0
+                          ? '⚠️ Créditos esgotados'
+                          : creditos <= 20
+                            ? `⚡ Restam ${creditos} créditos`
+                            : `${creditos} créditos disponíveis`}
+                      </div>
+                      <a
+                        href="/settings/plans"
+                        style={{
+                          display: 'block', textAlign: 'center', padding: '8px 12px',
+                          background: '#E8692A', color: '#fff', borderRadius: 7,
+                          fontSize: 13, fontWeight: 700, textDecoration: 'none',
+                        }}
+                        onClick={() => setCreditDropdownOpen(false)}
+                      >
+                        Comprar créditos
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+              <Link href="/settings/plans">
+                <button className="sb-upgrade">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                  Upgrade
+                </button>
+              </Link>
             </div>
           </aside>
 
@@ -1396,7 +1473,17 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
                         </button>
                       )}
-                      <button className="chat-send-btn" type="submit" disabled={(!chatInput.trim() && !pendingImage) || chatLoading}>
+                      {creditos !== null && chatInput.trim() && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 5,
+                          background: '#1a1a1a', border: '1px solid #222',
+                          color: creditos === 0 ? '#ef4444' : creditos <= 20 ? '#eab308' : '#666',
+                          marginRight: 4,
+                        }}>
+                          ⚡{estimateCost(chatInput)}
+                        </span>
+                      )}
+                      <button className="chat-send-btn" type="submit" disabled={(!chatInput.trim() && !pendingImage) || chatLoading || (creditos !== null && creditos === 0)}>
                         {chatLoading
                           ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
                           : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
