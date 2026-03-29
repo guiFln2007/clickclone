@@ -6,6 +6,7 @@ import {
   dbDecrementAnalises,
   dbGetFreeUsage,
   dbIncrementFreeAnalises,
+  dbLogAnalysis,
 } from '@/lib/db'
 
 export const maxDuration = 300
@@ -852,12 +853,13 @@ setTimeout(reveal,300);setTimeout(reveal,800);
 })();</script>`
         generatedHtml = generatedHtml.replace('</body>', revealFix + '</body>')
 
-        // Decrementa uso após sucesso
+        // Decrementa uso após sucesso e loga
         if (userId) {
           await dbDecrementAnalises(userId)
         } else {
           await dbIncrementFreeAnalises(ip, sessionId)
         }
+        await dbLogAnalysis(userId, ip)
 
         send({ step: 'done', message: 'Análise concluída. Abrindo editor_', percent: 100, data: { analysis, generatedHtml } })
         controller.close()

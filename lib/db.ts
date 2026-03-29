@@ -37,6 +37,15 @@ export async function initDb() {
       )`,
       args: [],
     },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS analyses_log (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER,
+        ip         TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    },
   ])
   initialized = true
 }
@@ -196,6 +205,99 @@ export async function dbIncrementFreeCreditos(ip: string, sessionId: string): Pr
           ON CONFLICT(ip, session_id) DO UPDATE SET creditos_usados = creditos_usados + 1`,
     args: [ip, sessionId],
   })
+}
+
+// ── Analyses log ─────────────────────────────────────────────────────────────
+
+export async function dbLogAnalysis(userId: number | null, ip: string): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: 'INSERT INTO analyses_log (user_id, ip) VALUES (?, ?)',
+    args: [userId, ip],
+  })
+}
+
+// ── Admin helpers ─────────────────────────────────────────────────────────────
+
+export async function dbAdminGetStats() {
+  await initDb()
+  const [r1, r2, r3, r4] = await Promise.all([
+    db.execute({ sql: 'SELECT COUNT(*) as n FROM users WHERE ativo = 1', args: [] }),
+    db.execute({ sql: "SELECT COUNT(*) as n FROM analyses_log WHERE created_at >= datetime('now', 'start of day')", args: [] }),
+    db.execute({ sql: "SELECT COUNT(*) as n FROM users WHERE created_at >= datetime('now', '-7 days')", args: [] }),
+    db.execute({ sql: 'SELECT COUNT(*) as n FROM users', args: [] }),
+  ])
+  const active = Number(r1.rows[0].n)
+  return {
+    activeUsers: active,
+    analysesToday: Number(r2.rows[0].n),
+    newUsersThisWeek: Number(r3.rows[0].n),
+    totalUsers: Number(r4.rows[0].n),
+    revenueEstimated: active * 57.9,
+  }
+}
+
+export type AdminUser = User & { last_analysis: string | null }
+
+export async function dbAdminGetUsers(search: string, offset: number, limit: number): Promise<AdminUser[]> {
+  await initDb()
+  const like = `%${search}%`
+  const res = await db.execute({
+    sql: `SELECT u.id, u.email, u.name, u.plano, u.analises, u.creditos, u.ativo,
+                 u.kirvano_id, u.created_at, u.hash,
+                 (SELECT MAX(al.created_at) FROM analyses_log al WHERE al.user_id = u.id) as last_analysis
+          FROM users u
+          WHERE u.email LIKE ? OR COALESCE(u.name, '') LIKE ?
+          ORDER BY u.created_at DESC
+          LIMIT ? OFFSET ?`,
+    args: [like, like, limit, offset],
+  })
+  return res.rows.map((r) => {
+    const row = r as Record<string, unknown>
+    return {
+      ...rowToUser(row),
+      last_analysis: (row.last_analysis as string) ?? null,
+    }
+  })
+}
+
+export async function dbAdminCountUsers(search: string): Promise<number> {
+  await initDb()
+  const like = `%${search}%`
+  const res = await db.execute({
+    sql: "SELECT COUNT(*) as n FROM users WHERE email LIKE ? OR COALESCE(name, '') LIKE ?",
+    args: [like, like],
+  })
+  return Number(res.rows[0].n)
+}
+
+export async function dbAdminAddAnalises(userId: number, count: number): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: 'UPDATE users SET analises = analises + ? WHERE id = ?',
+    args: [count, userId],
+  })
+}
+
+export async function dbAdminAddCreditos(userId: number, count: number): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: 'UPDATE users SET creditos = creditos + ? WHERE id = ?',
+    args: [count, userId],
+  })
+}
+
+export async function dbAdminSetAtivo(userId: number, ativo: number): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: "UPDATE users SET ativo = ?, plano = CASE WHEN ? = 1 THEN 'pro' ELSE 'inativo' END WHERE id = ?",
+    args: [ativo, ativo, userId],
+  })
+}
+
+export async function dbAdminDeleteUser(userId: number): Promise<void> {
+  await initDb()
+  await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [userId] })
 }
 
 export default db
