@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import { load } from 'cheerio'
+import {
+  dbGetUserById,
+  dbDecrementAnalises,
+  dbGetFreeUsage,
+  dbIncrementFreeAnalises,
+} from '@/lib/db'
 
 export const maxDuration = 300
 
@@ -146,7 +152,6 @@ function classifyMedia(images: ImageMeta[], videos: string[]): {
   hero: string | null
   product: string | null
   persons: string[]
-  others: string[]
   videos: string[]
 } {
   const personRx = /depo|testim|review|cliente|usuari|avatar|person|autor|avalia|perfil|member|foto.*pess/i
@@ -156,7 +161,6 @@ function classifyMedia(images: ImageMeta[], videos: string[]): {
   const persons: string[] = []
   const products: string[] = []
   const heroes: string[] = []
-  const others: string[] = []
 
   for (let i = 0; i < images.length; i++) {
     const { src, alt, ctx } = images[i]
@@ -169,8 +173,6 @@ function classifyMedia(images: ImageMeta[], videos: string[]): {
       heroes.push(src)
     } else if (i === 0) {
       heroes.push(src) // primeira imagem = provavelmente hero
-    } else {
-      others.push(src)
     }
   }
 
@@ -179,8 +181,7 @@ function classifyMedia(images: ImageMeta[], videos: string[]): {
     hero: heroes[0] || allSrcs[0] || null,
     product: products[0] || (heroes.length > 1 ? heroes[1] : null) || allSrcs[1] || null,
     persons: persons.slice(0, 6),
-    others: [...heroes.slice(heroes[0] ? 1 : 0), ...products.slice(products[0] ? 1 : 0), ...others].slice(0, 4),
-    videos: [...new Set(videos.filter(Boolean))].slice(0, 3), // deduplicado
+    videos: [...new Set(videos.filter(Boolean))].slice(0, 3),
   }
 }
 
@@ -272,7 +273,6 @@ async function scrapeLandingPageHeadless(url: string) {
     return {
       title: d.title || '',
       headings: d.headings || [],
-      paragraphs: [],
       bullets: d.bullets || [],
       testimonials: testimonials.slice(0, 8),
       prices: d.prices || [],
@@ -348,7 +348,7 @@ async function scrapeLandingPage(url: string) {
     return {
       title: $('title').text().trim(),
       headings: $('h1, h2, h3, h4').map((_, el) => $(el).text().trim()).get().filter(Boolean).slice(0, 20),
-      paragraphs: $('p').map((_, el) => $(el).text().trim()).get().filter(t => t.length > 30).slice(0, 30),
+
       bullets,
       testimonials: testimonials.slice(0, 8),
       prices: [...new Set(priceMatches)].slice(0, 6),
@@ -382,7 +382,7 @@ function extractLandingUrl(ads: Record<string, unknown>[]): string | null {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildHtmlPrompt(analysis: any, landingPage: any, hero: string | null, product: string | null, persons: string[], others: string[], videos: string[], adCopies: string): string {
+function buildHtmlPrompt(analysis: any, landingPage: any, hero: string | null, product: string | null, persons: string[], videos: string[], adCopies: string): string {
   const funnel = (analysis.funnel_type as string) || 'landing_page'
   const price = analysis.price_anchor || landingPage?.prices?.[0] || 'R$19,90'
   const pageName = analysis.page_name
@@ -393,7 +393,7 @@ function buildHtmlPrompt(analysis: any, landingPage: any, hero: string | null, p
   const headings = landingPage?.headings?.join('\n') || '(não disponível)'
   const bullets = landingPage?.bullets?.join('\n') || '(não disponível)'
   const ctas = landingPage?.ctas?.join(' | ') || '(não disponível)'
-  const fullText = landingPage?.fullText?.slice(0, 3000) || '(não disponível)'
+  const fullText = landingPage?.fullText?.slice(0, 600) || '(não disponível)'
   const testimonials = landingPage?.testimonials?.length
     ? landingPage.testimonials.map((t: string, i: number) => `[Depo ${i+1}]: ${t}`).join('\n')
     : '(não detectados — crie 4 depoimentos ultra-realistas com nome, cidade e resultado específico)'
@@ -415,8 +415,7 @@ CORES CSS: ${cssColors} | FONTES: ${cssFonts}
 Mobile-first. Wrapper: max-width:560px; margin:0 auto; padding:0 20px.
 Paleta: defina --bg,--bg-alt,--text,--text2,--accent,--accent-dark,--border,--card-bg,--green:#16A34A no :root.
 Botões: border-radius:99px (pílula), gradiente acento, font-weight:900.
-Sem IntersectionObserver. Sem animações de scroll. Opacity:1 desde o load.
-RETORNE APENAS o HTML completo começando com <!DOCTYPE html> até </html>. Sem markdown, sem explicação.`
+Sem IntersectionObserver. Sem animações de scroll. Opacity:1 desde o load.`
 
   const briefing = `━━━ BRIEFING ━━━
 Produto: "${pageName}" | Nicho: ${niche} | Ângulo: ${angle} | Preço: ${price}
@@ -669,60 +668,99 @@ H2 emocional | 4 bullets ✦ | preço âncora | botão pulse | "🔒 100% seguro
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    // Auth guard
-    const userId = req.headers.get('x-user-id')
-    if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  // Auth guard
+  const userIdHeader = req.headers.get('x-user-id')
+  const userId = userIdHeader ? Number(userIdHeader) : null
 
-    const { url } = await req.json()
-    if (!url) return NextResponse.json({ error: 'URL obrigatória' }, { status: 400 })
+  // Usuário sem JWT → plano gratuito por IP/sessão
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown'
+  const sessionId = req.headers.get('x-session-id') || 'anonymous'
 
-    // Validação: a URL precisa ter view_all_page_id para identificar o anunciante
-    if (!url.includes('view_all_page_id') && !url.includes('search_type=page')) {
+  if (!userId) {
+    const freeUsage = await dbGetFreeUsage(ip, sessionId)
+    if ((freeUsage?.analises_usadas ?? 0) >= 1) {
       return NextResponse.json({
-        error: 'URL inválida. Abra a biblioteca de anúncios, filtre por um anunciante específico e copie a URL completa (deve conter "view_all_page_id=...").'
-      }, { status: 400 })
+        error: 'Você usou sua análise gratuita. Acesse o ClickClone completo com 10 análises por apenas R$XX.',
+        upgrade: true,
+      }, { status: 402 })
     }
-
-    // 1. Scrape anúncios
-    const ads = await scrapeAds(url)
-
-    if (!Array.isArray(ads) || ads.length === 0) {
+  } else {
+    const user = await dbGetUserById(userId)
+    if (!user || !user.ativo) {
+      return NextResponse.json({ error: 'Conta inativa ou não encontrada.' }, { status: 403 })
+    }
+    if (user.analises <= 0) {
       return NextResponse.json({
-        error: 'Nenhum anúncio encontrado. Verifique se o anunciante tem anúncios ativos e se a URL está correta.'
-      }, { status: 400 })
+        error: 'Limite de análises atingido. Faça upgrade para continuar.',
+        upgrade: true,
+      }, { status: 402 })
     }
+  }
 
-    // 2. Scrape landing page — tenta Cheerio primeiro, headless como fallback
-    const landingUrl = extractLandingUrl(ads)
-    console.log('[Landing] URL detectada:', landingUrl)
-    let landingPage = landingUrl ? await scrapeLandingPage(landingUrl) : null
+  const { url } = await req.json().catch(() => ({ url: null }))
+  if (!url) return NextResponse.json({ error: 'URL obrigatória' }, { status: 400 })
 
-    // Se o Cheerio retornou pouco texto (SPA ou Cloudflare), usa Apify Playwright
-    if (landingUrl && (!landingPage || landingPage.fullText.length < 200)) {
-      console.log('[Landing] Conteúdo insuficiente, tentando headless scraper...')
-      const headless = await scrapeLandingPageHeadless(landingUrl)
-      if (headless && headless.fullText.length > (landingPage?.fullText.length ?? 0)) {
-        landingPage = headless
-        console.log('[Landing] Headless OK — texto:', headless.fullText.length, 'chars')
+  if (!url.includes('view_all_page_id') && !url.includes('search_type=page')) {
+    return NextResponse.json({
+      error: 'URL inválida. Abra a biblioteca de anúncios, filtre por um anunciante específico e copie a URL completa (deve conter "view_all_page_id=...").'
+    }, { status: 400 })
+  }
+
+  const encoder = new TextEncoder()
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      function send(event: Record<string, unknown>) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
       }
-    }
 
-    // 3. Preparar dados para Claude
-    const adsForClaude = ads.slice(0, 7).map((ad: Record<string, unknown>) => {
-      const snap = ad.snapshot as Record<string, unknown> | undefined
-      return {
-        body: (snap?.body as Record<string, unknown>)?.text || ad.ad_creative_bodies,
-        title: snap?.title,
-        cta: snap?.cta_text,
-        link: snap?.link_url,
-        isActive: ad.isActive,
-        startDate: ad.startDate,
-      }
-    })
+      try {
+        // 1. Scrape anúncios
+        send({ step: 'scraping', message: 'Conectando à biblioteca de anúncios...', percent: 10 })
+        const ads = await scrapeAds(url)
 
-    // 4. Análise Claude
-    const analysisText = await callClaude(`TOTAL DE ANÚNCIOS ATIVOS: ${ads.length}
+        if (!Array.isArray(ads) || ads.length === 0) {
+          send({ step: 'error', message: 'Nenhum anúncio encontrado. Verifique se o anunciante tem anúncios ativos e se a URL está correta.' })
+          controller.close()
+          return
+        }
+
+        send({ step: 'scraping', message: `✓ ${ads.length} anúncios encontrados. Lendo página de destino...`, percent: 25 })
+
+        // 2. Scrape landing page — Cheerio + headless em paralelo (headless só aguardado se cheerio falhar)
+        const landingUrl = extractLandingUrl(ads)
+        console.log('[Landing] URL detectada:', landingUrl)
+
+        // Preparar dados de ads enquanto landing page carrega
+        const adsForClaude = ads.slice(0, 7).map((ad: Record<string, unknown>) => {
+          const snap = ad.snapshot as Record<string, unknown> | undefined
+          return {
+            body: (snap?.body as Record<string, unknown>)?.text || ad.ad_creative_bodies,
+            title: snap?.title,
+            cta: snap?.cta_text,
+            link: snap?.link_url,
+            isActive: ad.isActive,
+            startDate: ad.startDate,
+          }
+        })
+
+        let landingPage = landingUrl ? await scrapeLandingPage(landingUrl) : null
+
+        if (landingUrl && (!landingPage || landingPage.fullText.length < 200)) {
+          send({ step: 'analyzing_page', message: 'Renderizando página (modo avançado)...', percent: 30 })
+          // Headless já rodando em paralelo com o cheerio — aguarda resultado
+          const headless = await scrapeLandingPageHeadless(landingUrl)
+          if (headless && headless.fullText.length > (landingPage?.fullText.length ?? 0)) {
+            landingPage = headless
+            console.log('[Landing] Headless OK — texto:', headless.fullText.length, 'chars')
+          }
+        }
+
+        send({ step: 'analyzing_page', message: 'Analisando copy e estrutura da oferta...', percent: 42 })
+
+        // 3. Análise Claude
+        send({ step: 'scoring', message: 'Calculando score e identificando ângulos...', percent: 50 })
+        const analysisText = await callClaude(`TOTAL DE ANÚNCIOS ATIVOS: ${ads.length}
 ANÚNCIOS (amostra com copies reais):
 ${JSON.stringify(adsForClaude)}
 
@@ -741,86 +779,66 @@ Retorne exatamente esta estrutura JSON:`, `Você é um estrategista de marketing
   "score": <número 1-10 — baseado em: volume de ads ativos, qualidade da copy, força da oferta, clareza da proposta>,
   "verdict": "<Vale entrar | Não vale entrar>",
   "reason": "<análise direta em 3 frases: o que está funcionando, o que está faltando, e qual é a oportunidade real>",
-  "dominant_angle": "<o principal gatilho/ângulo usado — ex: 'Velocidade + resultado rápido', 'Dor financeira + solução acessível', 'Transformação de vida'>",
-  "hook_patterns": ["<padrão de hook 1 extraído dos anúncios>", "<padrão 2>", "<padrão 3>"],
+  "dominant_angle": "<o principal gatilho/ângulo usado — ex: 'Velocidade + resultado rápido'>",
   "page_name": "<nome do produto/oferta>",
   "niche": "<nicho em 1-2 palavras>",
   "price_anchor": "<preço principal detectado, ex: R$19,90 — ou 'não detectado'>",
   "funnel_type": "<landing_page | quiz | ferramenta_freemium | whatsapp | vsl> — identifique pelo destino dos anúncios e estrutura da página: 'quiz' se há perguntas/triagem, 'whatsapp' se CTA principal é wa.me ou mensagem, 'ferramenta_freemium' se há interface de ferramenta com recursos pagos, 'vsl' se há vídeo de vendas dominante, 'landing_page' nos demais casos>",
   "design_context": {
-    "style": "<estilo visual>",
     "primary_color": "<cor principal hex ou 'não detectado'>",
-    "accent_color": "<cor de acento hex ou 'não detectado'>",
     "vibe": "<sensação geral em 4-6 palavras>"
   },
   "weak_points": ["<fraqueza específica e acionável 1>", "<fraqueza 2>", "<fraqueza 3>", "<fraqueza 4>", "<fraqueza 5>"],
-  "strong_points": ["<força real que está funcionando 1>", "<força 2>", "<força 3>"],
-  "ctv_recommendations": [
-    {
-      "hook": "<primeira frase — curta, impactante, específica>",
-      "angle": "<nome do ângulo em 2-3 palavras>",
-      "script": "<roteiro em 4-5 linhas — inclui hook, problema, solução, CTA com preço>"
-    },
-    {
-      "hook": "<hook diferente — ângulo emocional ou resultado específico>",
-      "angle": "<nome>",
-      "script": "<roteiro>"
-    },
-    {
-      "hook": "<hook de prova social ou comparação>",
-      "angle": "<nome>",
-      "script": "<roteiro>"
-    }
-  ]
+  "strong_points": ["<força real que está funcionando 1>", "<força 2>", "<força 3>"]
 }`)
-    let analysis
-    try {
-      const cleaned = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      analysis = JSON.parse(cleaned)
-    } catch {
-      console.error('[Claude] Falha ao parsear análise:', analysisText.slice(0, 200))
-      return NextResponse.json({ error: 'Erro ao processar análise. Tenta novamente.' }, { status: 500 })
-    }
+        let analysis
+        try {
+          const cleaned = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+          analysis = JSON.parse(cleaned)
+        } catch {
+          console.error('[Claude] Falha ao parsear análise:', analysisText.slice(0, 200))
+          send({ step: 'error', message: 'Erro ao processar análise. Tenta novamente.' })
+          controller.close()
+          return
+        }
 
-    // 5. Mídia do concorrente — classificada por papel
-    const rawImages = (landingPage?.images ?? []) as ImageMeta[]
-    const rawVideos = landingPage?.videos ?? []
-    const adVideos = extractAdVideos(ads)
+        send({ step: 'scoring', message: `✓ Score ${analysis.score}/10 — ${analysis.verdict}. Preparando modelagem...`, percent: 65 })
 
-    const classified = classifyMedia(rawImages, [...rawVideos, ...adVideos])
-    const { hero, product, persons, others, videos } = classified
+        // 4. Mídia do concorrente — classificada por papel (síncrono, instantâneo)
+        const rawImages = (landingPage?.images ?? []) as ImageMeta[]
+        const rawVideos = landingPage?.videos ?? []
+        const adVideos = extractAdVideos(ads)
+        const classified = classifyMedia(rawImages, [...rawVideos, ...adVideos])
+        const { hero, product, persons, videos } = classified
+        const imageUrls = rawImages.map(i => i.src).filter(Boolean).slice(0, 8)
+        const adCopies = adsForClaude.slice(0, 3).map(a => a.body).filter(Boolean).map(t => String(t).slice(0, 400)).join('\n\n')
 
-    // imageUrls como strings para o embedding base64 no pós-processamento
-    const imageUrls = rawImages.map(i => i.src).filter(Boolean).slice(0, 8)
+        // 5. Geração HTML
+        send({ step: 'generating', message: `Gerando página de vendas modelada (tipo: ${analysis.funnel_type || 'landing_page'})...`, percent: 75 })
+        console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
+        const rawText = await callClaude(
+          buildHtmlPrompt(analysis, landingPage, hero, product, persons, videos, adCopies),
+          `Você é o melhor copywriter e desenvolvedor front-end do Brasil. Especialista em páginas de vendas low ticket que já geraram mais de R$5 milhões em vendas diretas no Meta Ads. RETORNE APENAS HTML puro, sem markdown, sem explicação.`
+        )
+        let generatedHtml = rawText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim()
+        if (!generatedHtml.startsWith('<!')) {
+          const idx = generatedHtml.indexOf('<!DOCTYPE')
+          if (idx > 0) generatedHtml = generatedHtml.slice(idx)
+        }
 
-    const adCopies = adsForClaude.slice(0, 3).map(a => a.body).filter(Boolean).map(t => String(t).slice(0, 400)).join('\n\n')
+        // 6. Pós-processamento: embed imagens como base64
+        send({ step: 'generating', message: 'Embedando imagens e finalizando...', percent: 90 })
+        console.log(`[Media] Embedando ${imageUrls.length} imagens como base64...`)
+        for (const imgUrl of imageUrls) {
+          if (!imgUrl || !generatedHtml.includes(imgUrl)) continue
+          const b64 = await downloadAsBase64(imgUrl, 600)
+          if (b64) {
+            generatedHtml = generatedHtml.split(imgUrl).join(b64)
+            console.log(`[Media] Embedada: ${imgUrl.slice(0, 60)}`)
+          }
+        }
 
-    console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
-    const rawText = await callClaude(
-      buildHtmlPrompt(analysis, landingPage, hero, product, persons, others, videos, adCopies),
-      `Você é o melhor copywriter e desenvolvedor front-end do Brasil. Especialista em páginas de vendas low ticket que já geraram mais de R$5 milhões em vendas diretas no Meta Ads. RETORNE APENAS HTML puro, sem markdown, sem explicação.`
-    )
-    // Remove markdown wrapper se houver, extrai só o HTML
-    let generatedHtml = rawText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim()
-    // Garante que começa com <!DOCTYPE
-    if (!generatedHtml.startsWith('<!')) {
-      const idx = generatedHtml.indexOf('<!DOCTYPE')
-      if (idx > 0) generatedHtml = generatedHtml.slice(idx)
-    }
-
-    // 7. Pós-processamento: substitui URLs de imagens por base64 no HTML gerado
-    console.log(`[Media] Embedando ${imageUrls.length} imagens como base64...`)
-    for (const url of imageUrls) {
-      if (!url || !generatedHtml.includes(url)) continue
-      const b64 = await downloadAsBase64(url, 600)
-      if (b64) {
-        generatedHtml = generatedHtml.split(url).join(b64)
-        console.log(`[Media] Embedada: ${url.slice(0, 60)}`)
-      }
-    }
-
-    // Fallback: força visibilidade de qualquer elemento que ainda tenha opacity:0
-    const revealFix = `<script id="cc-reveal">(function(){
+        const revealFix = `<script id="cc-reveal">(function(){
 function reveal(){document.querySelectorAll('*').forEach(function(el){
   var s=window.getComputedStyle(el);
   if(parseFloat(s.opacity)<0.1&&s.position!=='fixed'&&el.tagName!=='SCRIPT'&&el.tagName!=='STYLE'){
@@ -832,18 +850,31 @@ function reveal(){document.querySelectorAll('*').forEach(function(el){
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',reveal);}else{reveal();}
 setTimeout(reveal,300);setTimeout(reveal,800);
 })();</script>`
-    generatedHtml = generatedHtml.replace('</body>', revealFix + '</body>')
+        generatedHtml = generatedHtml.replace('</body>', revealFix + '</body>')
 
-    return NextResponse.json({
-      analysis,
-      generatedHtml,
-      meta: { totalAds: ads.length, landingUrl, hasLandingData: !!landingPage },
-    })
-  } catch (err) {
-    console.error('[Route] Erro:', err)
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Erro interno' },
-      { status: 500 }
-    )
-  }
+        // Decrementa uso após sucesso
+        if (userId) {
+          await dbDecrementAnalises(userId)
+        } else {
+          await dbIncrementFreeAnalises(ip, sessionId)
+        }
+
+        send({ step: 'done', message: 'Análise concluída. Abrindo editor_', percent: 100, data: { analysis, generatedHtml } })
+        controller.close()
+
+      } catch (err) {
+        console.error('[Route] Erro:', err)
+        send({ step: 'error', message: err instanceof Error ? err.message : 'Erro interno' })
+        controller.close()
+      }
+    }
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  })
 }

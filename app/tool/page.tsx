@@ -31,13 +31,17 @@ interface Project {
   createdAt: number
 }
 
-const STEPS = [
-  { text: '> Conectando à biblioteca de anúncios...', type: 'wait' },
-  { text: '✓ Anúncios encontrados. Raspando dados...', type: 'done' },
-  { text: '> Analisando página do concorrente...', type: 'wait' },
-  { text: '✓ Score calculado. Identificando pontos fracos...', type: 'done' },
-  { text: '> Gerando página de vendas modelada...', type: 'wait' },
-]
+// STEPS removido — substituído por SSE real do backend
+
+function getSessionId(): string {
+  const key = 'cc_session_id'
+  let id = localStorage.getItem(key)
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem(key, id)
+  }
+  return id
+}
 
 function timeAgo(ts: number) {
   const d = (Date.now() - ts) / 1000
@@ -68,13 +72,48 @@ function ScoreRing({ score }: { score: number }) {
 function ProjectThumb({ html }: { html: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.19)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const scrollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   useEffect(() => {
     if (ref.current) setScale(ref.current.offsetWidth / 1440)
   }, [])
+
+  function startScroll() {
+    const iframe = iframeRef.current
+    if (!iframe) return
+    const doc = iframe.contentDocument || iframe.contentWindow?.document
+    if (!doc) return
+    const body = doc.body || doc.documentElement
+    const totalHeight = body.scrollHeight - (ref.current?.offsetHeight ?? 200) / scale
+    if (totalHeight <= 0) return
+    let pos = 0
+    const step = 1.2
+    scrollTimerRef.current = setInterval(() => {
+      pos += step
+      if (pos >= totalHeight) pos = 0
+      body.scrollTop = pos
+    }, 16)
+  }
+
+  function stopScroll() {
+    if (scrollTimerRef.current) {
+      clearInterval(scrollTimerRef.current)
+      scrollTimerRef.current = null
+    }
+    const iframe = iframeRef.current
+    if (!iframe) return
+    const doc = iframe.contentDocument || iframe.contentWindow?.document
+    if (doc) {
+      const body = doc.body || doc.documentElement
+      body.scrollTop = 0
+    }
+  }
+
   return (
-    <div ref={ref} className="proj-thumb">
-      <iframe srcDoc={html} scrolling="no" title="thumb"
-        style={{ width: 1440, height: 810, border: 'none', pointerEvents: 'none', transform: `scale(${scale})`, transformOrigin: 'top left' }}
+    <div ref={ref} className="proj-thumb" onMouseEnter={startScroll} onMouseLeave={stopScroll}>
+      <iframe ref={iframeRef} srcDoc={html} scrolling="yes" title="thumb"
+        style={{ width: 1440, height: 5400, border: 'none', pointerEvents: 'none', transform: `scale(${scale})`, transformOrigin: 'top left' }}
       />
     </div>
   )
@@ -114,6 +153,7 @@ export default function ToolPage() {
   const [error, setError] = useState('')
   const [projects, setProjects] = useState<Project[]>([])
   const [pageSaved, setPageSaved] = useState(false)
+  const [dashProgress, setDashProgress] = useState(0)
 
   // Editor
   const [currentProject, setCurrentProject] = useState<Project | null>(null)
@@ -132,6 +172,7 @@ export default function ToolPage() {
   const [pendingImage, setPendingImage] = useState<{ dataUrl: string } | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [paneWidth, setPaneWidth] = useState(0)
+  const [upgradeModal, setUpgradeModal] = useState(false)
 
   const [isListening, setIsListening] = useState(false)
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
@@ -251,34 +292,75 @@ export default function ToolPage() {
     setGeneratedHtml('')
     setError('')
     setPageSaved(false)
-    setTermLines([STEPS[0]])
-    let si = 1
-    stepTimer.current = setInterval(() => {
-      if (si < STEPS.length) { setTermLines(prev => [...prev, STEPS[si]]); si++ }
-    }, 22000)
+    setTermLines([])
+    setDashProgress(0)
+    if (stepTimer.current) clearInterval(stepTimer.current)
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
         body: JSON.stringify({ url }),
       })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setAnalysis(data.analysis)
-      setGeneratedHtml(data.generatedHtml)
-      setTermLines(prev => [...prev, { text: '✓ Análise concluída. Pronto para editar_', type: 'ok' }])
+      if (res.status === 402) {
+        setUpgradeModal(true)
+        setAnalyzing(false)
+        return
+      }
+      if (!res.ok || !res.body) {
+        const err = await res.json().catch(() => ({ error: 'Erro ao analisar' }))
+        throw new Error(err.error || 'Erro ao analisar')
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+        for (const part of parts) {
+          if (!part.startsWith('data: ')) continue
+          let ev: { step: string; message: string; percent?: number; data?: { analysis: unknown; generatedHtml: string } }
+          try { ev = JSON.parse(part.slice(6)) } catch { continue }
+          if (ev.step === 'error') throw new Error(ev.message)
+          if (ev.step === 'done' && ev.data) {
+            setDashProgress(100)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const a = ev.data.analysis as any
+            const proj: Project = {
+              id: Date.now().toString(),
+              name: a.page_name || 'Oferta sem nome',
+              score: a.score,
+              html: ev.data.generatedHtml,
+              analysis: a,
+              url,
+              createdAt: Date.now(),
+            }
+            const updated = [proj, ...projects].slice(0, 12)
+            setProjects(updated)
+            localStorage.setItem('cc_projects', JSON.stringify(updated))
+            openEditor({ ...proj, html: injectRevealFix(proj.html) })
+            return
+          }
+          // Progress event
+          if (ev.percent !== undefined) setDashProgress(ev.percent)
+          const isCheck = ev.message.startsWith('✓')
+          setTermLines(prev => [...prev, { text: isCheck ? ev.message : `> ${ev.message}`, type: isCheck ? 'done' : 'wait' }])
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao analisar. Tente novamente.')
+      setDashProgress(0)
     } finally {
-      if (stepTimer.current) clearInterval(stepTimer.current)
       setAnalyzing(false)
     }
   }
 
   function saveAndOpen() {
-    if (pageSaved) return
     if (!analysis) { alert('Análise não concluída ainda.'); return }
     if (!generatedHtml) { alert('Página não foi gerada. Rode a análise novamente.'); return }
+    if (pageSaved) return
     setPageSaved(true)
     const proj: Project = {
       id: Date.now().toString(),
@@ -449,7 +531,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
     try {
       const res = await fetch('/api/edit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
         signal: controller.signal,
         body: JSON.stringify({
           html: editorHtmlRef.current || editorHtml,
@@ -458,6 +540,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
           history: history.slice(-6).map(m => ({ role: m.role, content: m.content })),
         }),
       })
+      if (res.status === 402) {
+        setChatLoading(false)
+        clearTimeout(timeout)
+        setUpgradeModal(true)
+        return
+      }
       if (!res.body) throw new Error('No stream')
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -625,15 +713,18 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
         @media(max-width:640px){.proj-grid{grid-template-columns:1fr}}
         @media(max-width:900px) and (min-width:641px){.proj-grid{grid-template-columns:repeat(2,1fr)}}
         @media(min-width:901px) and (max-width:1280px){.proj-grid{grid-template-columns:repeat(3,1fr)}}
-        .proj-card{background:#111;border:1px solid #1e1e1e;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;position:relative}
-        .proj-card:hover{transform:scale(1.01);border-color:#2a2a2a;box-shadow:0 8px 32px rgba(0,0,0,.5)}
-        .proj-thumb{width:100%;aspect-ratio:16/9;overflow:hidden;position:relative;background:#0a0a0a;border-bottom:1px solid #1a1a1a}
+        .proj-card{background:#111;border:1px solid #1e1e1e;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s,box-shadow .15s;position:relative}
+        .proj-card:hover{transform:scale(1.01);border-color:#333;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+        .proj-thumb{width:100%;height:160px;overflow:hidden;position:relative;background:#0a0a0a;border-bottom:1px solid #1a1a1a}
         .proj-footer{padding:10px 12px;display:flex;flex-direction:column;gap:4px}
         .proj-footer-top{display:flex;align-items:center;gap:8px;width:100%}
-        .proj-avatar{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#E8692A,#f07340);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+        .proj-avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+        .proj-avatar.score-green{background:linear-gradient(135deg,#16a34a,#22c55e)}
+        .proj-avatar.score-yellow{background:linear-gradient(135deg,#d97706,#FF8C00)}
+        .proj-avatar.score-red{background:linear-gradient(135deg,#b91c1c,#ef4444)}
         .proj-name{font-size:14px;font-weight:700;flex:1;color:#ccc;word-break:break-word;line-height:1.3}
         .proj-time{font-size:12px;color:#666}
-        .proj-actions{position:absolute;top:8px;right:8px;display:flex;gap:5px;opacity:0;transition:opacity .18s;pointer-events:none}
+        .proj-actions{position:absolute;top:8px;right:8px;display:flex;gap:5px;opacity:0;transition:opacity .15s;pointer-events:none}
         .proj-card:hover .proj-actions{opacity:1;pointer-events:auto}
         .proj-action-btn{width:28px;height:28px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.75);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;color:#aaa}
         .proj-action-btn:hover{background:rgba(30,30,30,.95);border-color:rgba(255,255,255,.2);color:#fff}
@@ -642,6 +733,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
         /* Terminal */
         .tool-term{background:#060606;border:1px solid #141414;border-radius:10px;overflow:hidden;margin-top:24px}
         .term-bar{background:#0d0d0d;border-bottom:1px solid #141414;padding:9px 14px;display:flex;align-items:center;gap:6px}
+        .term-progress{height:2px;background:#111;position:relative;overflow:hidden}
+        .term-progress-bar{height:100%;background:#FF8C00;transition:width .4s ease;border-radius:0 1px 1px 0}
         .tbd{width:9px;height:9px;border-radius:50%}
         .term-body{padding:16px 20px;font-family:'Space Mono',monospace;font-size:12px;line-height:2;min-height:80px}
         .tl-cmd{color:#2a2a2a;margin-bottom:4px}
@@ -942,13 +1035,16 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
                 </div>
               </form>
 
-              {termLines.length > 0 && (
+              {(termLines.length > 0 || analyzing) && (
                 <div className="tool-term" style={{ maxWidth: 640, margin: '24px auto 0', textAlign: 'left' }}>
                   <div className="term-bar">
                     <div className="tbd" style={{ background: '#ff5f57' }} />
                     <div className="tbd" style={{ background: '#febc2e' }} />
                     <div className="tbd" style={{ background: '#28c840' }} />
                     <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: '#333', marginLeft: 8 }}>clickclone — análise</span>
+                  </div>
+                  <div className="term-progress">
+                    <div className="term-progress-bar" style={{ width: `${dashProgress}%` }} />
                   </div>
                   <div className="term-body">
                     <div className="tl-cmd">$ clickclone analyze --url=&quot;{url.slice(0, 52)}...&quot;</div>
@@ -979,74 +1075,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
 
             {/* Content */}
             <div className="dash-content">
-              {analysis && (
-                <div className="res-wrap" id="analysis-report" style={{ marginBottom: 40 }}>
-                  <div className="res-header">
-                    <div>
-                      <div className="res-eyebrow">Relatório de Inteligência</div>
-                      <div className="res-title">{analysis.page_name}</div>
-                    </div>
-                    <button className="pdf-btn" onClick={() => {
-                      const el = document.getElementById('analysis-report')
-                      if (!el) return
-                      const w = window.open('', '_blank')!
-                      w.document.write(`<html><head><title>Análise — ${analysis.page_name}</title>
-                      <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#000;color:#fff;font-family:system-ui,sans-serif;padding:40px;max-width:900px;margin:0 auto}</style></head><body>${el.innerHTML}</body></html>`)
-                      w.document.close()
-                      setTimeout(() => w.print(), 500)
-                    }}>↓ Baixar PDF</button>
-                  </div>
-
-                  <div className="score-row">
-                    <div className="score-ring-wrap"><ScoreRing score={analysis.score} /></div>
-                    <div className="score-info">
-                      <div className="score-verdict-big" style={{ color: analysis.verdict === 'Vale entrar' ? '#22c55e' : '#ef4444' }}>{analysis.verdict}</div>
-                      <div className="score-reason-text">{analysis.reason}</div>
-                    </div>
-                  </div>
-
-                  <div className="angle-row">
-                    <div className="angle-block">
-                      <div className="card-label">Ângulo dominante</div>
-                      <div className="angle-val">{analysis.dominant_angle}</div>
-                    </div>
-                    {(analysis as Analysis & { niche?: string }).niche && (
-                      <div className="niche-tag">#{(analysis as Analysis & { niche?: string }).niche}</div>
-                    )}
-                  </div>
-
-                  <div className="pts-row">
-                    <div className="pts-card">
-                      <div className="card-label"><span style={{ color: '#ef4444' }}>✗</span> Pontos fracos</div>
-                      {analysis.weak_points.map((p, i) => <div key={i} className="pt-item weak"><span className="ic">✗</span>{p}</div>)}
-                    </div>
-                    <div className="pts-card">
-                      <div className="card-label"><span style={{ color: '#22c55e' }}>✓</span> Pontos fortes</div>
-                      {analysis.strong_points.map((p, i) => <div key={i} className="pt-item strong"><span className="ic">✓</span>{p}</div>)}
-                    </div>
-                  </div>
-
-                  <div className="ctv-header-row">
-                    <div className="card-label" style={{ margin: 0 }}>Scripts CTV recomendados</div>
-                    <div className="ctv-sub">Use estes hooks nos seus criativos</div>
-                  </div>
-                  <div className="ctv-grid">
-                    {analysis.ctv_recommendations.map((r, i) => (
-                      <div key={i} className="ctv-card">
-                        <div className="ctv-num">0{i + 1}</div>
-                        <div className="ctv-angle">{r.angle}</div>
-                        <div className="ctv-hook">"{r.hook}"</div>
-                        <div className="ctv-script">{r.script}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button className="open-btn" onClick={saveAndOpen}>
-                    Modelar página superior →
-                  </button>
-                </div>
-              )}
-
               {visibleProjects.length > 0 ? (
                 <div>
                   <div className="proj-sec-hd">
@@ -1054,36 +1082,53 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
                     <span className="proj-count">{visibleProjects.length} projeto{visibleProjects.length !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="proj-grid">
-                    {visibleProjects.map(p => (
-                      <div key={p.id} className="proj-card" onClick={() => openEditor(p)}>
-                        <ProjectThumb html={p.html} />
-                        <div className="proj-actions">
-                          <button className="proj-action-btn" title="Ver relatório" onClick={e => { e.stopPropagation(); openReport(p) }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                          </button>
-                          <button className="proj-action-btn del" title="Excluir" onClick={e => { e.stopPropagation(); deleteProject(p.id) }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                          </button>
-                        </div>
-                        <div className="proj-footer">
-                          <div className="proj-footer-top">
-                            <div className="proj-avatar">{p.name[0]?.toUpperCase()}</div>
-                            <div className="proj-name">{p.name}</div>
+                    {visibleProjects.map(p => {
+                      const sc = Number(p.analysis?.score) || 0
+                      const avatarCls = sc >= 7 ? 'proj-avatar score-green' : sc >= 4 ? 'proj-avatar score-yellow' : 'proj-avatar score-red'
+                      return (
+                        <div key={p.id} className="proj-card" onClick={() => openEditor(p)}>
+                          <ProjectThumb html={p.html} />
+                          <div className="proj-actions">
+                            <button className="proj-action-btn" title="Ver relatório" onClick={e => { e.stopPropagation(); openReport(p) }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </button>
+                            <button className="proj-action-btn" title="Baixar HTML" onClick={e => {
+                              e.stopPropagation()
+                              const blob = new Blob([p.html], { type: 'text/html' })
+                              const url = URL.createObjectURL(blob)
+                              const a = document.createElement('a')
+                              a.href = url
+                              a.download = `${p.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.html`
+                              a.click()
+                              URL.revokeObjectURL(url)
+                            }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            </button>
+                            <button className="proj-action-btn del" title="Excluir" onClick={e => {
+                              e.stopPropagation()
+                              if (confirm(`Excluir "${p.name}"?`)) deleteProject(p.id)
+                            }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                            </button>
                           </div>
-                          <div className="proj-time">Editado {timeAgo(p.createdAt)}</div>
+                          <div className="proj-footer">
+                            <div className="proj-footer-top">
+                              <div className={avatarCls}>{p.name[0]?.toUpperCase()}</div>
+                              <div className="proj-name">{p.name}</div>
+                            </div>
+                            <div className="proj-time">Editado {timeAgo(p.createdAt)}</div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               ) : (
-                !analysis && (
-                  <div className="empty-state">
-                    <div style={{ fontSize: 32, marginBottom: 12 }}>◇</div>
-                    <div style={{ color: '#444', marginBottom: 6 }}>Nenhum projeto ainda</div>
-                    <div style={{ color: '#2a2a2a', fontSize: 12 }}>Cole um link de Ad Library acima para começar</div>
-                  </div>
-                )
+                <div className="empty-state">
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>◇</div>
+                  <div style={{ color: '#444', marginBottom: 6 }}>Nenhum projeto ainda</div>
+                  <div style={{ color: '#2a2a2a', fontSize: 12 }}>Cole um link de Ad Library acima para começar</div>
+                </div>
               )}
             </div>
           </div>
@@ -1401,6 +1446,34 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
               )}
               <button className="preview-mob-toggle" onClick={() => setMobChatOpen(true)}>Chat ↑</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade modal */}
+      {upgradeModal && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999 }} onClick={() => setUpgradeModal(false)}>
+          <div style={{ background:'#111',border:'1px solid #222',borderRadius:16,padding:'36px 32px',maxWidth:400,width:'90%',textAlign:'center' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:36,marginBottom:12 }}>🔒</div>
+            <h2 style={{ fontSize:20,fontWeight:800,color:'#fff',marginBottom:10 }}>Limite atingido</h2>
+            <p style={{ color:'#888',fontSize:14,lineHeight:1.6,marginBottom:24 }}>
+              Você usou todas as suas análises gratuitas.<br />
+              Assine o ClickClone Pro e ganhe <strong style={{ color:'#fff' }}>10 análises/mês</strong> + edição ilimitada por apenas <strong style={{ color:'#E8692A' }}>R$57,90/mês</strong>.
+            </p>
+            <a
+              href="https://pay.kirvano.com/clickclone"
+              target="_blank"
+              rel="noreferrer"
+              style={{ display:'block',background:'#E8692A',color:'#fff',padding:'13px 0',borderRadius:8,fontWeight:700,fontSize:15,textDecoration:'none',marginBottom:10 }}
+            >
+              Assinar agora →
+            </a>
+            <button
+              onClick={() => setUpgradeModal(false)}
+              style={{ background:'transparent',border:'1px solid #333',color:'#666',padding:'10px 0',borderRadius:8,fontWeight:500,fontSize:14,cursor:'pointer',width:'100%' }}
+            >
+              Fechar
+            </button>
           </div>
         </div>
       )}

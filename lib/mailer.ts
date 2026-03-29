@@ -10,26 +10,47 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-export async function sendWelcomeEmail(email: string, name: string) {
+const BASE_URL = process.env.NEXT_PUBLIC_URL || 'https://clickclone.com.br'
+
+export async function sendWelcomeEmail(email: string, name: string, tempPassword: string) {
   if (!process.env.SMTP_USER) return // skip if not configured
 
   await transporter.sendMail({
     from: `"ClickClone" <${process.env.SMTP_USER}>`,
     to: email,
-    subject: 'Bem-vindo ao ClickClone! 🎉',
+    subject: 'Seu acesso ao ClickClone está pronto! 🎉',
     html: `
-      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#111">
-        <h2 style="margin-top:0">Olá${name ? ', ' + name : ''}!</h2>
-        <p>Seu acesso ao ClickClone está ativo. Você começa com:</p>
-        <ul>
-          <li>20 análises de páginas</li>
-          <li>100 créditos de edição</li>
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#111;background:#fff;padding:32px;border-radius:12px">
+        <h2 style="margin-top:0;color:#E8692A">Olá${name ? ', ' + name : ''}! 👋</h2>
+        <p style="color:#444">Seu acesso ao ClickClone foi ativado. Use os dados abaixo para entrar:</p>
+
+        <div style="background:#f5f5f5;border-radius:8px;padding:20px;margin:20px 0;border-left:4px solid #E8692A">
+          <p style="margin:0 0 8px 0;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:.5px">Seus dados de acesso</p>
+          <p style="margin:4px 0"><strong>Login:</strong> ${email}</p>
+          <p style="margin:4px 0"><strong>Senha temporária:</strong> <code style="background:#e0e0e0;padding:2px 6px;border-radius:4px;font-size:15px">${tempPassword}</code></p>
+        </div>
+
+        <p style="color:#666;font-size:13px">
+          ⚠️ No primeiro acesso você poderá definir sua senha permanente.<br>
+          Basta fazer login com a senha acima e digitar a nova senha que quiser.
+        </p>
+
+        <p style="color:#444">Você começa com:</p>
+        <ul style="color:#444">
+          <li>✅ 10 análises de concorrentes</li>
+          <li>✅ 100 créditos de edição</li>
+          <li>✅ Geração ilimitada de páginas</li>
         </ul>
-        <p><a href="${process.env.NEXT_PUBLIC_URL || 'https://clickclone.com.br'}/tool"
-              style="background:#E8692A;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
-          Acessar agora →
-        </a></p>
-        <p style="color:#666;font-size:13px">Dúvidas? Fale no WhatsApp.</p>
+
+        <a href="${BASE_URL}/login"
+           style="display:inline-block;background:#E8692A;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;margin-top:8px">
+          Fazer login agora →
+        </a>
+
+        <p style="color:#999;font-size:12px;margin-top:24px">
+          Dúvidas? Responda este email ou fale no WhatsApp.<br>
+          <a href="${BASE_URL}/login" style="color:#E8692A">${BASE_URL}/login</a>
+        </p>
       </div>
     `,
   })

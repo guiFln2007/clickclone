@@ -621,7 +621,7 @@ export default function LandingPage() {
               <span className="badge">Plano único</span>
             </div>
             {[
-              '20 análises por mês',
+              '10 análises por mês',
               '100 créditos de edição (~1 crédito por prompt)',
               'Score completo da oferta',
               'Ângulo + pontos fracos + pontos fortes',

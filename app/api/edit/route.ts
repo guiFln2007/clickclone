@@ -1,5 +1,11 @@
 import { NextRequest } from 'next/server'
 import { query } from '@anthropic-ai/claude-agent-sdk'
+import {
+  dbGetUserById,
+  dbDecrementCreditos,
+  dbGetFreeUsage,
+  dbIncrementFreeCreditos,
+} from '@/lib/db'
 
 export const maxDuration = 300
 
@@ -103,10 +109,31 @@ QUANDO PEDIREM:
 
 export async function POST(req: NextRequest) {
   try {
-    // Auth guard
-    const userId = req.headers.get('x-user-id')
+    const userIdHeader = req.headers.get('x-user-id')
+    const userId = userIdHeader ? Number(userIdHeader) : null
+
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown'
+    const sessionId = req.headers.get('x-session-id') || 'anonymous'
+
     if (!userId) {
-      return Response.json({ error: 'Não autenticado' }, { status: 401 })
+      const freeUsage = await dbGetFreeUsage(ip, sessionId)
+      if ((freeUsage?.creditos_usados ?? 0) >= 5) {
+        return Response.json({
+          error: 'Créditos gratuitos esgotados. Acesse o ClickClone completo com 100 créditos por apenas R$XX.',
+          upgrade: true,
+        }, { status: 402 })
+      }
+    } else {
+      const user = await dbGetUserById(userId)
+      if (!user || !user.ativo) {
+        return Response.json({ error: 'Conta inativa ou não encontrada.' }, { status: 403 })
+      }
+      if (user.creditos <= 0) {
+        return Response.json({
+          error: 'Créditos esgotados. Faça upgrade para continuar.',
+          upgrade: true,
+        }, { status: 402 })
+      }
     }
 
     const { html, message, analysis, history = [] } = await req.json()
@@ -180,6 +207,15 @@ export async function POST(req: NextRequest) {
             updatedHtml = html
             reply = fullText.trim() || 'Feito!'
             editType = 'none'
+          }
+
+          // Decrementa crédito após edição bem-sucedida
+          if (editType !== 'none') {
+            if (userId) {
+              await dbDecrementCreditos(userId)
+            } else {
+              await dbIncrementFreeCreditos(ip, sessionId)
+            }
           }
 
           controller.enqueue(

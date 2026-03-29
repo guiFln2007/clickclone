@@ -9,20 +9,35 @@ const db = createClient({
 let initialized = false
 export async function initDb() {
   if (initialized) return
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS users (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      email       TEXT    NOT NULL UNIQUE,
-      name        TEXT,
-      hash        TEXT,
-      plano       TEXT    NOT NULL DEFAULT 'pro',
-      analises    INTEGER NOT NULL DEFAULT 20,
-      creditos    INTEGER NOT NULL DEFAULT 100,
-      ativo       INTEGER NOT NULL DEFAULT 1,
-      kirvano_id  TEXT,
-      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-    )
-  `)
+  await db.batch([
+    {
+      sql: `CREATE TABLE IF NOT EXISTS users (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        email       TEXT    NOT NULL UNIQUE,
+        name        TEXT,
+        hash        TEXT,
+        plano       TEXT    NOT NULL DEFAULT 'pro',
+        analises    INTEGER NOT NULL DEFAULT 10,
+        creditos    INTEGER NOT NULL DEFAULT 100,
+        ativo       INTEGER NOT NULL DEFAULT 1,
+        kirvano_id  TEXT,
+        created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS free_usage (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip              TEXT NOT NULL,
+        session_id      TEXT NOT NULL,
+        analises_usadas INTEGER NOT NULL DEFAULT 0,
+        creditos_usados INTEGER NOT NULL DEFAULT 0,
+        created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(ip, session_id)
+      )`,
+      args: [],
+    },
+  ])
   initialized = true
 }
 
@@ -36,6 +51,15 @@ export type User = {
   creditos: number
   ativo: number
   kirvano_id: string | null
+  created_at: string
+}
+
+export type FreeUsage = {
+  id: number
+  ip: string
+  session_id: string
+  analises_usadas: number
+  creditos_usados: number
   created_at: string
 }
 
@@ -87,17 +111,33 @@ export async function dbSetHash(email: string, hash: string) {
   await db.execute({ sql: 'UPDATE users SET hash = ? WHERE email = ?', args: [hash, email] })
 }
 
-export async function dbActivateUser(kirvano_id: string, email: string, name: string): Promise<User> {
+export async function dbActivateUser(kirvano_id: string, email: string, name: string, hash?: string): Promise<User> {
   await initDb()
   const existing = await dbGetUserByEmail(email)
   if (existing) {
     await db.execute({
-      sql: 'UPDATE users SET ativo = 1, kirvano_id = ?, name = ? WHERE email = ?',
-      args: [kirvano_id, name, email],
+      sql: 'UPDATE users SET ativo = 1, plano = ?, analises = 10, creditos = 100, kirvano_id = ?, name = ? WHERE email = ?',
+      args: ['pro', kirvano_id, name, email],
     })
     return (await dbGetUserByEmail(email))!
   }
-  return dbCreateUser({ email, name, kirvano_id })
+  return dbCreateUser({ email, name, kirvano_id, hash })
+}
+
+export async function dbRenewUser(email: string): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: 'UPDATE users SET ativo = 1, plano = ?, analises = 10, creditos = 100 WHERE email = ?',
+    args: ['pro', email],
+  })
+}
+
+export async function dbDeactivateUser(email: string): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: "UPDATE users SET plano = 'inativo', ativo = 0 WHERE email = ?",
+    args: [email],
+  })
 }
 
 export async function dbDecrementCreditos(userId: number): Promise<boolean> {
@@ -116,6 +156,46 @@ export async function dbDecrementAnalises(userId: number): Promise<boolean> {
     args: [userId],
   })
   return (res.rowsAffected ?? 0) > 0
+}
+
+// ── Free usage (usuários sem conta) ─────────────────────────────────────────
+
+export async function dbGetFreeUsage(ip: string, sessionId: string): Promise<FreeUsage | null> {
+  await initDb()
+  const res = await db.execute({
+    sql: 'SELECT * FROM free_usage WHERE ip = ? AND session_id = ?',
+    args: [ip, sessionId],
+  })
+  if (!res.rows[0]) return null
+  const r = res.rows[0] as Record<string, unknown>
+  return {
+    id: r.id as number,
+    ip: r.ip as string,
+    session_id: r.session_id as string,
+    analises_usadas: r.analises_usadas as number,
+    creditos_usados: r.creditos_usados as number,
+    created_at: r.created_at as string,
+  }
+}
+
+export async function dbIncrementFreeAnalises(ip: string, sessionId: string): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: `INSERT INTO free_usage (ip, session_id, analises_usadas, creditos_usados)
+          VALUES (?, ?, 1, 0)
+          ON CONFLICT(ip, session_id) DO UPDATE SET analises_usadas = analises_usadas + 1`,
+    args: [ip, sessionId],
+  })
+}
+
+export async function dbIncrementFreeCreditos(ip: string, sessionId: string): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: `INSERT INTO free_usage (ip, session_id, analises_usadas, creditos_usados)
+          VALUES (?, ?, 0, 1)
+          ON CONFLICT(ip, session_id) DO UPDATE SET creditos_usados = creditos_usados + 1`,
+    args: [ip, sessionId],
+  })
 }
 
 export default db
