@@ -530,7 +530,46 @@ Paleta no :root: --bg, --bg-alt, --surface, --text, --text-muted, --accent, --ac
 Botões: border-radius:99px, gradiente acento, font-weight:900, @keyframes pulse no CTA principal.
 Animações CSS permitidas: gradiente animado no hero, pulse no botão, hover transition nos cards.
 ZERO IntersectionObserver. ZERO JS para revelar conteúdo. Tudo visível por padrão no load.
-PRIMEIRA LINHA DO CSS (obrigatório): html,body{margin:0;padding:0;background:var(--bg,#0a0a0a);color:var(--text,#fff);opacity:1!important;visibility:visible!important}`
+PRIMEIRA LINHA DO CSS (obrigatório): html,body{margin:0;padding:0;background:var(--bg,#0a0a0a);color:var(--text,#fff);opacity:1!important;visibility:visible!important;overflow-x:hidden}
+
+━━━ RESPONSIVIDADE — INEGOCIÁVEL ━━━
+Use CSS Grid e Flexbox. NUNCA posicionamento fixo/absoluto para layout de conteúdo.
+ZERO overflow-x em mobile — overflow-x:hidden no body é obrigatório.
+Teste mental antes de fechar: "se reduzir para 375px, tudo é legível e clicável?"
+
+DESKTOP (min-width: 1025px):
+- Hero font-size: clamp(48px, 6vw, 72px)
+- Padding horizontal: 80px
+- Max-width: 1200px centralizado
+- Grids: 3-4 colunas onde fizer sentido
+
+TABLET @media (max-width: 1024px):
+- Hero font-size: clamp(36px, 5vw, 48px)
+- Padding horizontal: 32px
+- Grids: máximo 2 colunas
+- Cards: grid 2 colunas
+- Pricing: lado a lado se couber, senão stack
+
+MOBILE @media (max-width: 768px):
+- Hero font-size: clamp(28px, 7vw, 36px) — NUNCA maior que 36px
+- Padding horizontal: 16px
+- TUDO em 1 coluna: grid-template-columns: 1fr
+- Botões: width:100%; min-height:52px; padding:16px
+- CTAs: largura total, sem texto cortado
+- Input fields: width:100%; box-sizing:border-box
+- Imagens: max-width:100%; height:auto
+- Nav: links empilhados ou hamburger
+- Cards: stack vertical, sem grid
+- Font-size mínimo: 14px em qualquer elemento
+- Pricing cards: empilhados (flex-direction:column)
+
+MOBILE PEQUENO @media (max-width: 480px):
+- Padding horizontal: 12px
+- Hero font-size: clamp(24px, 8vw, 32px)
+- Todos os grid: grid-template-columns: 1fr !important
+
+PADRÃO DE GRID RESPONSIVO OBRIGATÓRIO para cards/features/depoimentos:
+display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:20px`
 
   const visualDirection = `━━━ DIREÇÃO VISUAL OBRIGATÓRIA ━━━
 Analise o nicho "${niche}" e o ângulo "${analysis.dominant_angle}" e escolha a estética mais adequada:
@@ -571,10 +610,11 @@ Se o produto original tem um campo onde o usuário digita algo e recebe um resul
 □ Mecanismo central presente e funcional? (${funnel === 'ferramenta_freemium' ? 'input + simulação JS com dados reais do nicho' : funnel === 'quiz' ? 'quiz com ≥5 perguntas JS + resultado bloqueado' : funnel === 'vsl' ? 'player de vídeo principal visível' : 'CTA/formulário principal funcionando'})
 □ Pricing com valor real (${price}) aparece na página?
 □ CTA principal aparece ≥3 vezes?
-□ Animações CSS implementadas: pulse no CTA, hover:transform nos cards, gradiente animado no hero?
-□ Página tem ≥8 seções completas com conteúdo real (não placeholder)?
-□ ZERO IntersectionObserver — todo conteúdo visível imediatamente no load?
-□ Marcadores <!-- cc:X --> envolvendo todas as seções principais?
+□ Animações CSS: pulse no CTA, hover:transform nos cards, gradiente animado?
+□ Página tem ≥8 seções completas com conteúdo real?
+□ ZERO IntersectionObserver — todo conteúdo visível no load?
+□ Marcadores <!-- cc:X --> em todas as seções principais?
+□ RESPONSIVIDADE: overflow-x:hidden no body; grids usam auto-fit/minmax ou 1fr em mobile; botões width:100% em ≤768px; hero font-size ≤36px em mobile; padding ≤16px em mobile?
 Se qualquer item faltar → adicione antes de fechar.`
 
   const briefing = `${preAnalysis}
