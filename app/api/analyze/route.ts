@@ -526,13 +526,11 @@ INSTRUÇÕES DE USO DE MÍDIA:
 NICHO: ${niche} | VIBE: ${designVibe} | COR PRINCIPAL: ${primaryColor}
 CORES CSS: ${cssColors} | FONTES: ${cssFonts}
 Mobile-first. Wrapper: max-width:1200px desktop / 560px mobile; margin:0 auto; padding:0 20px.
-Paleta obrigatória no :root: --bg, --bg-alt, --surface, --text, --text-muted, --accent, --accent-2, --border, --accent-alpha.
-Botões: border-radius:99px (pílula), gradiente acento, font-weight:900, pulse animation no CTA principal.
-IntersectionObserver OBRIGATÓRIO para fade-in das seções (opacity:0→1, translateY:30px→0).
-Contadores animados para números de prova social (0→N em 2s).
-PRIMEIRA LINHA DO CSS (obrigatório): html,body{margin:0;padding:0;background:var(--bg,#fff);color:var(--text,#111);opacity:1!important;visibility:visible!important}
-Elementos que usam IntersectionObserver: iniciar com opacity:0 é permitido SOMENTE se o JS do observer rodar no DOMContentLoaded e funcionar sem falhas. Adicione classe .visible via JS, não dependa de scroll.
-NUNCA deixe conteúdo principal invisível no estado inicial sem garantia de reveal via JS síncrono.`
+Paleta no :root: --bg, --bg-alt, --surface, --text, --text-muted, --accent, --accent-2, --border, --accent-alpha.
+Botões: border-radius:99px, gradiente acento, font-weight:900, @keyframes pulse no CTA principal.
+Animações CSS permitidas: gradiente animado no hero, pulse no botão, hover transition nos cards.
+ZERO IntersectionObserver. ZERO JS para revelar conteúdo. Tudo visível por padrão no load.
+PRIMEIRA LINHA DO CSS (obrigatório): html,body{margin:0;padding:0;background:var(--bg,#0a0a0a);color:var(--text,#fff);opacity:1!important;visibility:visible!important}`
 
   const visualDirection = `━━━ DIREÇÃO VISUAL OBRIGATÓRIA ━━━
 Analise o nicho "${niche}" e o ângulo "${analysis.dominant_angle}" e escolha a estética mais adequada:
@@ -1012,12 +1010,11 @@ CORES:
 - Defina no :root: --bg, --bg-alt, --surface, --text, --text-muted, --accent, --accent-2, --border
 - OBRIGATÓRIO: html,body{background:var(--bg);color:var(--text);opacity:1!important;visibility:visible!important} como primeira regra CSS
 
-MOTION E ANIMAÇÕES OBRIGATÓRIAS:
-- IntersectionObserver para fade-in suave nas seções ao scrollar (opacity 0→1, translateY 30px→0, 0.6s ease)
-- Contador animado nos números (ex: "0 → 47.832 alunos" em 2s) via JS
-- Botão CTA com pulse suave: @keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--accent-alpha)}50%{box-shadow:0 0 0 12px transparent}}
-- Hero gradient animado: @keyframes gradShift que rotaciona o ângulo do gradiente lentamente
-- Hover nos cards com transform:translateY(-4px) e box-shadow elevado
+ANIMAÇÕES (CSS puro — zero JS para revelar conteúdo):
+- Botão CTA com pulse: @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(accent,0.4)}50%{box-shadow:0 0 0 14px transparent}}
+- Hero gradient animado: @keyframes gradShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}} com background-size:200%
+- Hover nos cards: transition:transform 0.2s,box-shadow 0.2s + hover{transform:translateY(-4px)}
+- PROIBIDO: IntersectionObserver, qualquer JS que mude opacity/visibility/display após load
 
 LAYOUT:
 - Seções com padding generoso: 80px-120px vertical
@@ -1042,12 +1039,23 @@ IMAGENS:
 - object-fit:cover em containers com aspect-ratio definido
 - Adicione onerror="this.style.display='none'" em todo <img>
 
+MARCADORES DE SEÇÃO (CRÍTICO — sem isso o editor ao vivo não funciona):
+Envolva cada seção com comentários exatos no formato abaixo. Sem exceção.
+<!-- cc:announce -->[barra de topo]<!-- /cc:announce -->
+<!-- cc:hero -->[seção hero completa]<!-- /cc:hero -->
+<!-- cc:benefits -->[benefícios/features]<!-- /cc:benefits -->
+<!-- cc:testimonials -->[depoimentos]<!-- /cc:testimonials -->
+<!-- cc:guarantee -->[garantia]<!-- /cc:guarantee -->
+<!-- cc:faq -->[FAQ]<!-- /cc:faq -->
+<!-- cc:cta-final -->[CTA final]<!-- /cc:cta-final -->
+Inclua apenas os marcadores das seções presentes. O <style> e <script> ficam FORA dos marcadores.
+
 PROIBIDO:
-- Bootstrap, Tailwind, jQuery, qualquer CDN
+- Bootstrap, Tailwind, jQuery, qualquer CDN externo
 - Fontes genéricas (Arial, Helvetica, sans-serif puro)
-- Animações que dependem de JS para exibir conteúdo no load inicial (tela preta)
-- opacity:0 ou display:none em elementos visíveis no load
-- Design genérico, sem personalidade`,
+- IntersectionObserver ou qualquer JS que revele conteúdo após load (causa tela preta)
+- opacity:0 ou display:none em elementos visíveis no load inicial
+- Design genérico sem personalidade`,
           'claude-sonnet-4-6',
           16000
         )
