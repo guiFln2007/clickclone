@@ -3,6 +3,7 @@ import { load } from 'cheerio'
 import {
   dbGetUserById,
   dbDecrementAnalises,
+  dbDecrementCreditosN,
   dbGetFreeUsage,
   dbIncrementFreeAnalises,
   dbLogAnalysis,
@@ -14,7 +15,7 @@ export const maxDuration = 300
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
-async function callClaude(prompt: string, systemPrompt?: string, model = 'claude-sonnet-4-6', maxTokens = 1024): Promise<string> {
+async function callClaude(prompt: string, systemPrompt?: string, model = 'claude-sonnet-4-6', maxTokens = 1024): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   console.log('[callClaude] model:', model, '| prompt size:', prompt.length, 'chars | system size:', systemPrompt?.length ?? 0, 'chars')
   try {
     const Anthropic = (await import('@anthropic-ai/sdk')).default
@@ -27,15 +28,21 @@ async function callClaude(prompt: string, systemPrompt?: string, model = 'claude
     })
     const text = response.content.find(b => b.type === 'text')
     const result = text && text.type === 'text' ? text.text : ''
-    console.log('[callClaude] resultado size:', result.length, 'chars')
-    return result
+    console.log('[callClaude] resultado size:', result.length, 'chars | tokens:', response.usage.input_tokens, '+', response.usage.output_tokens)
+    return { text: result, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
   } catch (err) {
     const e = err as Error
     console.error('[callClaude] ERRO nome:', e?.name)
     console.error('[callClaude] ERRO mensagem:', e?.message)
     console.error('[callClaude] ERRO stack:', e?.stack?.slice(0, 500))
-    return `__CLAUDE_ERROR__:${e?.message || String(err)}`
+    return { text: `__CLAUDE_ERROR__:${e?.message || String(err)}`, inputTokens: 0, outputTokens: 0 }
   }
+}
+
+function computeCredits(inputTokens: number, outputTokens: number, model: string): number {
+  const isHaiku = model.includes('haiku')
+  const costUSD = (inputTokens / 1000 * (isHaiku ? 0.001 : 0.003)) + (outputTokens / 1000 * (isHaiku ? 0.005 : 0.015))
+  return Math.max(1, Math.ceil(costUSD / 0.01))
 }
 
 function sleep(ms: number) {
@@ -1058,7 +1065,7 @@ export async function POST(req: NextRequest) {
 
         // 3. Análise Claude
         send({ step: 'scoring', message: 'Calculando score e identificando ângulos...', percent: 50 })
-        const analysisText = await callClaude(`TOTAL DE ANÚNCIOS ATIVOS: ${ads.length}
+        const { text: analysisText, inputTokens: analysisInputTokens, outputTokens: analysisOutputTokens } = await callClaude(`TOTAL DE ANÚNCIOS ATIVOS: ${ads.length}
 
 TODOS OS ANÚNCIOS (copies completos):
 ${JSON.stringify(adsForClaude)}
@@ -1135,7 +1142,7 @@ SCHEMA OBRIGATÓRIO:
         const keepAlive = setInterval(() => {
           try { controller.enqueue(encoder.encode(': ping\n\n')) } catch {}
         }, 15000)
-        const rawText = await callClaude(
+        const { text: rawText, inputTokens: htmlInputTokens, outputTokens: htmlOutputTokens } = await callClaude(
           buildHtmlPrompt(analysis, landingPage, adCopies, pageMedia),
           `Você é um designer frontend de elite especializado em landing pages de conversão de alto impacto para o mercado brasileiro de infoprodutos e SaaS.
 
@@ -1247,9 +1254,15 @@ setTimeout(reveal,300);setTimeout(reveal,800);
         generatedHtml = generatedHtml.replace('</body>', revealFix + '</body>')
 
         // Decrementa uso após sucesso e loga
+        const analysisCreditCost = computeCredits(
+          analysisInputTokens + htmlInputTokens,
+          analysisOutputTokens + htmlOutputTokens,
+          'claude-sonnet-4-6'
+        )
         let newAnalises: number | undefined
         if (userId) {
           await dbDecrementAnalises(userId)
+          await dbDecrementCreditosN(userId, analysisCreditCost)
           const updatedUser = await dbGetUserById(userId)
           newAnalises = updatedUser?.analises
         } else {

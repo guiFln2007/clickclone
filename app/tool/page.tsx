@@ -602,20 +602,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
     reader.readAsDataURL(file)
   }
 
-  function estimateCost(message: string): number {
-    const lower = message.toLowerCase()
-    // Rebuilds completos custam mais
-    if (/rebuild|redesign|refaz|recria|do zero|do início|completo/.test(lower)) return 5
-    // Adições de seção nova
-    if (/adiciona|adicione|cria uma seção|nova seção|coloca um|insere/.test(lower)) return 3
-    // Edições grandes
-    if (message.length > 150) return 3
-    // Edições médias
-    if (message.length > 80) return 2
-    // Edições pequenas (cor, texto, botão)
-    return 1
-  }
-
   async function sendChat(e: React.FormEvent) {
     e.preventDefault()
     const msg = chatInput.trim()
@@ -639,7 +625,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
     const effectiveMessage = imageToSend
       ? `${msg ? msg + '\n\n' : ''}Analise esta imagem e aplique as mudanças necessárias na página:\n${imageToSend.dataUrl}`
       : msg
-    const cost = estimateCost(msg)
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 240000)
     try {
@@ -652,7 +637,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
           message: effectiveMessage,
           analysis: currentProject?.analysis,
           history: history.slice(-6).map(m => ({ role: m.role, content: m.content })),
-          estimatedCost: cost,
         }),
       })
       if (res.status === 402) {
@@ -1596,16 +1580,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
                         </button>
-                      )}
-                      {creditos !== null && chatInput.trim() && (
-                        <span style={{
-                          fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 5,
-                          background: '#1a1a1a', border: '1px solid #222',
-                          color: creditos === 0 ? '#ef4444' : creditos <= 20 ? '#eab308' : '#666',
-                          marginRight: 4,
-                        }}>
-                          ⚡{estimateCost(chatInput)}
-                        </span>
                       )}
                       <button className="chat-send-btn" type="submit" disabled={(!chatInput.trim() && !pendingImage) || chatLoading || (creditos !== null && creditos === 0)}>
                         {chatLoading
