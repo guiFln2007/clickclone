@@ -164,6 +164,57 @@ function extractAdVideos(ads: Record<string, unknown>[]): string[] {
 
 type ImageMeta = { src: string; alt: string; ctx: string }
 
+type MediaItem = {
+  url: string
+  type: 'image' | 'video'
+  role: 'hero' | 'product' | 'person' | 'badge' | 'background' | 'video' | 'unknown'
+  alt?: string
+  width?: number
+  height?: number
+}
+
+function classifyMediaItems(items: Array<{url: string, type: 'image'|'video', alt?: string, width?: number, height?: number}>): MediaItem[] {
+  return items.map((item, index) => {
+    let role: MediaItem['role'] = 'unknown'
+    const url = item.url.toLowerCase()
+    const alt = (item.alt || '').toLowerCase()
+
+    if (item.type === 'video') {
+      role = 'video'
+    } else if (
+      alt.includes('garantia') || alt.includes('seguro') || alt.includes('certificado') ||
+      alt.includes('pagamento') || alt.includes('cartão') || alt.includes('pix') ||
+      url.includes('garantia') || url.includes('badge') || url.includes('seal') || url.includes('pagamento')
+    ) {
+      role = 'badge'
+    } else if (
+      alt.includes('fundo') || alt.includes('background') || alt.includes('bg') ||
+      url.includes('background') || url.includes('/bg') || url.includes('fundo')
+    ) {
+      role = 'background'
+    } else if (
+      alt.includes('produto') || alt.includes('ebook') || alt.includes('mockup') ||
+      url.includes('produto') || url.includes('ebook') || url.includes('mockup') || url.includes('product')
+    ) {
+      role = 'product'
+    } else if (
+      alt.includes('foto') || alt.includes('depoimento') || alt.includes('pessoa') ||
+      alt.includes('cliente') || alt.includes('autor') || alt.includes('especialista') ||
+      url.includes('person') || url.includes('people') || url.includes('user') || url.includes('avatar') || url.includes('depoimento')
+    ) {
+      role = 'person'
+    } else if (item.width && item.height && item.width > item.height * 1.5) {
+      role = 'hero'
+    } else if (index === 0) {
+      role = 'hero'
+    } else {
+      role = 'hero'
+    }
+
+    return { ...item, role }
+  })
+}
+
 function classifyMedia(images: ImageMeta[], videos: string[]): {
   hero: string | null
   product: string | null
@@ -286,6 +337,29 @@ async function scrapeLandingPageHeadless(url: string) {
       if (t.length > 20) testimonials.push(t.slice(0, 300))
     })
 
+    // Extract media from headless HTML
+    const headlessMediaRaw: Array<{url: string, type: 'image'|'video', alt?: string}> = []
+    $('img').each((_, el) => {
+      const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src') || ''
+      const alt = $(el).attr('alt') || ''
+      if (src && !src.startsWith('data:') && src.length > 10) {
+        const absoluteUrl = src.startsWith('http') ? src : (() => { try { return new URL(src, url).toString() } catch { return '' } })()
+        if (absoluteUrl) headlessMediaRaw.push({ url: absoluteUrl, type: 'image', alt })
+      }
+    })
+    $('video source, video').each((_, el) => {
+      const src = $(el).attr('src') || ''
+      if (src) {
+        const absoluteUrl = src.startsWith('http') ? src : (() => { try { return new URL(src, url).toString() } catch { return '' } })()
+        if (absoluteUrl) headlessMediaRaw.push({ url: absoluteUrl, type: 'video' })
+      }
+    })
+    const ogImage = $('meta[property="og:image"]').attr('content') || ''
+    const twitterImage = $('meta[name="twitter:image"]').attr('content') || ''
+    if (ogImage) headlessMediaRaw.unshift({ url: ogImage, type: 'image', alt: 'og-hero' })
+    if (twitterImage && twitterImage !== ogImage) headlessMediaRaw.unshift({ url: twitterImage, type: 'image', alt: 'twitter-hero' })
+    const media = classifyMediaItems(headlessMediaRaw.slice(0, 30))
+
     return {
       title: d.title || '',
       headings: d.headings || [],
@@ -298,6 +372,7 @@ async function scrapeLandingPageHeadless(url: string) {
       fullText: d.text || '',
       structuredHtml: (d.html || '').slice(0, 20000),
       design: { colors: d.colors || [], fonts: [] },
+      media,
     }
   } catch (e) {
     console.warn('[Headless] Falha:', e)
@@ -361,6 +436,22 @@ async function scrapeLandingPage(url: string) {
 
     $('style').remove()
 
+    // Extract classified media
+    const staticMediaRaw: Array<{url: string, type: 'image'|'video', alt?: string}> = []
+    images.forEach(img => {
+      if (img.src && !img.src.startsWith('data:') && img.src.length > 10) {
+        staticMediaRaw.push({ url: img.src, type: 'image', alt: img.alt })
+      }
+    })
+    videos.forEach(videoSrc => {
+      if (videoSrc) staticMediaRaw.push({ url: videoSrc, type: 'video' })
+    })
+    const ogImageStatic = $('meta[property="og:image"]').attr('content') || ''
+    const twitterImageStatic = $('meta[name="twitter:image"]').attr('content') || ''
+    if (ogImageStatic) staticMediaRaw.unshift({ url: ogImageStatic, type: 'image', alt: 'og-hero' })
+    if (twitterImageStatic && twitterImageStatic !== ogImageStatic) staticMediaRaw.unshift({ url: twitterImageStatic, type: 'image', alt: 'twitter-hero' })
+    const media = classifyMediaItems(staticMediaRaw.slice(0, 30))
+
     return {
       title: $('title').text().trim(),
       headings: $('h1, h2, h3, h4').map((_, el) => $(el).text().trim()).get().filter(Boolean).slice(0, 20),
@@ -377,6 +468,7 @@ async function scrapeLandingPage(url: string) {
         colors: [...new Set([...colorMatches, ...inlineColors])].slice(0, 20),
         fonts: fontMatches.map(f => f.replace('font-family:', '').trim()).slice(0, 5),
       },
+      media,
     }
   } catch (e) {
     console.warn('[Landing] Falha ao scraper landing page:', e)
@@ -398,7 +490,7 @@ function extractLandingUrl(ads: Record<string, unknown>[]): string | null {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildHtmlPrompt(analysis: any, landingPage: any, hero: string | null, product: string | null, persons: string[], videos: string[], adCopies: string): string {
+function buildHtmlPrompt(analysis: any, landingPage: any, hero: string | null, product: string | null, persons: string[], videos: string[], adCopies: string, media: MediaItem[] = []): string {
   const funnel = (analysis.funnel_type as string) || 'landing_page'
   const price = analysis.price_anchor || landingPage?.prices?.[0] || 'R$19,90'
   const pageName = analysis.page_name
@@ -424,6 +516,33 @@ ${product ? `[PRODUTO] <img src="${product}" alt="produto" style="display:block;
 ${persons.length > 0 ? `[PESSOAS] avatares:\n${persons.map((p, i) => `  [P${i+1}] <img src="${p}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)">`).join('\n')}` : '[PESSOAS] não disponível — círculos CSS com inicial'}
 ${videos.length > 0 ? `[VÍDEOS]:\n${videos.map((v, i) => `  [V${i+1}] <video src="${v}" ${i===0?'autoplay muted loop playsinline':'controls'} style="display:block;margin:32px auto;max-width:560px;width:100%;border-radius:16px"></video>`).join('\n')}` : '[VÍDEOS] não disponível'}
 ⚠️ Nunca invente URLs. Use cada asset EXATAMENTE como está.`
+
+  const heroImages = media.filter(m => m.role === 'hero').slice(0, 2)
+  const productImages = media.filter(m => m.role === 'product').slice(0, 3)
+  const personImages = media.filter(m => m.role === 'person').slice(0, 5)
+  const badgeImages = media.filter(m => m.role === 'badge').slice(0, 6)
+  const mediaVideos = media.filter(m => m.role === 'video').slice(0, 2)
+  const bgImages = media.filter(m => m.role === 'background').slice(0, 2)
+
+  const mediaSection = media.length > 0 ? `
+
+MÍDIAS REAIS DO CONCORRENTE (use estas URLs diretamente no HTML):
+${heroImages.length > 0 ? `Hero images: ${heroImages.map(m => m.url).join(', ')}` : ''}
+${productImages.length > 0 ? `Produto: ${productImages.map(m => m.url).join(', ')}` : ''}
+${personImages.length > 0 ? `Pessoas/depoimentos: ${personImages.map(m => m.url).join(', ')}` : ''}
+${badgeImages.length > 0 ? `Badges/selos: ${badgeImages.map(m => m.url).join(', ')}` : ''}
+${mediaVideos.length > 0 ? `Vídeos: ${mediaVideos.map(m => m.url).join(', ')}` : ''}
+${bgImages.length > 0 ? `Backgrounds: ${bgImages.map(m => m.url).join(', ')}` : ''}
+
+INSTRUÇÕES DE USO DE MÍDIA:
+- Use as URLs hero como src da imagem/vídeo principal no hero da página
+- Use as URLs de pessoas como fotos nos depoimentos (com nomes fictícios plausíveis)
+- Use os badges de garantia/pagamento na seção de garantia e próximo ao CTA
+- Use as imagens de produto na seção de apresentação do produto
+- Se funnel_type é "vsl" e há vídeos disponíveis, use-os como VSL principal
+- Em TODOS os <img> e <video>, adicione: onerror="this.style.display='none';this.parentElement.classList.add('media-fallback')"
+- Adicione no CSS: .media-fallback{background:linear-gradient(135deg,#1a1a1a,#2a2a2a);min-height:200px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+- .media-fallback::after{content:'';display:block;width:40px;height:40px;border:2px solid #333;border-radius:50%}` : ''
 
   const designRules = `━━━ DESIGN ━━━
 NICHO: ${niche} | VIBE: ${designVibe} | COR PRINCIPAL: ${primaryColor}
@@ -452,6 +571,7 @@ Texto da página: ${fullText}
 Depoimentos: ${testimonials}
 
 ${mediaBriefing}
+${mediaSection}
 
 ${designRules}`
 
@@ -859,12 +979,14 @@ SCHEMA OBRIGATÓRIO:
         const { hero, product, persons, videos } = classified
         const imageUrls = rawImages.map(i => i.src).filter(Boolean).slice(0, 8)
         const adCopies = adsForClaude.map(a => a.body).filter(Boolean).map(t => String(t)).join('\n\n')
+        const pageMedia: MediaItem[] = (landingPage as (typeof landingPage & { media?: MediaItem[] }) | null)?.media ?? []
+        console.log('[Media] MediaItems classificados:', pageMedia.length, '| roles:', pageMedia.map(m => m.role).join(',').slice(0, 100))
 
         // 5. Geração HTML
         send({ step: 'generating', message: `Gerando página de vendas modelada (tipo: ${analysis.funnel_type || 'landing_page'})...`, percent: 75 })
         console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
         const rawText = await callClaude(
-          buildHtmlPrompt(analysis, landingPage, hero, product, persons, videos, adCopies),
+          buildHtmlPrompt(analysis, landingPage, hero, product, persons, videos, adCopies, pageMedia),
           `Você é um dev front-end + copywriter brasileiro especialista em páginas de vendas de alta conversão para produtos low ticket. Você vai gerar uma página que seja SUPERIOR ao concorrente analisado.
 
 FILOSOFIA:
