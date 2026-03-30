@@ -302,8 +302,8 @@ async function scrapeLandingPageHeadless(url: string) {
 
     let status = 'RUNNING'
     let attempts = 0
-    while (['RUNNING', 'READY'].includes(status) && attempts < 30) {
-      await sleep(4000)
+    while (['RUNNING', 'READY'].includes(status) && attempts < 20) {
+      await sleep(3000)
       const s = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`)
       status = (await s.json())?.data?.status ?? 'FAILED'
       attempts++
@@ -996,10 +996,13 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
       }
 
-      // Keepalive global: envia ping a cada 10s durante todo o request para evitar timeout do nginx
+      // Keepalive global: envia heartbeat a cada 15s para evitar timeout do nginx/Hostinger
       const keepAlive = setInterval(() => {
-        try { controller.enqueue(encoder.encode(': ping\n\n')) } catch {}
-      }, 10000)
+        try {
+          controller.enqueue(encoder.encode(': ping\n\n'))
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ step: 'heartbeat', message: 'Processando...' })}\n\n`))
+        } catch {}
+      }, 15000)
 
       try {
         // 0. Cache check — evita chamadas à API se já analisado nas últimas 24h
@@ -1213,7 +1216,7 @@ PROIBIDO:
 - opacity:0 ou display:none em elementos visíveis no load inicial
 - Design genérico sem personalidade`,
           'claude-sonnet-4-6',
-          16000
+          8192
         )
         let generatedHtml = rawText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim()
         if (!generatedHtml.startsWith('<!')) {
@@ -1306,6 +1309,7 @@ setTimeout(reveal,300);setTimeout(reveal,800);
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
     },
   })
 }
