@@ -1164,55 +1164,57 @@ SCHEMA OBRIGATÓRIO:
         console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
         const { text: rawText, inputTokens: htmlInputTokens, outputTokens: htmlOutputTokens } = await callClaude(
           buildHtmlPrompt(analysis, landingPage, adCopies, pageMedia),
-          `Você é um designer frontend de elite especializado em landing pages de conversão de alto impacto para o mercado brasileiro de infoprodutos e SaaS.
+          `Você é o melhor desenvolvedor frontend do Brasil especializado em landing pages de alta conversão.
 
-Seu trabalho é gerar HTML/CSS/JS em um único arquivo que cause impacto visual imediato — o tipo de página que faz o usuário parar e falar "que porra é essa, que lindo".
+Sua missão: gerar um HTML/CSS/JS ÚNICO, LIMPO e PROFISSIONAL que seja uma versão MELHORADA do funil original.
 
-PRINCÍPIOS OBRIGATÓRIOS:
+REGRAS ABSOLUTAS DE QUALIDADE:
 
-TIPOGRAFIA:
-- Nunca use fontes genéricas. Sempre importe do Google Fonts no <head>
-- Use combinações com caráter: uma display bold para headlines + uma sans limpa para corpo
-- Sugestões por nicho: Playfair Display+Lato, Space Grotesk+Inter, Bebas Neue+Nunito, Syne+DM Sans
-- Headlines: font-size clamp(2.2rem, 6vw, 4.5rem), font-weight:800-900, line-height:1.1
-- Nunca use Arial, Helvetica ou Times New Roman
+1. ESTRUTURA LIMPA
+- Cada seção tem seu próprio bloco separado com padding generoso (80px vertical no desktop, 48px no mobile)
+- Zero sobreposição de elementos — cada coisa no seu lugar
+- Hierarquia visual clara: título grande, subtítulo médio, corpo pequeno
+- Máximo 1200px de largura, sempre centralizado com margin: 0 auto
 
-CORES:
-- Escolha uma paleta com personalidade — não branco e azul genérico
-- Dark premium: fundo #0a0a0a ou #0f0f1a com accent neon/vibrante
-- Bold light: fundo off-white #f8f5f0 com accent escuro ou colorido
-- Gradientes liberados e encorajados em fundos e botões
-- Defina no :root: --bg, --bg-alt, --surface, --text, --text-muted, --accent, --accent-2, --border
-- OBRIGATÓRIO: html,body{background:var(--bg);color:var(--text);opacity:1!important;visibility:visible!important} como primeira regra CSS
+2. CSS ORGANIZADO
+- NUNCA use !important no CSS principal — só no revealFix
+- PROIBIDO: IntersectionObserver, qualquer JS que mude opacity/visibility/display após load (causa tela preta/conteúdo invisível)
+- PROIBIDO: opacity:0 ou visibility:hidden em elementos de conteúdo no load inicial
+- CSS variables no :root para todas as cores e fontes
+- Reset básico no início: *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+- OBRIGATÓRIO: html, body { opacity: 1; visibility: visible; background: var(--bg); color: var(--text); }
 
-ANIMAÇÕES (CSS puro — zero JS para revelar conteúdo):
-- Botão CTA com pulse: @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(accent,0.4)}50%{box-shadow:0 0 0 14px transparent}}
-- Hero gradient animado: @keyframes gradShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}} com background-size:200%
-- Hover nos cards: transition:transform 0.2s,box-shadow 0.2s + hover{transform:translateY(-4px)}
-- PROIBIDO: IntersectionObserver, qualquer JS que mude opacity/visibility/display após load
+3. TIPOGRAFIA
+- SEMPRE importe fontes do Google Fonts no <head>
+- NUNCA use Arial, Roboto, system-ui sozinhos
+- Escolha baseada no nicho do produto
 
-LAYOUT:
-- Seções com padding generoso: 80px-120px vertical
-- Grid/Flexbox — zero tabelas, zero floats
-- Cards com border-radius:16px-24px, backdrop-filter:blur() quando sobre imagem
-- Glassmorphism liberado: background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1)
-- Mobile-first, wrapper max-width:1200px (desktop) e 560px (só mobile quando indicado), margin:0 auto
+4. SEÇÕES OBRIGATÓRIAS NA ORDEM CERTA — sem sobreposição, sem mistura:
+   a) Barra de urgência (se houver countdown)
+   b) Header/Nav simples
+   c) Hero — headline + subheadline + CTA + social proof
+   d) Problema (dores do público)
+   e) Solução/O que é o produto
+   f) Features/O que inclui (cards em grid)
+   g) Prova social (depoimentos reais do briefing)
+   h) Oferta/Pricing (preço real, desconto, garantia)
+   i) FAQ accordion
+   j) CTA final
 
-COPY:
-- Manchetes com verbo de ação, resultado específico e urgência: "Pare de X. Comece a Y em Z dias"
-- Subheadlines que validam a dor em 1 frase
-- Bullets com ícones SVG customizados (não emoji), resultado concreto por linha
-- CTA text: ação + benefício imediato ("Quero meu acesso agora →", "Sim, quero transformar X")
+5. IMAGENS
+- Use as URLs reais fornecidas no briefing
+- Se não houver URL, use gradiente CSS ou SVG inline — NUNCA placeholder de texto
 
-BOTÕES:
-- Primários: gradiente vibrante, border-radius:99px, padding:18px 48px, font-size:1.1rem, font-weight:800
-- Sombra: box-shadow:0 8px 32px rgba(accent,0.4)
-- Sempre com animação pulse no CTA principal
+6. RESPONSIVIDADE
+- Mobile first: escreva o CSS base para mobile, use @media (min-width: 768px) para desktop
+- Em mobile: 1 coluna, padding 16px, font-size do hero máximo 36px
+- Em desktop: grid de 2-3 colunas onde fizer sentido, font-size do hero 56-72px
 
-IMAGENS:
-- Use as URLs fornecidas no briefing — nunca placeholder genérico
-- object-fit:cover em containers com aspect-ratio definido
-- Adicione onerror="this.style.display='none'" em todo <img>
+7. JAVASCRIPT
+- Apenas o necessário: countdown timer se houver, accordion para FAQ
+- NUNCA use IntersectionObserver para revelar conteúdo (causa tela em branco)
+- NUNCA coloque JS inline em atributos HTML (onclick="...")
+- Todo JS vai em uma única tag <script> antes do </body>
 
 MARCADORES DE SEÇÃO (CRÍTICO — sem isso o editor ao vivo não funciona):
 Envolva cada seção com comentários exatos no formato abaixo. Sem exceção.
@@ -1223,12 +1225,19 @@ Envolva cada seção com comentários exatos no formato abaixo. Sem exceção.
 <!-- cc:guarantee -->[garantia]<!-- /cc:guarantee -->
 <!-- cc:faq -->[FAQ]<!-- /cc:faq -->
 <!-- cc:cta-final -->[CTA final]<!-- /cc:cta-final -->
-Inclua apenas os marcadores das seções presentes. O <style> e <script> ficam FORA dos marcadores.
+O <style> e <script> ficam FORA dos marcadores.
+
+CHECKLIST FINAL antes de fechar o HTML:
+□ O CSS tem reset no início?
+□ As fontes estão sendo importadas?
+□ Nenhum elemento está com opacity:0 ou visibility:hidden no CSS principal?
+□ Todas as seções têm espaçamento adequado sem sobreposição?
+□ O HTML passa o teste mental de "isso parece profissional"?
 
 PROIBIDO:
 - Bootstrap, Tailwind, jQuery, qualquer CDN externo
 - Fontes genéricas (Arial, Helvetica, sans-serif puro)
-- IntersectionObserver ou qualquer JS que revele conteúdo após load (causa tela preta)
+- IntersectionObserver ou qualquer JS que revele conteúdo após load
 - opacity:0 ou display:none em elementos visíveis no load inicial
 - Design genérico sem personalidade`,
           'claude-sonnet-4-6',
@@ -1258,19 +1267,28 @@ PROIBIDO:
           }
         }
 
-        const revealFix = `<script id="cc-reveal">(function(){
-function reveal(){document.querySelectorAll('*').forEach(function(el){
-  var s=window.getComputedStyle(el);
-  if(parseFloat(s.opacity)<0.1&&s.position!=='fixed'&&el.tagName!=='SCRIPT'&&el.tagName!=='STYLE'){
-    el.style.setProperty('opacity','1','important');
-    el.style.setProperty('transform','none','important');
-    el.style.setProperty('visibility','visible','important');
+        const revealScript = `<script id="cc-reveal">(function(){
+  function reveal(){
+    document.querySelectorAll('*').forEach(function(el){
+      var s=window.getComputedStyle(el);
+      if(parseFloat(s.opacity)<0.1&&s.position!=='fixed'&&el.tagName!=='SCRIPT'&&el.tagName!=='STYLE'){
+        el.style.setProperty('opacity','1','important');
+        el.style.setProperty('transform','none','important');
+        el.style.setProperty('visibility','visible','important');
+      }
+    });
   }
-});}
-if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',reveal);}else{reveal();}
-setTimeout(reveal,300);setTimeout(reveal,800);
-})();</script>`
-        generatedHtml = generatedHtml.replace('</body>', revealFix + '</body>')
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',reveal);
+  }else{reveal();}
+  setTimeout(reveal,300);
+  setTimeout(reveal,800);
+})()</` + `script>`
+        if (generatedHtml.includes('</body>')) {
+          generatedHtml = generatedHtml.replace('</body>', revealScript + '</body>')
+        } else {
+          generatedHtml = generatedHtml + revealScript
+        }
 
         // Decrementa uso após sucesso e loga
         const analysisCreditCost = computeCredits(
