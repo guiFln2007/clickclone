@@ -75,13 +75,13 @@ async function capturePageScreenshots(url: string): Promise<string[]> {
     scrollY += sectionHeight - overlap
   }
 
-  // Step 3: build screenshot URLs for each scroll position + mobile full page
+  // Step 3: build screenshot URLs for each scroll position + mobile hero (fixed viewport, not full page)
   const shotUrls: string[] = [
     ...scrollPositions.map(sy =>
-      `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=1440&viewport_height=${sectionHeight}&scroll_position=${sy}&format=jpg&image_quality=75`
+      `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=1440&viewport_height=${sectionHeight}&scroll_position=${sy}&format=jpg&image_quality=75&block_ads=true&block_cookie_banners=true`
     ),
-    // Mobile full page
-    `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&full_page=true&viewport_width=375&format=jpg&image_quality=70`,
+    // Mobile hero — fixed 812px viewport to avoid exceeding Claude's 8000px limit
+    `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=375&viewport_height=812&format=jpg&image_quality=70&block_ads=true&block_cookie_banners=true`,
   ]
 
   // Step 4: fire all in parallel, discard failures
@@ -257,7 +257,7 @@ Analise a página completa usando as screenshots e a lista de assets reais. Para
 
         // Add screenshots — up to 6 sections to cover the full funnel
         for (const img of screenshots.slice(0, 6)) {
-          // Skip if too large (>1MB base64 ≈ 750KB image)
+          // Skip if too large (>1.4MB base64 ≈ 750KB image)
           if (img.length > 1400000) continue
           userContent.push({
             type: 'image',
