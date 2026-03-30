@@ -1031,12 +1031,18 @@ whatsapp:
 - Botão verde WhatsApp como único CTA (wa.me/... com link placeholder)
 - 1-2 depoimentos curtos`,
           'claude-sonnet-4-6',
-          8192
+          16000
         )
         let generatedHtml = rawText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim()
         if (!generatedHtml.startsWith('<!')) {
           const idx = generatedHtml.indexOf('<!DOCTYPE')
           if (idx > 0) generatedHtml = generatedHtml.slice(idx)
+        }
+        // Detect and repair truncated HTML
+        if (!generatedHtml.includes('</html>')) {
+          console.warn('[HTML] Geração truncada — fechando tags manualmente')
+          if (!generatedHtml.includes('</body>')) generatedHtml += '\n</body>'
+          generatedHtml += '\n</html>'
         }
 
         // 6. Pós-processamento: embed imagens como base64
