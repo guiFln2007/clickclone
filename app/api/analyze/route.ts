@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@anthropic-ai/claude-agent-sdk'
 import { load } from 'cheerio'
 import {
   dbGetUserById,
@@ -15,6 +14,7 @@ const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
 async function callClaude(prompt: string, systemPrompt?: string): Promise<string> {
   try {
+    const { query } = await import('@anthropic-ai/claude-agent-sdk')
     let result = ''
     for await (const message of query({
       prompt,

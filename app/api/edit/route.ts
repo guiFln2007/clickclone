@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server'
-import { query } from '@anthropic-ai/claude-agent-sdk'
 import {
   dbGetUserById,
   dbDecrementCreditosN,
@@ -172,6 +171,7 @@ export async function POST(req: NextRequest) {
         try {
           let fullText = ''
 
+          const { query } = await import('@anthropic-ai/claude-agent-sdk')
           for await (const message of query({
             prompt,
             options: {
