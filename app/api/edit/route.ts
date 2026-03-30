@@ -247,13 +247,32 @@ export async function POST(req: NextRequest) {
             messages: [{ role: 'user', content: prompt }],
           })
 
+          let ccBlockFound = false
+
           for await (const event of sdkStream) {
             if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
               const text = event.delta.text
               fullText += text
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: text })}\n\n`),
-              )
+
+              // Only stream text that comes BEFORE any CC block — stop as soon as HTML starts
+              if (!ccBlockFound) {
+                const ccIdx = fullText.search(/<CC_SECTION|<CC_PATCH>|<CC_HTML>/)
+                if (ccIdx === -1) {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: text })}\n\n`),
+                  )
+                } else {
+                  ccBlockFound = true
+                  // Send only the part of this chunk that's still before the CC block
+                  const alreadySent = fullText.length - text.length
+                  const safeEnd = ccIdx - alreadySent
+                  if (safeEnd > 0) {
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: text.slice(0, safeEnd) })}\n\n`),
+                    )
+                  }
+                }
+              }
             }
           }
 
