@@ -6,20 +6,22 @@ import {
   dbGetFreeUsage,
   dbIncrementFreeAnalises,
   dbLogAnalysis,
+  dbGetCachedAnalysis,
+  dbSaveCachedAnalysis,
 } from '@/lib/db'
 
 export const maxDuration = 300
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
-async function callClaude(prompt: string, systemPrompt?: string, model = 'claude-haiku-4-5-20251001'): Promise<string> {
+async function callClaude(prompt: string, systemPrompt?: string, model = 'claude-haiku-4-5-20251001', maxTokens = 1024): Promise<string> {
   console.log('[callClaude] model:', model, '| prompt size:', prompt.length, 'chars | system size:', systemPrompt?.length ?? 0, 'chars')
   try {
     const Anthropic = (await import('@anthropic-ai/sdk')).default
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const response = await client.messages.create({
       model,
-      max_tokens: 4096,
+      max_tokens: maxTokens,
       ...(systemPrompt ? { system: systemPrompt } : {}),
       messages: [{ role: 'user', content: prompt }],
     })
@@ -729,6 +731,28 @@ export async function POST(req: NextRequest) {
       }
 
       try {
+        // 0. Cache check — evita chamadas à API se já analisado nas últimas 24h
+        const pageId = new URL(url).searchParams.get('view_all_page_id')
+        if (pageId) {
+          const cached = await dbGetCachedAnalysis(pageId)
+          if (cached) {
+            send({ step: 'scraping', message: '✓ Resultado em cache. Carregando...', percent: 60 })
+            const analysis = JSON.parse(cached.analysis)
+            let newAnalises: number | undefined
+            if (userId) {
+              await dbDecrementAnalises(userId)
+              const updatedUser = await dbGetUserById(userId)
+              newAnalises = updatedUser?.analises
+            } else {
+              await dbIncrementFreeAnalises(ip, sessionId)
+            }
+            await dbLogAnalysis(userId, ip)
+            send({ step: 'done', message: 'Análise concluída.', percent: 100, data: { analysis, generatedHtml: cached.html, analises: newAnalises } })
+            controller.close()
+            return
+          }
+        }
+
         // 1. Scrape anúncios
         send({ step: 'scraping', message: 'Conectando à biblioteca de anúncios...', percent: 10 })
         const ads = await scrapeAds(url)
@@ -746,7 +770,7 @@ export async function POST(req: NextRequest) {
         console.log('[Landing] URL detectada:', landingUrl)
 
         // Preparar dados de ads enquanto landing page carrega
-        const adsForClaude = ads.slice(0, 7).map((ad: Record<string, unknown>) => {
+        const adsForClaude = ads.slice(0, 5).map((ad: Record<string, unknown>) => {
           const snap = ad.snapshot as Record<string, unknown> | undefined
           return {
             body: (snap?.body as Record<string, unknown>)?.text || ad.ad_creative_bodies,
@@ -785,26 +809,11 @@ Headlines: ${landingPage.headings.join(' | ')}
 CTAs: ${landingPage.ctas.join(' | ')}
 Preços detectados: ${landingPage.prices.join(', ') || 'não detectado'}
 Depoimentos encontrados: ${landingPage.testimonials.length}
-Texto completo (extrato): ${landingPage.fullText.slice(0, 1000)}
+Texto completo (extrato): ${landingPage.fullText.slice(0, 600)}
 ` : 'Não disponível'}
 
-Retorne exatamente esta estrutura JSON:`, `Você é um estrategista de marketing digital brasileiro especializado em Meta Ads low ticket. Analisa concorrentes com olhar cirúrgico — extrai o que está funcionando, identifica brechas e gera inteligência acionável. Retorne APENAS JSON válido, sem markdown, sem explicação.
-{
-  "score": <número 1-10 — baseado em: volume de ads ativos, qualidade da copy, força da oferta, clareza da proposta>,
-  "verdict": "<Vale entrar | Não vale entrar>",
-  "reason": "<análise direta em 3 frases: o que está funcionando, o que está faltando, e qual é a oportunidade real>",
-  "dominant_angle": "<o principal gatilho/ângulo usado — ex: 'Velocidade + resultado rápido'>",
-  "page_name": "<nome do produto/oferta>",
-  "niche": "<nicho em 1-2 palavras>",
-  "price_anchor": "<preço principal detectado, ex: R$19,90 — ou 'não detectado'>",
-  "funnel_type": "<landing_page | quiz | ferramenta_freemium | whatsapp | vsl> — identifique pelo destino dos anúncios e estrutura da página: 'quiz' se há perguntas/triagem, 'whatsapp' se CTA principal é wa.me ou mensagem, 'ferramenta_freemium' se há interface de ferramenta com recursos pagos, 'vsl' se há vídeo de vendas dominante, 'landing_page' nos demais casos>",
-  "design_context": {
-    "primary_color": "<cor principal hex ou 'não detectado'>",
-    "vibe": "<sensação geral em 4-6 palavras>"
-  },
-  "weak_points": ["<fraqueza específica e acionável 1>", "<fraqueza 2>", "<fraqueza 3>", "<fraqueza 4>", "<fraqueza 5>"],
-  "strong_points": ["<força real que está funcionando 1>", "<força 2>", "<força 3>"]
-}`, 'claude-haiku-4-5-20251001')
+Retorne JSON:`, `Analista Meta Ads low ticket brasileiro. APENAS JSON válido, sem markdown.
+{"score":1-10,"verdict":"Vale entrar|Não vale entrar","reason":"3 frases diretas","dominant_angle":"gatilho principal","page_name":"nome oferta","niche":"1-2 palavras","price_anchor":"ex:R$19,90","funnel_type":"landing_page|quiz|ferramenta_freemium|whatsapp|vsl","design_context":{"primary_color":"#hex ou não detectado","vibe":"4-6 palavras"},"weak_points":["fraqueza acionável 1","fraqueza 2","fraqueza 3","fraqueza 4","fraqueza 5"],"strong_points":["força 1","força 2","força 3"]}`, 'claude-haiku-4-5-20251001')
         let analysis
         try {
           const cleaned = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
@@ -844,8 +853,9 @@ Retorne exatamente esta estrutura JSON:`, `Você é um estrategista de marketing
         console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
         const rawText = await callClaude(
           buildHtmlPrompt(analysis, landingPage, hero, product, persons, videos, adCopies),
-          `Você é o melhor copywriter e desenvolvedor front-end do Brasil. Especialista em páginas de vendas low ticket que já geraram mais de R$5 milhões em vendas diretas no Meta Ads. RETORNE APENAS HTML puro, sem markdown, sem explicação.`,
-          'claude-sonnet-4-6'
+          `Copywriter + dev front-end brasileiro especialista em páginas de vendas low ticket. APENAS HTML puro, sem markdown, sem explicação.`,
+          'claude-haiku-4-5-20251001',
+          8192
         )
         let generatedHtml = rawText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim()
         if (!generatedHtml.startsWith('<!')) {
@@ -889,6 +899,13 @@ setTimeout(reveal,300);setTimeout(reveal,800);
           await dbIncrementFreeAnalises(ip, sessionId)
         }
         await dbLogAnalysis(userId, ip)
+
+        // Salva no cache para evitar chamadas repetidas em 24h
+        if (pageId) {
+          dbSaveCachedAnalysis(pageId, JSON.stringify(analysis), generatedHtml).catch(e =>
+            console.error('[Cache] Falha ao salvar:', e)
+          )
+        }
 
         send({ step: 'done', message: 'Análise concluída. Abrindo editor_', percent: 100, data: { analysis, generatedHtml, analises: newAnalises } })
         controller.close()

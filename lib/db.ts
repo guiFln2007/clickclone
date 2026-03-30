@@ -46,6 +46,15 @@ export async function initDb() {
       )`,
       args: [],
     },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS analysis_cache (
+        page_id    TEXT NOT NULL PRIMARY KEY,
+        analysis   TEXT NOT NULL,
+        html       TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    },
   ])
   initialized = true
 }
@@ -221,6 +230,28 @@ export async function dbIncrementFreeCreditos(ip: string, sessionId: string): Pr
           VALUES (?, ?, 0, 1)
           ON CONFLICT(ip, session_id) DO UPDATE SET creditos_usados = creditos_usados + 1`,
     args: [ip, sessionId],
+  })
+}
+
+// ── Analysis cache ────────────────────────────────────────────────────────────
+
+export async function dbGetCachedAnalysis(pageId: string): Promise<{ analysis: string; html: string } | null> {
+  await initDb()
+  const res = await db.execute({
+    sql: "SELECT analysis, html FROM analysis_cache WHERE page_id = ? AND created_at >= datetime('now', '-24 hours')",
+    args: [pageId],
+  })
+  if (!res.rows[0]) return null
+  const row = res.rows[0] as Record<string, unknown>
+  return { analysis: row.analysis as string, html: row.html as string }
+}
+
+export async function dbSaveCachedAnalysis(pageId: string, analysis: string, html: string): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: `INSERT INTO analysis_cache (page_id, analysis, html) VALUES (?, ?, ?)
+          ON CONFLICT(page_id) DO UPDATE SET analysis = excluded.analysis, html = excluded.html, created_at = datetime('now')`,
+    args: [pageId, analysis, html],
   })
 }
 
