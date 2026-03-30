@@ -13,9 +13,12 @@ export const maxDuration = 300
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
 async function callClaude(prompt: string, systemPrompt?: string): Promise<string> {
+  console.log('[callClaude] prompt size:', prompt.length, 'chars | system size:', systemPrompt?.length ?? 0, 'chars')
   try {
     const { query } = await import('@anthropic-ai/claude-agent-sdk')
+    console.log('[callClaude] SDK importado OK')
     let result = ''
+    let messageCount = 0
     for await (const message of query({
       prompt,
       options: {
@@ -24,15 +27,22 @@ async function callClaude(prompt: string, systemPrompt?: string): Promise<string
         ...(systemPrompt ? { systemPrompt } : {}),
       },
     })) {
+      messageCount++
+      console.log('[callClaude] mensagem recebida tipo:', Object.keys(message).join(','))
       if ('result' in message && typeof (message as { result: string }).result === 'string') {
         result = (message as { result: string }).result
+        console.log('[callClaude] resultado size:', result.length, 'chars')
         break
       }
     }
+    console.log('[callClaude] total mensagens:', messageCount, '| resultado vazio:', !result)
     return result
   } catch (err) {
-    console.error('[callClaude] ERRO:', err)
-    return ''
+    const e = err as Error
+    console.error('[callClaude] ERRO nome:', e?.name)
+    console.error('[callClaude] ERRO mensagem:', e?.message)
+    console.error('[callClaude] ERRO stack:', e?.stack?.slice(0, 500))
+    return `__CLAUDE_ERROR__:${e?.message || String(err)}`
   }
 }
 
@@ -808,10 +818,22 @@ Retorne exatamente esta estrutura JSON:`, `Você é um estrategista de marketing
         let analysis
         try {
           const cleaned = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+          if (cleaned.startsWith('__CLAUDE_ERROR__:')) {
+            const sdkError = cleaned.replace('__CLAUDE_ERROR__:', '')
+            console.error('[Claude] SDK error:', sdkError)
+            send({ step: 'error', message: `Claude SDK: ${sdkError.slice(0, 120)}` })
+            controller.close()
+            return
+          }
+          if (!cleaned) {
+            send({ step: 'error', message: 'Claude retornou resposta vazia. Verifique os logs do servidor.' })
+            controller.close()
+            return
+          }
           analysis = JSON.parse(cleaned)
         } catch {
-          console.error('[Claude] Falha ao parsear análise:', analysisText.slice(0, 200))
-          send({ step: 'error', message: 'Erro ao processar análise. Tenta novamente.' })
+          console.error('[Claude] Falha ao parsear análise — resposta recebida:', analysisText.slice(0, 300))
+          send({ step: 'error', message: `Falha ao parsear resposta Claude: "${analysisText.slice(0, 80)}"` })
           controller.close()
           return
         }
