@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "postinstall": "echo 'deps installed'"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.87",
