@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { query } from '@anthropic-ai/claude-agent-sdk'
 import { load } from 'cheerio'
 import {
   dbGetUserById,
@@ -9,22 +9,27 @@ import {
   dbLogAnalysis,
 } from '@/lib/db'
 
-const anthropic = new Anthropic()
-
 export const maxDuration = 300
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
 async function callClaude(prompt: string, systemPrompt?: string): Promise<string> {
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 16000,
-      ...(systemPrompt ? { system: systemPrompt } : {}),
-      messages: [{ role: 'user', content: prompt }],
-    })
-    const block = response.content.find(b => b.type === 'text')
-    return block?.type === 'text' ? block.text : ''
+    let result = ''
+    for await (const message of query({
+      prompt,
+      options: {
+        allowedTools: [],
+        maxTurns: 1,
+        ...(systemPrompt ? { systemPrompt } : {}),
+      },
+    })) {
+      if ('result' in message && typeof (message as { result: string }).result === 'string') {
+        result = (message as { result: string }).result
+        break
+      }
+    }
+    return result
   } catch (err) {
     console.error('[callClaude] ERRO:', err)
     return ''

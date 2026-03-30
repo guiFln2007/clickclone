@@ -1,13 +1,11 @@
 import { NextRequest } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { query } from '@anthropic-ai/claude-agent-sdk'
 import {
   dbGetUserById,
   dbDecrementCreditosN,
   dbGetFreeUsage,
   dbIncrementFreeCreditos,
 } from '@/lib/db'
-
-const anthropic = new Anthropic()
 
 export const maxDuration = 300
 
@@ -174,19 +172,24 @@ export async function POST(req: NextRequest) {
         try {
           let fullText = ''
 
-          const response = await anthropic.messages.create({
-            model: 'claude-opus-4-6',
-            max_tokens: 16000,
-            system: SYSTEM_PROMPT,
-            messages: [{ role: 'user', content: prompt }],
-          })
-          const textBlock = response.content.find(b => b.type === 'text')
-          fullText = textBlock?.type === 'text' ? textBlock.text : ''
-
-          if (fullText) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: fullText })}\n\n`),
-            )
+          for await (const message of query({
+            prompt,
+            options: {
+              allowedTools: [],
+              maxTurns: 1,
+              systemPrompt: SYSTEM_PROMPT,
+            },
+          })) {
+            if ('result' in message && typeof (message as { result: string }).result === 'string') {
+              const chunkText = (message as { result: string }).result
+              if (chunkText) {
+                fullText += chunkText
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: chunkText })}\n\n`),
+                )
+              }
+              break
+            }
           }
 
           if (!fullText) throw new Error('Resposta vazia do modelo')
