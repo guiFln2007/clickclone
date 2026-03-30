@@ -171,24 +171,24 @@ export async function POST(req: NextRequest) {
         try {
           let fullText = ''
 
-          const { query } = await import('@anthropic-ai/claude-agent-sdk')
-          for await (const message of query({
-            prompt,
-            options: {
-              allowedTools: [],
-              maxTurns: 1,
-              systemPrompt: SYSTEM_PROMPT,
-            },
-          })) {
-            if ('result' in message && typeof (message as { result: string }).result === 'string') {
-              const chunkText = (message as { result: string }).result
-              if (chunkText) {
-                fullText += chunkText
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: chunkText })}\n\n`),
-                )
-              }
-              break
+          const Anthropic = (await import('@anthropic-ai/sdk')).default
+          const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+          const stream = await client.messages.stream({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 8192,
+            system: SYSTEM_PROMPT,
+            messages: [{ role: 'user', content: prompt }],
+          })
+          for await (const event of stream) {
+            if (
+              event.type === 'content_block_delta' &&
+              event.delta.type === 'text_delta' &&
+              event.delta.text
+            ) {
+              fullText += event.delta.text
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: event.delta.text })}\n\n`),
+              )
             }
           }
 

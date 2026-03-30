@@ -5,15 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "postinstall": "rm -rf node_modules/@anthropic-ai && npm install @anthropic-ai/claude-agent-sdk @anthropic-ai/claude-code --no-save"
+    "start": "next start"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.87",
     "tailwindcss": "^3.4.1",
     "autoprefixer": "^10.0.1",
     "postcss": "^8",
-    "@anthropic-ai/claude-code": "^2.1.87",
     "@anthropic-ai/sdk": "^0.80.0",
     "@libsql/client": "^0.17.2",
     "bcryptjs": "^3.0.3",

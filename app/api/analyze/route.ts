@@ -12,30 +12,20 @@ export const maxDuration = 300
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
-async function callClaude(prompt: string, systemPrompt?: string): Promise<string> {
-  console.log('[callClaude] prompt size:', prompt.length, 'chars | system size:', systemPrompt?.length ?? 0, 'chars')
+async function callClaude(prompt: string, systemPrompt?: string, model = 'claude-haiku-4-5-20251001'): Promise<string> {
+  console.log('[callClaude] model:', model, '| prompt size:', prompt.length, 'chars | system size:', systemPrompt?.length ?? 0, 'chars')
   try {
-    const { query } = await import('@anthropic-ai/claude-agent-sdk')
-    console.log('[callClaude] SDK importado OK')
-    let result = ''
-    let messageCount = 0
-    for await (const message of query({
-      prompt,
-      options: {
-        allowedTools: [],
-        maxTurns: 1,
-        ...(systemPrompt ? { systemPrompt } : {}),
-      },
-    })) {
-      messageCount++
-      console.log('[callClaude] mensagem recebida tipo:', Object.keys(message).join(','))
-      if ('result' in message && typeof (message as { result: string }).result === 'string') {
-        result = (message as { result: string }).result
-        console.log('[callClaude] resultado size:', result.length, 'chars')
-        break
-      }
-    }
-    console.log('[callClaude] total mensagens:', messageCount, '| resultado vazio:', !result)
+    const Anthropic = (await import('@anthropic-ai/sdk')).default
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const response = await client.messages.create({
+      model,
+      max_tokens: 4096,
+      ...(systemPrompt ? { system: systemPrompt } : {}),
+      messages: [{ role: 'user', content: prompt }],
+    })
+    const text = response.content.find(b => b.type === 'text')
+    const result = text && text.type === 'text' ? text.text : ''
+    console.log('[callClaude] resultado size:', result.length, 'chars')
     return result
   } catch (err) {
     const e = err as Error
@@ -814,7 +804,7 @@ Retorne exatamente esta estrutura JSON:`, `Você é um estrategista de marketing
   },
   "weak_points": ["<fraqueza específica e acionável 1>", "<fraqueza 2>", "<fraqueza 3>", "<fraqueza 4>", "<fraqueza 5>"],
   "strong_points": ["<força real que está funcionando 1>", "<força 2>", "<força 3>"]
-}`)
+}`, 'claude-haiku-4-5-20251001')
         let analysis
         try {
           const cleaned = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
@@ -854,7 +844,8 @@ Retorne exatamente esta estrutura JSON:`, `Você é um estrategista de marketing
         console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
         const rawText = await callClaude(
           buildHtmlPrompt(analysis, landingPage, hero, product, persons, videos, adCopies),
-          `Você é o melhor copywriter e desenvolvedor front-end do Brasil. Especialista em páginas de vendas low ticket que já geraram mais de R$5 milhões em vendas diretas no Meta Ads. RETORNE APENAS HTML puro, sem markdown, sem explicação.`
+          `Você é o melhor copywriter e desenvolvedor front-end do Brasil. Especialista em páginas de vendas low ticket que já geraram mais de R$5 milhões em vendas diretas no Meta Ads. RETORNE APENAS HTML puro, sem markdown, sem explicação.`,
+          'claude-sonnet-4-6'
         )
         let generatedHtml = rawText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim()
         if (!generatedHtml.startsWith('<!')) {
