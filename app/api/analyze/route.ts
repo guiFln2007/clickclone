@@ -325,12 +325,13 @@ async function scrapeLandingPageHeadless(url: string) {
     if (status !== 'SUCCEEDED') return null
 
     const itemsRes2 = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=1`)
-    const items = await safeJson(itemsRes2)
-    const d = items?.[0]
+    const items = await safeJson(itemsRes2) as unknown[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = items?.[0] as any
     if (!d) return null
 
     const testimonials: string[] = []
-    const $ = load(d.html || '')
+    const $ = load((d.html as string) || '')
     $('[class*="testim"],[class*="depo"],[class*="review"],[class*="avali"],[class*="cliente"]').each((_, el) => {
       const t = $(el).text().replace(/\s+/g, ' ').trim()
       if (t.length > 20) testimonials.push(t.slice(0, 300))
@@ -360,17 +361,17 @@ async function scrapeLandingPageHeadless(url: string) {
     const media = classifyMediaItems(headlessMediaRaw.slice(0, 30))
 
     return {
-      title: d.title || '',
-      headings: d.headings || [],
-      bullets: d.bullets || [],
+      title: (d.title as string) || '',
+      headings: (d.headings as string[]) || [],
+      bullets: (d.bullets as string[]) || [],
       testimonials: testimonials.slice(0, 8),
-      prices: d.prices || [],
-      ctas: d.ctas || [],
-      images: d.images || [],
-      videos: d.videos || [],
-      fullText: d.text || '',
-      structuredHtml: (d.html || '').slice(0, 20000),
-      design: { colors: d.colors || [], fonts: [] },
+      prices: (d.prices as string[]) || [],
+      ctas: (d.ctas as string[]) || [],
+      images: [] as { src: string; alt: string; ctx: string }[],
+      videos: (d.videos as string[]) || [],
+      fullText: (d.text as string) || '',
+      structuredHtml: ((d.html as string) || '').slice(0, 20000),
+      design: { colors: (d.colors as string[]) || [], fonts: [] },
       media,
     }
   } catch (e) {
