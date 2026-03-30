@@ -53,23 +53,36 @@ function cleanAdLibraryUrl(url: string): string {
 
 async function scrapeAds(url: string) {
   const cleanUrl = cleanAdLibraryUrl(url)
+  console.log('[Apify] APIFY_TOKEN exists:', !!APIFY_TOKEN, '| token prefix:', APIFY_TOKEN?.slice(0, 6) || 'EMPTY')
   console.log('[Apify] Iniciando scrape:', cleanUrl)
 
-  const runRes = await fetch(
-    `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 20 }),
-    }
-  )
-  const runData = await runRes.json()
-  console.log('[Apify] Run iniciado:', JSON.stringify(runData?.data?.id), 'status:', runData?.data?.status)
+  let runRes: Response
+  let runData: unknown
+  try {
+    runRes = await fetch(
+      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 20 }),
+      }
+    )
+    runData = await runRes.json()
+  } catch (fetchErr) {
+    const e = fetchErr as Error
+    console.error('[Apify] Erro de rede ao iniciar run:', e.message, e.stack)
+    throw new Error(`Falha de rede ao contactar Apify: ${e.message}`)
+  }
 
-  const runId = runData?.data?.id
+  const rd = runData as Record<string, unknown>
+  console.log('[Apify] HTTP status:', runRes.status, '| resposta:', JSON.stringify(rd).slice(0, 300))
+
+  const runId = (rd?.data as Record<string, unknown>)?.id
   if (!runId) {
-    console.error('[Apify] Falha ao iniciar run:', JSON.stringify(runData))
-    throw new Error('Falha ao iniciar scraper Apify')
+    const apifyError = (rd?.error as Record<string, unknown>)?.message || JSON.stringify(rd).slice(0, 200)
+    console.error('[Apify] Falha ao iniciar run — resposta completa:', JSON.stringify(rd))
+    if (!APIFY_TOKEN) throw new Error('APIFY_TOKEN não configurado nas variáveis de ambiente')
+    throw new Error(`Apify recusou a requisição: ${apifyError}`)
   }
 
   // Poll até completar
