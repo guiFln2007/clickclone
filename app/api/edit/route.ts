@@ -27,6 +27,10 @@ function restoreBase64Images(html: string, map: Record<string, string>): string 
   return result
 }
 
+function normalizeWhitespace(s: string): string {
+  return s.replace(/\s+/g, ' ').trim()
+}
+
 function applyPatches(html: string, fullText: string): { result: string; applied: number } {
   const patchRegex = /<CC_PATCH>([\s\S]*?)<\/CC_PATCH>/g
   let result = html
@@ -39,17 +43,45 @@ function applyPatches(html: string, fullText: string): { result: string; applied
     if (!oldMatch || !newMatch) continue
     const oldStr = oldMatch[1].replace(/^\n/, '').replace(/\n$/, '')
     const newStr = newMatch[1].replace(/^\n/, '').replace(/\n$/, '')
+
+    // Tentativa 1: busca exata
     if (result.includes(oldStr)) {
       result = result.replace(oldStr, newStr)
       applied++
-    } else {
-      const oldTrimmed = oldStr.trim()
-      const idx = result.indexOf(oldTrimmed)
-      if (idx !== -1) {
-        result = result.slice(0, idx) + newStr.trim() + result.slice(idx + oldTrimmed.length)
+      console.log('[Patch] Aplicado via busca exata')
+      continue
+    }
+
+    // Tentativa 2: busca com trim
+    const oldTrimmed = oldStr.trim()
+    const idx = result.indexOf(oldTrimmed)
+    if (idx !== -1) {
+      result = result.slice(0, idx) + newStr.trim() + result.slice(idx + oldTrimmed.length)
+      applied++
+      console.log('[Patch] Aplicado via busca trimmed')
+      continue
+    }
+
+    // Tentativa 3: fuzzy — normaliza whitespace
+    const oldNorm = normalizeWhitespace(oldStr)
+    const resultNorm = normalizeWhitespace(result)
+    const normIdx = resultNorm.indexOf(oldNorm)
+    if (normIdx !== -1 && oldNorm.length > 20) {
+      // Encontrou no texto normalizado — encontra posição correspondente no original
+      // Estratégia: usa as primeiras 40 chars e últimas 40 chars do oldStr como âncoras
+      const anchor1 = oldStr.slice(0, 40).trim()
+      const anchor2 = oldStr.slice(-40).trim()
+      const start = anchor1.length > 10 ? result.indexOf(anchor1) : -1
+      const end = anchor2.length > 10 ? result.lastIndexOf(anchor2) : -1
+      if (start !== -1 && end !== -1 && end > start) {
+        result = result.slice(0, start) + newStr + result.slice(end + anchor2.length)
         applied++
+        console.log('[Patch] Aplicado via fuzzy matching (âncoras)')
+        continue
       }
     }
+
+    console.log('[Patch] FALHOU para trecho:', oldStr.slice(0, 80))
   }
   return { result, applied }
 }

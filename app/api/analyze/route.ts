@@ -71,7 +71,7 @@ async function scrapeAds(url: string) {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 999 }),
+        body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 100 }),
       }
     )
     runData = await runRes.json()
@@ -121,11 +121,17 @@ async function scrapeAds(url: string) {
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
+const BLOCKED_DOMAINS = ['hotmart.com', 'eduzz.com', 'kiwify.com.br', 'monetizze.com.br', 'perfectpay.com.br', 'shopify.com', 'cdn.shopify', 'shopifycdn.com']
+
 async function downloadAsBase64(url: string, maxKB = 600): Promise<string | null> {
   try {
+    // Pula domínios conhecidos que bloqueiam CORS
+    const hostname = new URL(url).hostname
+    if (BLOCKED_DOMAINS.some(d => hostname.includes(d))) return null
+
     const res = await fetch(url, {
       headers: { 'User-Agent': UA, 'Referer': new URL(url).origin },
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(4000),
     })
     if (!res.ok) return null
     const ct = res.headers.get('content-type') || ''
@@ -162,8 +168,6 @@ function extractAdVideos(ads: Record<string, unknown>[]): string[] {
   return [...new Set(urls)].slice(0, 3)
 }
 
-type ImageMeta = { src: string; alt: string; ctx: string }
-
 type MediaItem = {
   url: string
   type: 'image' | 'video'
@@ -174,7 +178,7 @@ type MediaItem = {
 }
 
 function classifyMediaItems(items: Array<{url: string, type: 'image'|'video', alt?: string, width?: number, height?: number}>): MediaItem[] {
-  return items.map((item, index) => {
+  const classified = items.map((item, index) => {
     let role: MediaItem['role'] = 'unknown'
     const url = item.url.toLowerCase()
     const alt = (item.alt || '').toLowerCase()
@@ -208,48 +212,21 @@ function classifyMediaItems(items: Array<{url: string, type: 'image'|'video', al
     } else if (index === 0) {
       role = 'hero'
     } else {
-      role = 'hero'
+      role = 'unknown'
     }
 
     return { ...item, role }
   })
-}
 
-function classifyMedia(images: ImageMeta[], videos: string[]): {
-  hero: string | null
-  product: string | null
-  persons: string[]
-  videos: string[]
-} {
-  const personRx = /depo|testim|review|cliente|usuari|avatar|person|autor|avalia|perfil|member|foto.*pess/i
-  const productRx = /produto|product|kit|mock|ebook|apostil|curso|pack|thumb|capa|cover|material|digital/i
-  const heroRx = /hero|banner|background|\bbg\b|bg-|cover|header|topo|destaque|main/i
-
-  const persons: string[] = []
-  const products: string[] = []
-  const heroes: string[] = []
-
-  for (let i = 0; i < images.length; i++) {
-    const { src, alt, ctx } = images[i]
-    const combined = `${alt} ${ctx} ${src}`.toLowerCase()
-    if (personRx.test(combined)) {
-      persons.push(src)
-    } else if (productRx.test(combined)) {
-      products.push(src)
-    } else if (heroRx.test(combined)) {
-      heroes.push(src)
-    } else if (i === 0) {
-      heroes.push(src) // primeira imagem = provavelmente hero
+  // Limita heroes a no máximo 2
+  let heroCount = 0
+  return classified.map(item => {
+    if (item.role === 'hero') {
+      heroCount++
+      if (heroCount > 2) return { ...item, role: 'unknown' as const }
     }
-  }
-
-  const allSrcs = images.map(i => i.src)
-  return {
-    hero: heroes[0] || allSrcs[0] || null,
-    product: products[0] || (heroes.length > 1 ? heroes[1] : null) || allSrcs[1] || null,
-    persons: persons.slice(0, 6),
-    videos: [...new Set(videos.filter(Boolean))].slice(0, 3),
-  }
+    return item
+  })
 }
 
 // Scraper headless via Apify Playwright — para SPAs e páginas com Cloudflare
@@ -400,13 +377,14 @@ async function scrapeLandingPage(url: string) {
     })
 
     // Imagens e vídeos ANTES de limpar
-    const images: ImageMeta[] = $('img').map((_, el) => {
+    type ImageRaw = { src: string; alt: string; ctx: string }
+    const images: ImageRaw[] = $('img').map((_, el) => {
       const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src') || ''
       if (!src.startsWith('http')) return null
       const alt = ($(el).attr('alt') || '').toLowerCase()
       const pCtx = $(el).parents().slice(0, 4).map((_, p) => (($(p).attr('class') || '') + ' ' + ($(p).attr('id') || '')).toLowerCase()).get().join(' ')
       return { src, alt, ctx: pCtx }
-    }).get().filter((x): x is ImageMeta => x !== null).slice(0, 15)
+    }).get().filter((x): x is ImageRaw => x !== null).slice(0, 15)
     const videos = $('video, video source, source').map((_, el) => $(el).attr('src') || $(el).attr('data-src')).get()
       .filter((src): src is string => Boolean(src)).slice(0, 5)
 
@@ -490,7 +468,7 @@ function extractLandingUrl(ads: Record<string, unknown>[]): string | null {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildHtmlPrompt(analysis: any, landingPage: any, hero: string | null, product: string | null, persons: string[], videos: string[], adCopies: string, media: MediaItem[] = []): string {
+function buildHtmlPrompt(analysis: any, landingPage: any, adCopies: string, media: MediaItem[]): string {
   const funnel = (analysis.funnel_type as string) || 'landing_page'
   const price = analysis.price_anchor || landingPage?.prices?.[0] || 'R$19,90'
   const pageName = analysis.page_name
@@ -501,7 +479,7 @@ function buildHtmlPrompt(analysis: any, landingPage: any, hero: string | null, p
   const headings = landingPage?.headings?.join('\n') || '(não disponível)'
   const bullets = landingPage?.bullets?.join('\n') || '(não disponível)'
   const ctas = landingPage?.ctas?.join(' | ') || '(não disponível)'
-  const fullText = landingPage?.fullText?.slice(0, 600) || '(não disponível)'
+  const fullText = landingPage?.fullText?.slice(0, 3000) || '(não disponível)'
   const testimonials = landingPage?.testimonials?.length
     ? landingPage.testimonials.map((t: string, i: number) => `[Depo ${i+1}]: ${t}`).join('\n')
     : '(não detectados — crie 4 depoimentos ultra-realistas com nome, cidade e resultado específico)'
@@ -510,19 +488,19 @@ function buildHtmlPrompt(analysis: any, landingPage: any, hero: string | null, p
   const cssColors = landingPage?.design?.colors?.slice(0, 10).join(', ') || 'não disponível'
   const cssFonts = landingPage?.design?.fonts?.join(', ') || 'não disponível'
 
-  const mediaBriefing = `━━━ MANIFESTO DE MÍDIA ━━━
-${hero ? `[HERO_BG] background-image do hero: style="background-image:linear-gradient(rgba(0,0,0,.70),rgba(0,0,0,.70)),url('${hero}');background-size:cover;background-position:center"` : '[HERO_BG] não disponível — use gradiente CSS'}
-${product ? `[PRODUTO] <img src="${product}" alt="produto" style="display:block;margin:0 auto;max-width:400px;width:100%;border-radius:20px;box-shadow:0 40px 100px rgba(0,0,0,.25)">` : '[PRODUTO] não disponível — use mockup CSS'}
-${persons.length > 0 ? `[PESSOAS] avatares:\n${persons.map((p, i) => `  [P${i+1}] <img src="${p}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)">`).join('\n')}` : '[PESSOAS] não disponível — círculos CSS com inicial'}
-${videos.length > 0 ? `[VÍDEOS]:\n${videos.map((v, i) => `  [V${i+1}] <video src="${v}" ${i===0?'autoplay muted loop playsinline':'controls'} style="display:block;margin:32px auto;max-width:560px;width:100%;border-radius:16px"></video>`).join('\n')}` : '[VÍDEOS] não disponível'}
-⚠️ Nunca invente URLs. Use cada asset EXATAMENTE como está.`
-
+  // Deriva arrays de mídia por role a partir do MediaItem[]
   const heroImages = media.filter(m => m.role === 'hero').slice(0, 2)
   const productImages = media.filter(m => m.role === 'product').slice(0, 3)
   const personImages = media.filter(m => m.role === 'person').slice(0, 5)
   const badgeImages = media.filter(m => m.role === 'badge').slice(0, 6)
   const mediaVideos = media.filter(m => m.role === 'video').slice(0, 2)
   const bgImages = media.filter(m => m.role === 'background').slice(0, 2)
+
+  // Variáveis de conveniência para uso nos templates de funil
+  const hero = heroImages[0]?.url || null
+  const product = productImages[0]?.url || null
+  const persons = personImages.map(m => m.url)
+  const videos = mediaVideos.map(m => m.url)
 
   const mediaSection = media.length > 0 ? `
 
@@ -570,7 +548,6 @@ Hooks dos anúncios: ${adCopies}
 Texto da página: ${fullText}
 Depoimentos: ${testimonials}
 
-${mediaBriefing}
 ${mediaSection}
 
 ${designRules}`
@@ -914,6 +891,8 @@ export async function POST(req: NextRequest) {
 
         send({ step: 'analyzing_page', message: 'Analisando copy e estrutura da oferta...', percent: 42 })
 
+        const landingPageLoaded = !!(landingPage && landingPage.fullText.length > 100)
+
         // 3. Análise Claude
         send({ step: 'scoring', message: 'Calculando score e identificando ângulos...', percent: 50 })
         const analysisText = await callClaude(`TOTAL DE ANÚNCIOS ATIVOS: ${ads.length}
@@ -930,6 +909,7 @@ Preços detectados: ${landingPage.prices.join(', ') || 'não detectado'}
 Depoimentos encontrados: ${landingPage.testimonials.length}
 Texto completo da página: ${landingPage.fullText}
 ` : 'Não disponível'}
+${!landingPageLoaded ? '\nATENÇÃO: landing page não carregou. Baseie a análise APENAS nos anúncios. Seja explícito no "reason" que a análise é parcial.' : ''}
 
 Retorne o JSON conforme o schema obrigatório:`, `Você é um analista sênior de marketing digital brasileiro especializado em performance de paid media low ticket. Sua tarefa é analisar um concorrente com profundidade cirúrgica.
 
@@ -971,22 +951,25 @@ SCHEMA OBRIGATÓRIO:
 
         send({ step: 'scoring', message: `✓ Score ${analysis.score}/10 — ${analysis.verdict}. Preparando modelagem...`, percent: 65 })
 
-        // 4. Mídia do concorrente — classificada por papel (síncrono, instantâneo)
-        const rawImages = (landingPage?.images ?? []) as ImageMeta[]
-        const rawVideos = landingPage?.videos ?? []
-        const adVideos = extractAdVideos(ads)
-        const classified = classifyMedia(rawImages, [...rawVideos, ...adVideos])
-        const { hero, product, persons, videos } = classified
-        const imageUrls = rawImages.map(i => i.src).filter(Boolean).slice(0, 8)
-        const adCopies = adsForClaude.map(a => a.body).filter(Boolean).map(t => String(t)).join('\n\n')
+        // 4. Mídia do concorrente — usa apenas pageMedia (classifyMediaItems já aplicado no scraper)
         const pageMedia: MediaItem[] = (landingPage as (typeof landingPage & { media?: MediaItem[] }) | null)?.media ?? []
+        // Adiciona vídeos dos anúncios ao pageMedia se não estiverem lá
+        const adVideos = extractAdVideos(ads)
+        adVideos.forEach(v => {
+          if (!pageMedia.find(m => m.url === v)) {
+            pageMedia.push({ url: v, type: 'video', role: 'video' })
+          }
+        })
+        const adCopies = adsForClaude.map(a => a.body).filter(Boolean).map(t => String(t)).join('\n\n')
+        // Para embed base64, usa as URLs do pageMedia
+        const imageUrls = pageMedia.filter(m => m.type === 'image').map(m => m.url).slice(0, 8)
         console.log('[Media] MediaItems classificados:', pageMedia.length, '| roles:', pageMedia.map(m => m.role).join(',').slice(0, 100))
 
         // 5. Geração HTML
         send({ step: 'generating', message: `Gerando página de vendas modelada (tipo: ${analysis.funnel_type || 'landing_page'})...`, percent: 75 })
         console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
         const rawText = await callClaude(
-          buildHtmlPrompt(analysis, landingPage, hero, product, persons, videos, adCopies, pageMedia),
+          buildHtmlPrompt(analysis, landingPage, adCopies, pageMedia),
           `Você é um dev front-end + copywriter brasileiro especialista em páginas de vendas de alta conversão para produtos low ticket. Você vai gerar uma página que seja SUPERIOR ao concorrente analisado.
 
 FILOSOFIA:
@@ -1002,7 +985,7 @@ REGRAS TÉCNICAS:
 - Sem dependências externas (sem CDNs, sem fonts externas)
 - Responsivo mobile-first
 - Todos os CTAs com href="#comprar" ou data-cta="principal"
-- Sem imagens reais — use gradientes, cores sólidas ou SVG inline
+- Quando URLs de imagens reais forem fornecidas no briefing, USE-AS diretamente nas tags <img src='...'> e <video src='...'>. Quando não houver imagens disponíveis, use gradientes CSS ou SVG inline como fallback.
 - JavaScript mínimo: apenas o essencial para interatividade
 
 ESTRUTURA POR TIPO DE FUNIL:
@@ -1094,9 +1077,20 @@ setTimeout(reveal,300);setTimeout(reveal,800);
 
         // Salva no cache para evitar chamadas repetidas em 24h
         if (pageId) {
-          dbSaveCachedAnalysis(pageId, JSON.stringify(analysis), generatedHtml).catch(e =>
-            console.error('[Cache] Falha ao salvar:', e)
-          )
+          const saveWithRetry = async () => {
+            for (let attempt = 1; attempt <= 2; attempt++) {
+              try {
+                await dbSaveCachedAnalysis(pageId, JSON.stringify(analysis), generatedHtml)
+                console.log('[Cache] Salvo com sucesso na tentativa', attempt)
+                return
+              } catch (e) {
+                console.error(`[Cache] Falha tentativa ${attempt}:`, e)
+                if (attempt < 2) await sleep(1000)
+              }
+            }
+          }
+          // await com timeout de 3s — não bloqueia se Turso estiver lenta
+          await Promise.race([saveWithRetry(), sleep(3000)])
         }
 
         send({ step: 'done', message: 'Análise concluída. Abrindo editor_', percent: 100, data: { analysis, generatedHtml, analises: newAnalises } })
