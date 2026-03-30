@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { query } from '@anthropic-ai/claude-agent-sdk'
+import Anthropic from '@anthropic-ai/sdk'
 import {
   dbGetUserById,
   dbDecrementCreditosN,
@@ -233,37 +233,24 @@ export async function POST(req: NextRequest) {
     const model = isSimpleEdit(message) ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-6'
     console.log(`[Edit] Modelo: ${model} | Simple: ${isSimpleEdit(message)} | CC markers: ${hasCcMarkers}`)
 
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
           let fullText = ''
 
-          for await (const sdkMessage of query({
-            prompt,
-            options: {
-              model,
-              systemPrompt: SYSTEM_PROMPT,
-              maxTurns: 1,
-              allowedTools: [],
-            },
-          })) {
-            // AssistantMessage: content is an array of blocks
-            const content = (sdkMessage as any).content
-            if (Array.isArray(content)) {
-              for (const block of content) {
-                if (block?.type === 'text' && typeof block.text === 'string') {
-                  const text: string = block.text
-                  fullText += text
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: text })}\n\n`),
-                  )
-                }
-              }
-            }
-            // ResultMessage: final result string (fallback if no content blocks)
-            if ('result' in sdkMessage && typeof (sdkMessage as any).result === 'string' && !fullText) {
-              const text = (sdkMessage as any).result as string
-              fullText = text
+          const sdkStream = anthropic.messages.stream({
+            model,
+            max_tokens: 8192,
+            system: SYSTEM_PROMPT,
+            messages: [{ role: 'user', content: prompt }],
+          })
+
+          for await (const event of sdkStream) {
+            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+              const text = event.delta.text
+              fullText += text
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: text })}\n\n`),
               )
