@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 interface Analysis {
@@ -149,8 +149,277 @@ function syntaxHighlight(code: string): string {
     .replace(/ ([\w:-]+)(=&quot;)(.*?)(&quot;)/g,' <span class="sh-attr">$1</span>$2<span class="sh-str">$3</span>$4')
 }
 
+interface ReportViewProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  phase1: Record<string, any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  phase2: Record<string, any>
+  screenshots: string[]
+  phase3Loading: boolean
+  phase3Lines: { text: string; type: string }[]
+  onBack: () => void
+  onGenerate: () => void
+}
+
+function ReportSection({ label, badge, badgeCls, children }: { label: string; badge?: string; badgeCls?: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(true)
+  return (
+    <div className="rpt-section">
+      <div className="rpt-section-hd" onClick={() => setOpen(o => !o)}>
+        <span className="rpt-sec-label">{label}</span>
+        {badge && <span className={`rpt-sec-badge ${badgeCls || ''}`}>{badge}</span>}
+        <span className={`rpt-chevron${open ? ' open' : ''}`}>▼</span>
+      </div>
+      {open && <div className="rpt-section-body">{children}</div>}
+    </div>
+  )
+}
+
+function ReportView({ phase1, phase2, screenshots, phase3Loading, phase3Lines, onBack, onGenerate }: ReportViewProps) {
+  const nota = phase1.nota_entrada || {}
+  const facilidade = nota.facilidade ?? 0
+  const escalabilidade = nota.escalabilidade ?? 0
+  const score = nota.score ?? 0
+
+  const copyPatterns: string[] = phase1.copy_patterns || []
+  const formatos: string[] = phase1.formatos_validados || []
+  const pontosFragosCriativos: string[] = phase1.pontos_fracos_criativos || []
+
+  const analise = phase2.analise_de_copy || {}
+  const design = phase2.analise_de_design || {}
+  const estrutura: Record<string, unknown>[] = phase2.estrutura || []
+  const pontosFracos: Record<string, unknown>[] = phase2.pontos_fracos || []
+  const elementosFuncionam: string[] = phase2.elementos_que_funcionam || []
+  const paleta: string[] = design.paleta_dominante || []
+
+  const r = 34, circ = 2 * Math.PI * r, dash = (score / 10) * circ
+
+  return (
+    <div className="report-wrap">
+      <div className="report-topbar">
+        <button className="report-back" onClick={onBack}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span className="report-title">Análise concluída</span>
+        <span className="report-subtitle">{phase2.url_analisada || ''}</span>
+      </div>
+
+      <div className="report-body">
+
+        {/* Phase 1 — Ads */}
+        <ReportSection label="Fase 1 — Análise dos Anúncios" badge="Meta Ad Library" badgeCls="p1">
+          <div className="score-ring-wrap">
+            <svg className="score-ring-svg" width="84" height="84" viewBox="0 0 84 84">
+              <circle cx="42" cy="42" r={r} fill="none" stroke="#111" strokeWidth="5" />
+              <circle cx="42" cy="42" r={r} fill="none" stroke="#E8692A" strokeWidth="5"
+                strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+                transform="rotate(-90 42 42)"
+                style={{ transition: 'stroke-dasharray 1.2s cubic-bezier(.16,1,.3,1)' }}
+              />
+              <text x="42" y="44" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="900" fontFamily="Roboto,sans-serif">{score}</text>
+              <text x="42" y="56" textAnchor="middle" fill="#444" fontSize="9" fontFamily="Roboto,sans-serif">/10</text>
+            </svg>
+            <div className="score-ring-info">
+              <div className="score-sub">
+                <span className="score-sub-lbl">Facilidade</span>
+                <div className="score-sub-bar"><div className="score-sub-fill" style={{ width: `${(facilidade / 5) * 100}%` }} /></div>
+                <span className="score-sub-num">{facilidade}/5</span>
+              </div>
+              <div className="score-sub">
+                <span className="score-sub-lbl">Escalabilidade</span>
+                <div className="score-sub-bar"><div className="score-sub-fill" style={{ width: `${(escalabilidade / 5) * 100}%` }} /></div>
+                <span className="score-sub-num">{escalabilidade}/5</span>
+              </div>
+              {nota.justificativa && <div style={{ fontSize: 12, color: '#555', maxWidth: 360, lineHeight: 1.5, marginTop: 4 }}>{nota.justificativa}</div>}
+            </div>
+          </div>
+
+          <div className="rpt-grid">
+            <div className="rpt-card">
+              <div className="rpt-card-lbl">Ângulo dominante</div>
+              <div className="rpt-card-val">{phase1.angulo_dominante || '—'}</div>
+            </div>
+            <div className="rpt-card">
+              <div className="rpt-card-lbl">Formatos validados</div>
+              <div className="chips-row">
+                {formatos.map((f, i) => <span key={i} className="rpt-chip orange">{f}</span>)}
+                {formatos.length === 0 && <span className="rpt-chip">—</span>}
+              </div>
+            </div>
+            <div className="rpt-card">
+              <div className="rpt-card-lbl">Copy patterns</div>
+              <div className="chips-row">
+                {copyPatterns.map((p, i) => <span key={i} className="rpt-chip">{p}</span>)}
+              </div>
+            </div>
+            <div className="rpt-card">
+              <div className="rpt-card-lbl">Fraquezas criativas</div>
+              <div className="rpt-list">
+                {pontosFragosCriativos.map((w, i) => (
+                  <div key={i} className="rpt-list-item weak"><span className="ic">✗</span><span>{w}</span></div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {(phase1.sugestoes_criativos || []).length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div className="rpt-card-lbl" style={{ marginBottom: 8 }}>Sugestões de criativos</div>
+              <div className="rpt-list">
+                {(phase1.sugestoes_criativos as string[]).map((s, i) => (
+                  <div key={i} className="rpt-list-item info"><span className="ic">→</span><span>{s}</span></div>
+                ))}
+              </div>
+            </div>
+          )}
+        </ReportSection>
+
+        {/* Phase 2 — Page */}
+        <ReportSection label="Fase 2 — Análise da Página" badge={phase2.tipo_de_funil || 'página'} badgeCls="p2">
+          <div className="rpt-grid" style={{ marginBottom: 16 }}>
+            <div className="rpt-card">
+              <div className="rpt-card-lbl">Promessa central</div>
+              <div className="rpt-card-val">{analise.promessa_central || '—'}</div>
+            </div>
+            <div className="rpt-card">
+              <div className="rpt-card-lbl">Mecanismo de dor</div>
+              <div className="rpt-card-val">{analise.mecanismo_de_dor || '—'}</div>
+            </div>
+            <div className="rpt-card">
+              <div className="rpt-card-lbl">Linguagem</div>
+              <div className="rpt-card-val">{analise.linguagem || '—'}</div>
+            </div>
+            <div className="rpt-card">
+              <div className="rpt-card-lbl">Tom visual</div>
+              <div className="rpt-card-val">{design.tom_visual || '—'}</div>
+            </div>
+          </div>
+
+          {(analise.palavras_gatilho || []).length > 0 && (
+            <div className="rpt-card" style={{ marginBottom: 14 }}>
+              <div className="rpt-card-lbl">Palavras-gatilho</div>
+              <div className="chips-row">
+                {(analise.palavras_gatilho as string[]).map((w, i) => <span key={i} className="rpt-chip orange">{w}</span>)}
+              </div>
+            </div>
+          )}
+
+          {paleta.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div className="rpt-card-lbl" style={{ marginBottom: 6 }}>Paleta de cores</div>
+              <div className="rpt-palette">
+                {paleta.map((c, i) => (
+                  <div key={i} className="rpt-swatch" style={{ background: c }} title={c} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {estrutura.length > 0 && (
+            <div>
+              <div className="rpt-card-lbl" style={{ marginBottom: 8 }}>Estrutura da página ({estrutura.length} seções)</div>
+              <div className="rpt-struct-list">
+                {estrutura.map((sec, i) => (
+                  <div key={i} className="rpt-struct-item">
+                    <div className="rpt-struct-pos">{sec.posicao as number}</div>
+                    <div className="rpt-struct-name">{sec.nome as string}</div>
+                    <span className={`rpt-struct-qual ${(sec.qualidade as string) || ''}`}>{sec.qualidade as string}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </ReportSection>
+
+        {/* Weak points */}
+        {pontosFracos.length > 0 && (
+          <ReportSection label="Pontos Fracos" badge={`${pontosFracos.length} encontrados`} badgeCls="p2">
+            <div className="rpt-pontos-fracos">
+              {pontosFracos.map((pf, i) => (
+                <div key={i} className="rpt-pf-item">
+                  <div className="rpt-pf-header">
+                    <div className="rpt-pf-rank">#{pf.rank as number || i + 1}</div>
+                    <div className="rpt-pf-prob">{pf.problema as string}</div>
+                    <span className={`rpt-pf-impact ${(pf.impacto as string || '').toLowerCase()}`}>{pf.impacto as string}</span>
+                  </div>
+                  {pf.como_corrigir && <div className="rpt-pf-fix">{pf.como_corrigir as string}</div>}
+                </div>
+              ))}
+            </div>
+            {elementosFuncionam.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div className="rpt-card-lbl" style={{ marginBottom: 8 }}>O que funciona</div>
+                <div className="rpt-list">
+                  {elementosFuncionam.map((e, i) => (
+                    <div key={i} className="rpt-list-item strong"><span className="ic">✓</span><span>{e}</span></div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </ReportSection>
+        )}
+
+        {/* Screenshots */}
+        {screenshots.length > 0 && (
+          <ReportSection label="Screenshots da página">
+            <div className="rpt-shots">
+              {screenshots[0] && (
+                <div className="rpt-shot">
+                  <img src={`data:image/jpeg;base64,${screenshots[0]}`} alt="Desktop" />
+                  <div className="rpt-shot-lbl">Desktop 1440px</div>
+                </div>
+              )}
+              {screenshots[1] && (
+                <div className="rpt-shot">
+                  <img src={`data:image/jpeg;base64,${screenshots[1]}`} alt="Mobile" />
+                  <div className="rpt-shot-lbl">Mobile 375px</div>
+                </div>
+              )}
+            </div>
+          </ReportSection>
+        )}
+
+      </div>
+
+      {/* CTA */}
+      <div className="report-cta-wrap">
+        <div className="report-cta-box">
+          <div className="report-cta-text">
+            <h3>Gerar funil melhorado →</h3>
+            <p>Claude Opus vai criar um HTML completo, superior ao original, aplicando todas as correções identificadas.</p>
+          </div>
+          <button className="report-gen-btn" onClick={onGenerate} disabled={phase3Loading}>
+            {phase3Loading ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                Gerando...
+              </>
+            ) : 'Acessar Funil Modelado →'}
+          </button>
+        </div>
+        {phase3Loading && phase3Lines.length > 0 && (
+          <div className="report-gen-term">
+            <div className="term-bar">
+              <div className="tbd" style={{ background: '#ff5f57' }} />
+              <div className="tbd" style={{ background: '#febc2e' }} />
+              <div className="tbd" style={{ background: '#28c840' }} />
+              <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: '#333', marginLeft: 8 }}>claude-opus — geração</span>
+            </div>
+            <div className="term-body">
+              {phase3Lines.filter(Boolean).map((l, i) => (
+                <div key={i} className={`tl-${l.type}`}>{l.text}</div>
+              ))}
+              <span className="tcur" />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function ToolPage() {
-  const [view, setView] = useState<'dashboard' | 'editor'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'report' | 'editor'>('dashboard')
   const [dashTab, setDashTab] = useState<'mine' | 'recent'>('mine')
   const [chatTab, setChatTab] = useState<'details' | 'preview'>('details')
   const [editorTab, setEditorTab] = useState<'preview' | 'code'>('preview')
@@ -165,6 +434,14 @@ export default function ToolPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [pageSaved, setPageSaved] = useState(false)
   const [dashProgress, setDashProgress] = useState(0)
+
+  // 3-phase state
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [phase1Report, setPhase1Report] = useState<Record<string, any> | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [phase2Report, setPhase2Report] = useState<Record<string, any> | null>(null)
+  const [phase2Screenshots, setPhase2Screenshots] = useState<string[]>([])
+  const [phase3Loading, setPhase3Loading] = useState(false)
 
   // Editor
   const [currentProject, setCurrentProject] = useState<Project | null>(null)
@@ -353,25 +630,16 @@ export default function ToolPage() {
     setPageSaved(false)
     setTermLines([])
     setDashProgress(0)
+    setPhase1Report(null)
+    setPhase2Report(null)
+    setPhase2Screenshots([])
     if (stepTimer.current) clearInterval(stepTimer.current)
-    try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
-        body: JSON.stringify({ url }),
-      })
-      if (res.status === 402) {
-        setUpgradeModal(true)
-        setAnalyzing(false)
-        return
-      }
-      if (!res.ok || !res.body) {
-        const err = await res.json().catch(() => ({ error: 'Erro ao analisar' }))
-        throw new Error(err.error || 'Erro ao analisar')
-      }
+
+    async function readSSE(res: Response, onEvent: (ev: Record<string, unknown>) => boolean): Promise<void> {
+      if (!res.body) throw new Error('No stream')
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
-      let buffer = '', streamDone = false
+      let buffer = ''
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -380,44 +648,154 @@ export default function ToolPage() {
         buffer = parts.pop() ?? ''
         for (const part of parts) {
           if (!part.startsWith('data: ')) continue
-          let ev: { step: string; message: string; percent?: number; data?: { analysis: unknown; generatedHtml: string; analises?: number } }
+          let ev: Record<string, unknown>
           try { ev = JSON.parse(part.slice(6)) } catch { continue }
-          if (ev.step === 'error') throw new Error(ev.message)
-          if (ev.step === 'done' && ev.data) {
-            streamDone = true
-            setDashProgress(100)
-            if (typeof ev.data.analises === 'number') setAnalises(ev.data.analises)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const a = ev.data.analysis as any
-            const proj: Project = {
-              id: Date.now().toString(),
-              name: a.page_name || 'Oferta sem nome',
-              score: a.score,
-              html: ev.data.generatedHtml,
-              analysis: a,
-              url,
-              createdAt: Date.now(),
-            }
-            const updated = [proj, ...projects].slice(0, 12)
-            setProjects(updated)
-            localStorage.setItem('cc_projects', JSON.stringify(updated))
-            openEditor({ ...proj, html: injectRevealFix(proj.html) })
-            return
-          }
-          // Progress event
-          if (ev.percent !== undefined) setDashProgress(ev.percent)
-          const isCheck = ev.message.startsWith('✓')
-          setTermLines(prev => [...prev, { text: isCheck ? ev.message : `> ${ev.message}`, type: isCheck ? 'done' : 'wait' }])
+          if (onEvent(ev)) return
         }
       }
-      if (!streamDone) {
-        throw new Error('A conexão foi interrompida antes da análise concluir. O servidor pode ter demorado demais — tente novamente.')
-      }
+    }
+
+    try {
+      // ── Phase 1: Ad analysis ──
+      setTermLines([{ text: '> Iniciando análise de anúncios...', type: 'wait' }])
+      const res1 = await fetch('/api/phase1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
+        body: JSON.stringify({ url }),
+      })
+      if (res1.status === 402) { setUpgradeModal(true); return }
+      if (!res1.ok) { const e = await res1.json().catch(() => ({})); throw new Error(e.error || 'Erro na fase 1') }
+
+      let p1: Record<string, unknown> | null = null
+      await readSSE(res1, (ev) => {
+        if (ev.type === 'error') throw new Error(ev.message as string)
+        if (ev.type === 'progress') {
+          setTermLines(prev => [...prev, { text: `> ${ev.text}`, type: 'wait' }])
+          setDashProgress(30)
+        }
+        if (ev.type === 'done') {
+          p1 = ev.report as Record<string, unknown>
+          setTermLines(prev => [...prev, { text: '✓ Fase 1 concluída — anúncios analisados', type: 'done' }])
+          setDashProgress(50)
+          return true
+        }
+        return false
+      })
+      if (!p1) throw new Error('Fase 1 não retornou relatório')
+      setPhase1Report(p1)
+
+      // ── Phase 2: Page analysis ──
+      const landingUrl = (p1 as Record<string, unknown>).landing_url as string
+      if (!landingUrl) throw new Error('URL da página de destino não encontrada nos anúncios')
+
+      setTermLines(prev => [...prev, { text: '> Analisando página de destino...', type: 'wait' }])
+      const res2 = await fetch('/api/phase2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
+        body: JSON.stringify({ url: landingUrl, phase1Report: p1 }),
+      })
+      if (res2.status === 402) { setUpgradeModal(true); return }
+      if (!res2.ok) { const e = await res2.json().catch(() => ({})); throw new Error(e.error || 'Erro na fase 2') }
+
+      let p2: Record<string, unknown> | null = null
+      let shots: string[] = []
+      await readSSE(res2, (ev) => {
+        if (ev.type === 'error') throw new Error(ev.message as string)
+        if (ev.type === 'progress') {
+          setTermLines(prev => [...prev, { text: `> ${ev.text}`, type: 'wait' }])
+          setDashProgress(75)
+        }
+        if (ev.type === 'done') {
+          p2 = ev.report as Record<string, unknown>
+          shots = (ev.screenshots as string[]) || []
+          setTermLines(prev => [...prev, { text: '✓ Fase 2 concluída — página analisada', type: 'done' }])
+          setDashProgress(100)
+          return true
+        }
+        return false
+      })
+      if (!p2) throw new Error('Fase 2 não retornou relatório')
+      setPhase2Report(p2)
+      setPhase2Screenshots(shots)
+
+      // ── Show report view ──
+      setView('report')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao analisar. Tente novamente.')
       setDashProgress(0)
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  async function handlePhase3() {
+    if (!phase1Report || !phase2Report) return
+    setPhase3Loading(true)
+    setTermLines([])
+    try {
+      const res = await fetch('/api/phase3', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
+        body: JSON.stringify({ phase1Report, phase2Report, screenshots: phase2Screenshots }),
+      })
+      if (res.status === 402) { setUpgradeModal(true); return }
+      if (!res.body) throw new Error('No stream')
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = '', html = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+        for (const part of parts) {
+          if (!part.startsWith('data: ')) continue
+          let ev: Record<string, unknown>
+          try { ev = JSON.parse(part.slice(6)) } catch { continue }
+          if (ev.type === 'error') throw new Error(ev.message as string)
+          if (ev.type === 'progress') {
+            setTermLines(prev => [...prev.slice(-5), { text: `> ${ev.text}`, type: 'wait' }])
+          }
+          if (ev.type === 'done') {
+            html = ev.html as string
+            if (typeof ev.creditos === 'number') setCreditos(ev.creditos)
+          }
+        }
+      }
+      if (!html) throw new Error('Fase 3 não retornou HTML')
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p1 = phase1Report as any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p2 = phase2Report as any
+      const proj: Project = {
+        id: Date.now().toString(),
+        name: p2.url_analisada ? (() => { try { return new URL(p2.url_analisada).hostname } catch { return p2.url_analisada } })() : (p1.angulo_dominante || 'Funil Gerado'),
+        score: Number(p1.nota_entrada?.score) || 7,
+        html,
+        analysis: {
+          score: Number(p1.nota_entrada?.score) || 7,
+          verdict: p1.nota_entrada?.justificativa || '',
+          reason: p2.analise_de_copy?.promessa_central || '',
+          dominant_angle: p1.angulo_dominante || '',
+          weak_points: (p2.pontos_fracos || []).map((f: { problema: string }) => f.problema),
+          strong_points: p2.elementos_que_funcionam || [],
+          ctv_recommendations: [],
+        },
+        url,
+        createdAt: Date.now(),
+      }
+      const updated = [proj, ...projects].slice(0, 12)
+      setProjects(updated)
+      localStorage.setItem('cc_projects', JSON.stringify(updated))
+      openEditor({ ...proj, html: injectRevealFix(proj.html) })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro na geração do funil')
+    } finally {
+      setPhase3Loading(false)
     }
   }
 
@@ -1055,6 +1433,82 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
         .preview-mob-toggle{display:none;position:absolute;bottom:16px;right:16px;padding:10px 18px;background:#E8692A;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:700;z-index:5;cursor:pointer}
         @media(max-width:768px){.preview-mob-toggle{display:block}}
 
+        /* ── Report view ── */
+        .report-wrap{min-height:100vh;background:#000;color:#ccc;display:flex;flex-direction:column}
+        .report-topbar{display:flex;align-items:center;gap:12px;padding:12px 24px;border-bottom:1px solid #141414;flex-shrink:0;background:#000}
+        .report-back{display:flex;align-items:center;justify-content:center;width:30px;height:30px;background:transparent;border:1px solid #222;border-radius:7px;color:#666;cursor:pointer;transition:all .15s;flex-shrink:0}
+        .report-back:hover{border-color:#444;color:#ccc}
+        .report-title{font-size:13px;font-weight:700;color:#fff}
+        .report-subtitle{font-size:11px;color:#444;margin-left:auto}
+        .report-body{flex:1;overflow-y:auto;padding:32px 24px;max-width:900px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+        .rpt-section{background:#070707;border:1px solid #141414;border-radius:12px;overflow:hidden}
+        .rpt-section-hd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #141414;cursor:pointer;user-select:none;transition:background .15s}
+        .rpt-section-hd:hover{background:#0d0d0d}
+        .rpt-sec-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#555}
+        .rpt-sec-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:auto}
+        .rpt-sec-badge.p1{background:rgba(232,105,42,.1);color:#E8692A;border:1px solid rgba(232,105,42,.2)}
+        .rpt-sec-badge.p2{background:rgba(99,102,241,.1);color:#818cf8;border:1px solid rgba(99,102,241,.2)}
+        .rpt-chevron{color:#333;font-size:10px;transition:transform .2s;margin-left:8px}
+        .rpt-chevron.open{transform:rotate(180deg)}
+        .rpt-section-body{padding:18px}
+        .rpt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        @media(max-width:600px){.rpt-grid{grid-template-columns:1fr}}
+        .rpt-card{background:#0d0d0d;border:1px solid #1a1a1a;border-radius:8px;padding:14px}
+        .rpt-card-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#444;margin-bottom:6px}
+        .rpt-card-val{font-size:13px;color:#bbb;line-height:1.6}
+        .score-ring-wrap{display:flex;align-items:center;gap:20px;padding:4px 0 12px}
+        .score-ring-svg{flex-shrink:0}
+        .score-ring-info{display:flex;flex-direction:column;gap:8px}
+        .score-sub{display:flex;align-items:center;gap:8px}
+        .score-sub-lbl{font-size:11px;color:#444;width:96px}
+        .score-sub-bar{flex:1;height:4px;background:#1a1a1a;border-radius:4px;overflow:hidden}
+        .score-sub-fill{height:100%;border-radius:4px;background:#E8692A;transition:width .6s ease}
+        .score-sub-num{font-size:11px;color:#666;width:20px;text-align:right}
+        .chips-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+        .rpt-chip{font-size:11px;padding:3px 10px;border-radius:20px;background:#111;border:1px solid #1e1e1e;color:#888}
+        .rpt-chip.orange{background:rgba(232,105,42,.08);border-color:rgba(232,105,42,.2);color:#E8692A}
+        .rpt-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+        .rpt-list-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#888;line-height:1.5}
+        .rpt-list-item .ic{flex-shrink:0;margin-top:2px;font-size:10px}
+        .rpt-list-item.weak .ic{color:#ef4444}
+        .rpt-list-item.strong .ic{color:#22c55e}
+        .rpt-list-item.info .ic{color:#E8692A}
+        .rpt-struct-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+        .rpt-struct-item{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:#0d0d0d;border:1px solid #141414;border-radius:8px;font-size:12px}
+        .rpt-struct-pos{width:20px;height:20px;border-radius:5px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#444;flex-shrink:0}
+        .rpt-struct-name{font-weight:600;color:#bbb;flex:1}
+        .rpt-struct-qual{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0}
+        .rpt-struct-qual.forte{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
+        .rpt-struct-qual.médio,.rpt-struct-qual.medio{background:rgba(234,179,8,.1);color:#eab308;border:1px solid rgba(234,179,8,.2)}
+        .rpt-struct-qual.fraco{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
+        .rpt-palette{display:flex;gap:8px;margin-top:4px}
+        .rpt-swatch{width:32px;height:32px;border-radius:6px;border:1px solid rgba(255,255,255,.06);cursor:default;title:attr(title)}
+        .rpt-shots{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+        .rpt-shot{border-radius:8px;overflow:hidden;border:1px solid #1a1a1a}
+        .rpt-shot img{width:100%;height:auto;display:block}
+        .rpt-shot-lbl{font-size:10px;color:#444;padding:6px 8px;background:#0d0d0d}
+        .rpt-pontos-fracos{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+        .rpt-pf-item{padding:10px 14px;background:#0d0d0d;border:1px solid #141414;border-radius:8px;display:flex;flex-direction:column;gap:4px}
+        .rpt-pf-header{display:flex;align-items:center;gap:8px}
+        .rpt-pf-rank{width:18px;height:18px;border-radius:50%;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#555;flex-shrink:0}
+        .rpt-pf-prob{font-size:12px;font-weight:600;color:#bbb;flex:1}
+        .rpt-pf-impact{font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px}
+        .rpt-pf-impact.alto{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
+        .rpt-pf-impact.médio,.rpt-pf-impact.medio{background:rgba(234,179,8,.1);color:#eab308;border:1px solid rgba(234,179,8,.2)}
+        .rpt-pf-impact.baixo{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
+        .rpt-pf-fix{font-size:11px;color:#555;line-height:1.5;padding-left:26px}
+        .report-cta-wrap{padding:32px 24px;max-width:900px;width:100%;margin:0 auto}
+        .report-cta-box{background:linear-gradient(135deg,#0f0700,#150c00);border:1px solid rgba(232,105,42,.2);border-radius:16px;padding:28px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+        @media(max-width:600px){.report-cta-box{flex-direction:column;align-items:flex-start}}
+        .report-cta-text h3{font-size:18px;font-weight:800;color:#fff;margin:0 0 6px}
+        .report-cta-text p{font-size:13px;color:#888;margin:0;line-height:1.5}
+        .report-gen-btn{padding:14px 28px;background:#E8692A;border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:8px}
+        .report-gen-btn:hover:not(:disabled){background:#c4551d;transform:translateY(-1px)}
+        .report-gen-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+        .report-gen-term{background:#060606;border:1px solid #1a1a1a;border-radius:10px;margin-top:16px;overflow:hidden}
+        .report-gen-term .term-bar{padding:6px 12px;background:#0a0a0a;border-bottom:1px solid #141414;display:flex;align-items:center;gap:6px}
+        .report-gen-term .term-body{padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;line-height:1.7;color:#555;max-height:120px;overflow-y:auto}
+
       `}</style>
 
 
@@ -1325,6 +1779,16 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
             </div>
           </div>
         </div>
+      ) : view === 'report' ? (
+        <ReportView
+          phase1={phase1Report!}
+          phase2={phase2Report!}
+          screenshots={phase2Screenshots}
+          phase3Loading={phase3Loading}
+          phase3Lines={termLines}
+          onBack={() => setView('dashboard')}
+          onGenerate={handlePhase3}
+        />
       ) : (
         <div className="editor-wrap">
           {/* Progress bar */}
