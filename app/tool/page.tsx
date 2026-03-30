@@ -187,8 +187,10 @@ function ReportView({ phase1, phase2, screenshots, phase3Loading, phase3Lines, o
 
   const analise = phase2.analise_de_copy || {}
   const design = phase2.analise_de_design || {}
-  const estrutura: Record<string, unknown>[] = phase2.estrutura || []
-  const pontosFracos: Record<string, unknown>[] = phase2.pontos_fracos || []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const estrutura: Record<string, any>[] = phase2.estrutura || []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pontosFracos: Record<string, any>[] = phase2.pontos_fracos || []
   const elementosFuncionam: string[] = phase2.elementos_que_funcionam || []
   const paleta: string[] = design.paleta_dominante || []
 
@@ -781,6 +783,7 @@ export default function ToolPage() {
           verdict: p1.nota_entrada?.justificativa || '',
           reason: p2.analise_de_copy?.promessa_central || '',
           dominant_angle: p1.angulo_dominante || '',
+          page_name: p2.url_analisada || p1.angulo_dominante || 'Funil Gerado',
           weak_points: (p2.pontos_fracos || []).map((f: { problema: string }) => f.problema),
           strong_points: p2.elementos_que_funcionam || [],
           ctv_recommendations: [],
