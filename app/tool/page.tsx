@@ -8,9 +8,20 @@ interface Analysis {
   verdict: string
   reason: string
   dominant_angle: string
+  hook_patterns?: string[]
   page_name: string
+  niche?: string
+  price_anchor?: string | null
+  funnel_type?: string
+  design_context?: { vibe?: string; primary_color?: string }
   weak_points: string[]
   strong_points: string[]
+  ad_analysis?: {
+    total_ads: number
+    dominant_hooks: string[]
+    copy_patterns: string
+    escalation_signal: string
+  }
   ctv_recommendations: { hook: string; angle: string; script: string }[]
 }
 
@@ -556,10 +567,18 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
     reader.readAsDataURL(file)
   }
 
-  function estimateCost(msg: string): number {
-    const lower = msg.toLowerCase()
-    if (/rebuild|redesign|refaz|refazer|completo|completa|reescreve|tudo|full|página inteira|do zero/.test(lower)) return 3
-    return Math.max(1, Math.ceil(msg.length / 200))
+  function estimateCost(message: string): number {
+    const lower = message.toLowerCase()
+    // Rebuilds completos custam mais
+    if (/rebuild|redesign|refaz|recria|do zero|do início|completo/.test(lower)) return 5
+    // Adições de seção nova
+    if (/adiciona|adicione|cria uma seção|nova seção|coloca um|insere/.test(lower)) return 3
+    // Edições grandes
+    if (message.length > 150) return 3
+    // Edições médias
+    if (message.length > 80) return 2
+    // Edições pequenas (cor, texto, botão)
+    return 1
   }
 
   async function sendChat(e: React.FormEvent) {

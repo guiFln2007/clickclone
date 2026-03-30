@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     const contextLine = `CONTEXTO: ${analysis?.page_name || 'Página de vendas'} | Score: ${analysis?.score || '?'}/10 | Ângulo: ${analysis?.dominant_angle || ''}`
 
     const historyText = (history as Array<{ role: string; content: unknown }>)
-      .slice(-6)
+      .slice(-12)
       .map((m) => {
         const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
         return `${m.role === 'user' ? 'Usuário' : 'Assistente'}: ${content}`
@@ -183,7 +183,8 @@ export async function POST(req: NextRequest) {
             const { result: patched, applied } = applyPatches(strippedHtml, fullText)
             updatedHtml = restoreBase64Images(applied > 0 ? patched : strippedHtml, b64Map)
             reply = fullText.split('<CC_PATCH>')[0].trim() || 'Feito!'
-            editType = 'patch'
+            editType = applied > 0 ? 'patch' : 'none'
+            if (applied === 0) reply = '⚠️ Não consegui localizar o trecho para editar. Tente descrever de forma diferente ou peça um redesign completo.'
           } else if (hasFullHtml) {
             const htmlMatch = fullText.match(/<CC_HTML>([\s\S]*?)<\/CC_HTML>/)
             const rawHtml = htmlMatch ? htmlMatch[1].trim() : strippedHtml
@@ -213,9 +214,10 @@ export async function POST(req: NextRequest) {
             newCreditos = updatedUser?.creditos
           }
 
+          const patchFailed = hasPatch && editType === 'none'
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: 'done', html: updatedHtml, message: reply, editType, creditosGastos: actualCost, creditos: newCreditos })}\n\n`,
+              `data: ${JSON.stringify({ type: 'done', html: updatedHtml, message: reply, editType, creditosGastos: actualCost, creditos: newCreditos, ...(patchFailed ? { patchFailed: true } : {}) })}\n\n`,
             ),
           )
           controller.close()

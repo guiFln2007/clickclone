@@ -14,7 +14,7 @@ export const maxDuration = 300
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
-async function callClaude(prompt: string, systemPrompt?: string, model = 'claude-haiku-4-5-20251001', maxTokens = 1024): Promise<string> {
+async function callClaude(prompt: string, systemPrompt?: string, model = 'claude-sonnet-4-6', maxTokens = 1024): Promise<string> {
   console.log('[callClaude] model:', model, '| prompt size:', prompt.length, 'chars | system size:', systemPrompt?.length ?? 0, 'chars')
   try {
     const Anthropic = (await import('@anthropic-ai/sdk')).default
@@ -71,7 +71,7 @@ async function scrapeAds(url: string) {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 20 }),
+        body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 999 }),
       }
     )
     runData = await runRes.json()
@@ -109,7 +109,7 @@ async function scrapeAds(url: string) {
   console.log('[Apify] Run finalizado com status:', status)
 
   const itemsRes = await fetch(
-    `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=40`
+    `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=999`
   )
   const items = await itemsRes.json()
   console.log('[Apify] Items retornados:', Array.isArray(items) ? items.length : typeof items)
@@ -738,16 +738,14 @@ export async function POST(req: NextRequest) {
           if (cached) {
             send({ step: 'scraping', message: '✓ Resultado em cache. Carregando...', percent: 60 })
             const analysis = JSON.parse(cached.analysis)
+            // Cache hit — não debita créditos do usuário
+            await dbLogAnalysis(userId, ip)
             let newAnalises: number | undefined
             if (userId) {
-              await dbDecrementAnalises(userId)
               const updatedUser = await dbGetUserById(userId)
               newAnalises = updatedUser?.analises
-            } else {
-              await dbIncrementFreeAnalises(ip, sessionId)
             }
-            await dbLogAnalysis(userId, ip)
-            send({ step: 'done', message: 'Análise concluída.', percent: 100, data: { analysis, generatedHtml: cached.html, analises: newAnalises } })
+            send({ step: 'done', message: 'Análise concluída (cache).', percent: 100, data: { analysis, generatedHtml: cached.html, analises: newAnalises } })
             controller.close()
             return
           }
@@ -769,8 +767,8 @@ export async function POST(req: NextRequest) {
         const landingUrl = extractLandingUrl(ads)
         console.log('[Landing] URL detectada:', landingUrl)
 
-        // Preparar dados de ads enquanto landing page carrega
-        const adsForClaude = ads.slice(0, 5).map((ad: Record<string, unknown>) => {
+        // Preparar dados de ads enquanto landing page carrega — sem limite
+        const adsForClaude = ads.map((ad: Record<string, unknown>) => {
           const snap = ad.snapshot as Record<string, unknown> | undefined
           return {
             body: (snap?.body as Record<string, unknown>)?.text || ad.ad_creative_bodies,
@@ -784,7 +782,7 @@ export async function POST(req: NextRequest) {
 
         let landingPage = landingUrl ? await scrapeLandingPage(landingUrl) : null
 
-        if (landingUrl && (!landingPage || landingPage.fullText.length < 200)) {
+        if (landingUrl && (!landingPage || landingPage.fullText.length < 500 || landingPage.fullText.split('\n').filter(l => l.trim().length > 50).length < 2)) {
           send({ step: 'analyzing_page', message: 'Renderizando página (modo avançado)...', percent: 30 })
           // Headless já rodando em paralelo com o cheerio — aguarda resultado
           const headless = await scrapeLandingPageHeadless(landingUrl)
@@ -799,7 +797,8 @@ export async function POST(req: NextRequest) {
         // 3. Análise Claude
         send({ step: 'scoring', message: 'Calculando score e identificando ângulos...', percent: 50 })
         const analysisText = await callClaude(`TOTAL DE ANÚNCIOS ATIVOS: ${ads.length}
-ANÚNCIOS (amostra com copies reais):
+
+TODOS OS ANÚNCIOS (copies completos):
 ${JSON.stringify(adsForClaude)}
 
 PÁGINA DE VENDAS DO CONCORRENTE:
@@ -809,27 +808,40 @@ Headlines: ${landingPage.headings.join(' | ')}
 CTAs: ${landingPage.ctas.join(' | ')}
 Preços detectados: ${landingPage.prices.join(', ') || 'não detectado'}
 Depoimentos encontrados: ${landingPage.testimonials.length}
-Texto completo (extrato): ${landingPage.fullText.slice(0, 600)}
+Texto completo da página: ${landingPage.fullText}
 ` : 'Não disponível'}
 
-Retorne JSON:`, `Analista Meta Ads low ticket brasileiro. APENAS JSON válido, sem markdown.
-{"score":1-10,"verdict":"Vale entrar|Não vale entrar","reason":"3 frases diretas","dominant_angle":"gatilho principal","page_name":"nome oferta","niche":"1-2 palavras","price_anchor":"ex:R$19,90","funnel_type":"landing_page|quiz|ferramenta_freemium|whatsapp|vsl","design_context":{"primary_color":"#hex ou não detectado","vibe":"4-6 palavras"},"weak_points":["fraqueza acionável 1","fraqueza 2","fraqueza 3","fraqueza 4","fraqueza 5"],"strong_points":["força 1","força 2","força 3"]}`, 'claude-haiku-4-5-20251001')
+Retorne o JSON conforme o schema obrigatório:`, `Você é um analista sênior de marketing digital brasileiro especializado em performance de paid media low ticket. Sua tarefa é analisar um concorrente com profundidade cirúrgica.
+
+INSTRUÇÕES:
+- Analise TODOS os anúncios enviados, não apenas uma amostra
+- Identifique padrões de escalada: anúncios com mais variações de copy/criativo = mais verba investida
+- Identifique o ângulo dominante baseado em frequência real nos anúncios, não suposição
+- Gere 3 scripts de CTV (conteúdo tipo UGC) baseados nos hooks que mais aparecem
+- Seja honesto no score: não infle nem deflate. Score 8+ = operação lucrativa e profissional com evidências claras
+- Analise a estrutura da landing page criticamente — design, copy, fluxo de conversão, objeções não tratadas
+- Se não encontrar dados suficientes (ex: landing page sem texto), seja explícito no reason e reduza o score
+- RETORNE APENAS JSON VÁLIDO, sem markdown, sem explicação
+
+SCHEMA OBRIGATÓRIO:
+{"score":0-10,"verdict":"Vale entrar|Cuidado|Evitar","reason":"3-4 frases","dominant_angle":"...","hook_patterns":["...","...","..."],"page_name":"...","niche":"...","price_anchor":"... ou null","funnel_type":"landing_page|quiz|ferramenta_freemium|whatsapp|vsl","design_context":{"vibe":"...","primary_color":"#hex"},"weak_points":["...","...","...","...","..."],"strong_points":["...","...","..."],"ad_analysis":{"total_ads":0,"dominant_hooks":["...","...","..."],"copy_patterns":"...","escalation_signal":"..."},"ctv_recommendations":[{"hook":"...","angle":"...","script":"..."},{"hook":"...","angle":"...","script":"..."},{"hook":"...","angle":"...","script":"..."}]}`, 'claude-sonnet-4-6', 4096)
         let analysis
         try {
-          const cleaned = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-          if (cleaned.startsWith('__CLAUDE_ERROR__:')) {
-            const sdkError = cleaned.replace('__CLAUDE_ERROR__:', '')
+          if (analysisText.startsWith('__CLAUDE_ERROR__:')) {
+            const sdkError = analysisText.replace('__CLAUDE_ERROR__:', '')
             console.error('[Claude] SDK error:', sdkError)
             send({ step: 'error', message: `Claude SDK: ${sdkError.slice(0, 120)}` })
             controller.close()
             return
           }
-          if (!cleaned) {
+          if (!analysisText) {
             send({ step: 'error', message: 'Claude retornou resposta vazia. Verifique os logs do servidor.' })
             controller.close()
             return
           }
-          analysis = JSON.parse(cleaned)
+          const rawJson = analysisText.match(/\{[\s\S]*\}/)?.[0] ?? null
+          if (!rawJson) throw new Error('Resposta inválida do modelo — JSON não encontrado')
+          analysis = JSON.parse(rawJson)
         } catch {
           console.error('[Claude] Falha ao parsear análise — resposta recebida:', analysisText.slice(0, 300))
           send({ step: 'error', message: `Falha ao parsear resposta Claude: "${analysisText.slice(0, 80)}"` })
@@ -846,15 +858,73 @@ Retorne JSON:`, `Analista Meta Ads low ticket brasileiro. APENAS JSON válido, s
         const classified = classifyMedia(rawImages, [...rawVideos, ...adVideos])
         const { hero, product, persons, videos } = classified
         const imageUrls = rawImages.map(i => i.src).filter(Boolean).slice(0, 8)
-        const adCopies = adsForClaude.slice(0, 3).map(a => a.body).filter(Boolean).map(t => String(t).slice(0, 400)).join('\n\n')
+        const adCopies = adsForClaude.map(a => a.body).filter(Boolean).map(t => String(t)).join('\n\n')
 
         // 5. Geração HTML
         send({ step: 'generating', message: `Gerando página de vendas modelada (tipo: ${analysis.funnel_type || 'landing_page'})...`, percent: 75 })
         console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
         const rawText = await callClaude(
           buildHtmlPrompt(analysis, landingPage, hero, product, persons, videos, adCopies),
-          `Copywriter + dev front-end brasileiro especialista em páginas de vendas low ticket. APENAS HTML puro, sem markdown, sem explicação.`,
-          'claude-haiku-4-5-20251001',
+          `Você é um dev front-end + copywriter brasileiro especialista em páginas de vendas de alta conversão para produtos low ticket. Você vai gerar uma página que seja SUPERIOR ao concorrente analisado.
+
+FILOSOFIA:
+- NÃO copie — melhore. Cada ponto fraco identificado DEVE ser corrigido na página
+- Mantenha os pontos fortes do concorrente
+- Use os hooks dos anúncios mais escalados como base para o hero e CTAs
+- O design deve ser moderno, responsivo, e profissional
+- Copy específico: números reais, benefícios tangíveis, sem vagueza
+
+REGRAS TÉCNICAS:
+- APENAS HTML puro (sem markdown, sem explicação)
+- CSS inline via <style> no <head>
+- Sem dependências externas (sem CDNs, sem fonts externas)
+- Responsivo mobile-first
+- Todos os CTAs com href="#comprar" ou data-cta="principal"
+- Sem imagens reais — use gradientes, cores sólidas ou SVG inline
+- JavaScript mínimo: apenas o essencial para interatividade
+
+ESTRUTURA POR TIPO DE FUNIL:
+
+landing_page:
+- Hero com headline forte baseada no hook dominante dos anúncios
+- Subheadline que resolve a objeção principal
+- CTA acima da dobra (botão grande e visível)
+- Seção de benefícios (3-5 itens com ícones simples)
+- Prova social (3 depoimentos plausíveis para o nicho com nome e resultado)
+- Garantia (7 ou 30 dias conforme o nicho)
+- FAQ (3-5 perguntas reais do nicho)
+- CTA final com urgência real
+- Sticky mobile com CTA
+- Cores baseadas no design_context
+
+quiz:
+- Container centralizado com barra de progresso visual
+- 3-5 perguntas qualificadoras com botões de opção
+- Resultado parcialmente revelado com blur nos dados mais valiosos
+- CTA para desbloquear resultado completo
+- Transições suaves entre steps via JavaScript
+
+ferramenta_freemium:
+- Interface de ferramenta com campo de input relevante
+- Resultado parcial visível (ex: primeiros 2 itens)
+- Blur progressivo nos dados mais valiosos
+- Paywall elegante com CTA de upgrade
+- Badge 'Grátis' + 'Pro' bem diferenciados
+
+vsl:
+- Área de vídeo como hero (placeholder escuro com ícone play)
+- Headline acima do vídeo
+- Copy de suporte abaixo
+- CTA inicialmente oculto que aparece após 30s (via setTimeout)
+- Depoimentos abaixo do vídeo
+
+whatsapp:
+- Página simples e direta
+- Headline forte com benefício principal
+- 3 bullets de benefício com ícone ✓
+- Botão verde WhatsApp como único CTA (wa.me/... com link placeholder)
+- 1-2 depoimentos curtos`,
+          'claude-sonnet-4-6',
           8192
         )
         let generatedHtml = rawText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim()
