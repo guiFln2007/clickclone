@@ -996,6 +996,11 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
       }
 
+      // Keepalive global: envia ping a cada 10s durante todo o request para evitar timeout do nginx
+      const keepAlive = setInterval(() => {
+        try { controller.enqueue(encoder.encode(': ping\n\n')) } catch {}
+      }, 10000)
+
       try {
         // 0. Cache check — evita chamadas à API se já analisado nas últimas 24h
         const pageId = new URL(url).searchParams.get('view_all_page_id')
@@ -1138,10 +1143,6 @@ SCHEMA OBRIGATÓRIO:
         // 5. Geração HTML
         send({ step: 'generating', message: `Gerando página de vendas modelada (tipo: ${analysis.funnel_type || 'landing_page'})...`, percent: 75 })
         console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
-        // Keepalive: envia SSE ping a cada 15s para evitar timeout do nginx na Hostinger
-        const keepAlive = setInterval(() => {
-          try { controller.enqueue(encoder.encode(': ping\n\n')) } catch {}
-        }, 15000)
         const { text: rawText, inputTokens: htmlInputTokens, outputTokens: htmlOutputTokens } = await callClaude(
           buildHtmlPrompt(analysis, landingPage, adCopies, pageMedia),
           `Você é um designer frontend de elite especializado em landing pages de conversão de alto impacto para o mercado brasileiro de infoprodutos e SaaS.
@@ -1214,7 +1215,6 @@ PROIBIDO:
           'claude-sonnet-4-6',
           16000
         )
-        clearInterval(keepAlive)
         let generatedHtml = rawText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim()
         if (!generatedHtml.startsWith('<!')) {
           const idx = generatedHtml.indexOf('<!DOCTYPE')
@@ -1295,6 +1295,8 @@ setTimeout(reveal,300);setTimeout(reveal,800);
         console.error('[Route] Erro:', err)
         send({ step: 'error', message: err instanceof Error ? err.message : 'Erro interno' })
         controller.close()
+      } finally {
+        clearInterval(keepAlive)
       }
     }
   })
