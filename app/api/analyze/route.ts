@@ -49,6 +49,20 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+async function safeJson(res: Response): Promise<unknown> {
+  const text = await res.text()
+  if (text.trimStart().startsWith('<')) {
+    console.error('[safeJson] Apify retornou HTML em vez de JSON. Status:', res.status, '| Body:', text.slice(0, 300))
+    throw new Error(`Apify retornou HTML — possível erro de autenticação ou saldo insuficiente. Status: ${res.status}`)
+  }
+  try {
+    return JSON.parse(text)
+  } catch {
+    console.error('[safeJson] JSON inválido. Status:', res.status, '| Body:', text.slice(0, 300))
+    throw new Error(`Apify retornou resposta inválida. Status: ${res.status}`)
+  }
+}
+
 function cleanAdLibraryUrl(url: string): string {
   // Mantém só os params essenciais — sort_data[] com colchetes quebra o JSON
   try {
@@ -81,7 +95,7 @@ async function scrapeAds(url: string) {
         body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 100 }),
       }
     )
-    runData = await runRes.json()
+    runData = await safeJson(runRes)
   } catch (fetchErr) {
     const e = fetchErr as Error
     console.error('[Apify] Erro de rede ao iniciar run:', e.message, e.stack)
@@ -107,8 +121,8 @@ async function scrapeAds(url: string) {
     const statusRes = await fetch(
       `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`
     )
-    const statusData = await statusRes.json()
-    status = statusData?.data?.status ?? 'FAILED'
+    const statusData = await safeJson(statusRes) as Record<string, unknown>
+    status = (statusData?.data as Record<string, unknown>)?.status as string ?? 'FAILED'
     console.log(`[Apify] Tentativa ${attempts + 1}: status=${status}`)
     attempts++
   }
@@ -118,7 +132,7 @@ async function scrapeAds(url: string) {
   const itemsRes = await fetch(
     `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=999`
   )
-  const items = await itemsRes.json()
+  const items = await safeJson(itemsRes)
   console.log('[Apify] Items retornados:', Array.isArray(items) ? items.length : typeof items)
   if (Array.isArray(items) && items.length > 0) {
     console.log('[Apify] Primeiro item (keys):', Object.keys(items[0]))
@@ -296,8 +310,8 @@ async function scrapeLandingPageHeadless(url: string) {
         }),
       }
     )
-    const runData = await runRes.json()
-    const runId = runData?.data?.id
+    const runData = await safeJson(runRes) as Record<string, unknown>
+    const runId = (runData?.data as Record<string, unknown>)?.id
     if (!runId) return null
 
     let status = 'RUNNING'
@@ -305,12 +319,13 @@ async function scrapeLandingPageHeadless(url: string) {
     while (['RUNNING', 'READY'].includes(status) && attempts < 20) {
       await sleep(3000)
       const s = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`)
-      status = (await s.json())?.data?.status ?? 'FAILED'
+      status = ((await safeJson(s) as Record<string, unknown>)?.data as Record<string, unknown>)?.status as string ?? 'FAILED'
       attempts++
     }
     if (status !== 'SUCCEEDED') return null
 
-    const items = await (await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=1`)).json()
+    const itemsRes2 = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=1`)
+    const items = await safeJson(itemsRes2)
     const d = items?.[0]
     if (!d) return null
 
