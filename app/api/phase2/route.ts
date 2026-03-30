@@ -93,12 +93,13 @@ async function capturePageScreenshots(url: string): Promise<string[]> {
     scrollY += sectionHeight - overlap
   }
 
-  // Step 3: build screenshot URLs for each scroll position + mobile hero
+  // Step 3: clip each section from a full-page render using clip_x/clip_y/clip_width/clip_height
+  // scroll_position is not supported by ScreenshotOne — use clip params instead
   const shotUrls: string[] = [
     ...scrollPositions.map(sy =>
-      `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=1440&viewport_height=${sectionHeight}&scroll_position=${sy}&format=jpg&image_quality=60&block_ads=true&block_cookie_banners=true`
+      `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&full_page=true&viewport_width=1440&clip_x=0&clip_y=${sy}&clip_width=1440&clip_height=${sectionHeight}&format=jpg&image_quality=60&block_ads=true&block_cookie_banners=true`
     ),
-    // Mobile hero — fixed viewport, never full_page to avoid >8000px
+    // Mobile hero — fixed viewport
     `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=375&viewport_height=812&format=jpg&image_quality=60&block_ads=true&block_cookie_banners=true`,
   ]
 
