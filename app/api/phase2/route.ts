@@ -3,72 +3,63 @@ import { dbGetUserById, dbGetFreeUsage } from '@/lib/db'
 
 export const maxDuration = 300
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-
-async function captureScreenshots(url: string): Promise<string[]> {
-  const screenshots: string[] = []
-
-  try {
-    const puppeteer = await import('puppeteer')
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-first-run',
-        '--no-zygote',
-      ],
-    })
-
-    try {
-      // Desktop 1440px
-      const page = await browser.newPage()
-      await page.setUserAgent(UA)
-      await page.setViewport({ width: 1440, height: 900 })
-      await page.goto(url, { waitUntil: 'networkidle2', timeout: 25000 })
-      await new Promise(r => setTimeout(r, 2000))
-
-      // Scroll to load lazy content
-      await page.evaluate(() => {
-        return new Promise<void>(resolve => {
-          let total = document.body.scrollHeight
-          let pos = 0
-          const step = () => {
-            pos += 600
-            window.scrollTo(0, pos)
-            if (pos < total) {
-              total = document.body.scrollHeight
-              setTimeout(step, 150)
-            } else {
-              window.scrollTo(0, 0)
-              resolve()
-            }
-          }
-          step()
-        })
-      })
-      await new Promise(r => setTimeout(r, 1000))
-
-      const desktopShot = await page.screenshot({ fullPage: true, type: 'jpeg', quality: 60 })
-      screenshots.push(Buffer.from(desktopShot).toString('base64'))
-
-      // Mobile 375px
-      await page.setViewport({ width: 375, height: 812 })
-      await page.reload({ waitUntil: 'networkidle2', timeout: 20000 })
-      await new Promise(r => setTimeout(r, 2000))
-      const mobileShot = await page.screenshot({ fullPage: true, type: 'jpeg', quality: 60 })
-      screenshots.push(Buffer.from(mobileShot).toString('base64'))
-
-      await page.close()
-    } finally {
-      await browser.close()
-    }
-  } catch (e) {
-    console.warn('[Phase2] Puppeteer falhou:', (e as Error).message)
+async function capturePageScreenshots(url: string): Promise<string[]> {
+  const accessKey = process.env.SCREENSHOTONE_API_KEY
+  if (!accessKey) {
+    console.warn('[Phase2] SCREENSHOTONE_API_KEY não configurada')
+    return []
   }
 
+  const baseUrl = 'https://api.screenshotone.com/take'
+
+  // Step 1: full page to get total height
+  const fullPageUrl = `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&full_page=true&viewport_width=1440&format=jpg&image_quality=70&response_type=json`
+
+  let pageHeight = 6000
+  try {
+    const metaRes = await fetch(fullPageUrl, { signal: AbortSignal.timeout(20000) })
+    if (metaRes.ok) {
+      const meta = await metaRes.json()
+      pageHeight = meta?.page_height ?? 6000
+    }
+  } catch (e) {
+    console.warn('[Phase2] Falhou ao obter page_height, usando 6000px fallback:', (e as Error).message)
+  }
+
+  // Step 2: divide into 900px sections with 100px overlap
+  const sectionHeight = 900
+  const overlap = 100
+  const scrollPositions: number[] = []
+  let scrollY = 0
+  while (scrollY < pageHeight) {
+    scrollPositions.push(scrollY)
+    scrollY += sectionHeight - overlap
+  }
+
+  // Step 3: build screenshot URLs for each scroll position + mobile full page
+  const shotUrls: string[] = [
+    ...scrollPositions.map(sy =>
+      `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=1440&viewport_height=${sectionHeight}&scroll_position=${sy}&format=jpg&image_quality=75`
+    ),
+    // Mobile full page
+    `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&full_page=true&viewport_width=375&format=jpg&image_quality=70`,
+  ]
+
+  // Step 4: fire all in parallel, discard failures
+  const results = await Promise.allSettled(
+    shotUrls.map(async (shotUrl) => {
+      const res = await fetch(shotUrl, { signal: AbortSignal.timeout(20000) })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const buffer = await res.arrayBuffer()
+      return Buffer.from(buffer).toString('base64')
+    })
+  )
+
+  const screenshots = results
+    .filter(r => r.status === 'fulfilled')
+    .map(r => (r as PromiseFulfilledResult<string>).value)
+
+  console.log(`[Phase2] Screenshots: ${screenshots.length}/${shotUrls.length} (${scrollPositions.length} seções + 1 mobile)`)
   return screenshots
 }
 
@@ -159,9 +150,9 @@ export async function POST(req: NextRequest) {
 
         let screenshots: string[] = []
         try {
-          screenshots = await captureScreenshots(url)
+          screenshots = await capturePageScreenshots(url)
           if (screenshots.length > 0) {
-            send({ type: 'progress', text: `✅ ${screenshots.length} screenshots capturados` })
+            send({ type: 'progress', text: `✅ ${screenshots.length} screenshots capturados (seção por seção)` })
           } else {
             send({ type: 'progress', text: '⚠️ Screenshots não disponíveis — analisando via texto' })
           }
@@ -188,9 +179,9 @@ Analise a página completa usando as screenshots fornecidas e retorne o JSON de 
           },
         ]
 
-        // Add screenshots if available (max 2 to keep tokens reasonable)
-        for (const img of screenshots.slice(0, 2)) {
-          // Resize check — skip if too large (>1MB base64 ≈ 750KB image)
+        // Add screenshots — up to 6 sections to cover the full funnel
+        for (const img of screenshots.slice(0, 6)) {
+          // Skip if too large (>1MB base64 ≈ 750KB image)
           if (img.length > 1400000) continue
           userContent.push({
             type: 'image',
