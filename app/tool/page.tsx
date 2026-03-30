@@ -775,7 +775,12 @@ export default function ToolPage() {
       const p2 = phase2Report as any
       const proj: Project = {
         id: Date.now().toString(),
-        name: p2.url_analisada ? (() => { try { return new URL(p2.url_analisada).hostname } catch { return p2.url_analisada } })() : (p1.angulo_dominante || 'Funil Gerado'),
+        name: (() => {
+          const promessa = (p2.analise_de_copy?.promessa_central as string || '').split(' ').slice(0, 4).join(' ')
+          const tipo = p2.tipo_de_funil === 'quiz' ? 'Quiz' : p2.tipo_de_funil === 'vsl' ? 'VSL' : p2.tipo_de_funil === 'typebot' ? 'Bot' : 'Página'
+          const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+          return promessa ? `${tipo} — ${promessa} (${data})` : (p1.angulo_dominante || 'Funil Gerado')
+        })(),
         score: Number(p1.nota_entrada?.score) || 7,
         html,
         analysis: {
@@ -947,9 +952,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
   }
 
   function injectRevealFix(html: string): string {
-    if (html.includes('cc-fix-v5')) return html
-    const headFix = `<style id="cc-fix-v5">*{opacity:1!important;visibility:visible!important}</style>`
+    if (html.includes('cc-fix-v6')) return html
+    const headFix = `<style id="cc-fix-v6">*{opacity:1!important;visibility:visible!important}</style>`
+    const linkFix = `<script>document.addEventListener('DOMContentLoaded',function(){document.body.addEventListener('click',function(e){var a=e.target.closest('a');if(!a)return;var h=a.getAttribute('href');if(!h||h==='#')return;e.preventDefault();window.open(h,'_blank','noopener,noreferrer');},true);});<\/script>`
     let result = html
+    if (result.includes('</body>')) result = result.replace('</body>', linkFix + '</body>')
+    else result = result + linkFix
     if (result.includes('<head>')) result = result.replace('<head>', '<head>' + headFix)
     else if (result.includes('<html')) result = result.replace(/(<html[^>]*>)/i, '$1' + headFix)
     else result = headFix + result
