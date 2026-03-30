@@ -525,14 +525,28 @@ INSTRUÇÕES DE USO DE MÍDIA:
   const designRules = `━━━ DESIGN ━━━
 NICHO: ${niche} | VIBE: ${designVibe} | COR PRINCIPAL: ${primaryColor}
 CORES CSS: ${cssColors} | FONTES: ${cssFonts}
-Mobile-first. Wrapper: max-width:560px; margin:0 auto; padding:0 20px.
-Paleta: defina --bg,--bg-alt,--text,--text2,--accent,--accent-dark,--border,--card-bg,--green:#16A34A no :root.
-Botões: border-radius:99px (pílula), gradiente acento, font-weight:900.
-Sem IntersectionObserver. Sem animações de scroll. Opacity:1 desde o load.
-PRIMEIRA LINHA DO CSS (obrigatório): html,body{margin:0;padding:0;background:#fff;color:#111;opacity:1!important;visibility:visible!important}
-Todos os elementos visíveis no load devem ter display:block/flex/grid — NUNCA display:none ou opacity:0 no estado inicial.`
+Mobile-first. Wrapper: max-width:1200px desktop / 560px mobile; margin:0 auto; padding:0 20px.
+Paleta obrigatória no :root: --bg, --bg-alt, --surface, --text, --text-muted, --accent, --accent-2, --border, --accent-alpha.
+Botões: border-radius:99px (pílula), gradiente acento, font-weight:900, pulse animation no CTA principal.
+IntersectionObserver OBRIGATÓRIO para fade-in das seções (opacity:0→1, translateY:30px→0).
+Contadores animados para números de prova social (0→N em 2s).
+PRIMEIRA LINHA DO CSS (obrigatório): html,body{margin:0;padding:0;background:var(--bg,#fff);color:var(--text,#111);opacity:1!important;visibility:visible!important}
+Elementos que usam IntersectionObserver: iniciar com opacity:0 é permitido SOMENTE se o JS do observer rodar no DOMContentLoaded e funcionar sem falhas. Adicione classe .visible via JS, não dependa de scroll.
+NUNCA deixe conteúdo principal invisível no estado inicial sem garantia de reveal via JS síncrono.`
 
-  const briefing = `━━━ BRIEFING ━━━
+  const visualDirection = `━━━ DIREÇÃO VISUAL OBRIGATÓRIA ━━━
+Analise o nicho "${niche}" e o ângulo "${analysis.dominant_angle}" e escolha a estética mais adequada:
+- SaaS/Tech: dark com neon accents (#00ff88 ou #7c3aed), glassmorphism, partículas ou grid animado
+- Infoproduto/Curso: dark premium (#0a0a0a + gold/amber) ou light bold com cores vibrantes
+- Saúde/Bem-estar: gradientes suaves (rosa→lilás, verde→teal), orgânico, moderno
+- Relacionamento/Comportamento: tons quentes (bordô, coral, dourado), emocional, elegante
+- Finanças/Renda: verde escuro ou azul navy com gold, transmite confiança e autoridade
+
+Execute com CORAGEM. Esta página deve ser visualmente memorável — não uma landing page genérica.`
+
+  const briefing = `${visualDirection}
+
+━━━ BRIEFING ━━━
 Produto: "${pageName}" | Nicho: ${niche} | Ângulo: ${angle} | Preço: ${price}
 Score concorrente: ${analysis.score}/10 — ${analysis.reason}
 
@@ -977,72 +991,63 @@ SCHEMA OBRIGATÓRIO:
         }, 15000)
         const rawText = await callClaude(
           buildHtmlPrompt(analysis, landingPage, adCopies, pageMedia),
-          `Você é um dev front-end + copywriter brasileiro especialista em páginas de vendas de alta conversão para produtos low ticket. Você vai gerar uma página que seja SUPERIOR ao concorrente analisado.
+          `Você é um designer frontend de elite especializado em landing pages de conversão de alto impacto para o mercado brasileiro de infoprodutos e SaaS.
 
-FILOSOFIA:
-- NÃO copie — melhore. Cada ponto fraco identificado DEVE ser corrigido na página
-- Mantenha os pontos fortes do concorrente
-- Use os hooks dos anúncios mais escalados como base para o hero e CTAs
-- O design deve ser moderno, responsivo, e profissional
-- Copy específico: números reais, benefícios tangíveis, sem vagueza
+Seu trabalho é gerar HTML/CSS/JS em um único arquivo que cause impacto visual imediato — o tipo de página que faz o usuário parar e falar "que porra é essa, que lindo".
 
-REGRAS TÉCNICAS:
-- APENAS HTML puro (sem markdown, sem explicação)
-- CSS inline via <style> no <head>
-- Sem dependências externas (sem CDNs, sem fonts externas)
-- Responsivo mobile-first
-- Todos os CTAs com href="#comprar" ou data-cta="principal"
-- Quando URLs de imagens reais forem fornecidas no briefing, USE-AS diretamente nas tags <img src='...'> e <video src='...'>. Quando não houver imagens disponíveis, use gradientes CSS ou SVG inline como fallback.
-- JavaScript mínimo: apenas o essencial para interatividade
+PRINCÍPIOS OBRIGATÓRIOS:
 
-ANTI-TELA-PRETA (OBRIGATÓRIO — viola esta regra = página invisível):
-- A PRIMEIRA regra CSS do <style> DEVE ser: html,body{background:#fff;color:#111;opacity:1!important;visibility:visible!important}
-- NUNCA use display:none, opacity:0 ou visibility:hidden em elementos visíveis no load
-- Se usar variáveis CSS (--bg, --text, etc.), defina valores claros explícitos no :root — nunca dependa de herança
-- NUNCA use animações de entrada que dependem de JS para revelar conteúdo
-- Todos os textos devem ter contraste mínimo: texto escuro (#111-#333) em fundo claro, ou texto claro (#eee-#fff) em fundo escuro — NUNCA texto preto em fundo preto
+TIPOGRAFIA:
+- Nunca use fontes genéricas. Sempre importe do Google Fonts no <head>
+- Use combinações com caráter: uma display bold para headlines + uma sans limpa para corpo
+- Sugestões por nicho: Playfair Display+Lato, Space Grotesk+Inter, Bebas Neue+Nunito, Syne+DM Sans
+- Headlines: font-size clamp(2.2rem, 6vw, 4.5rem), font-weight:800-900, line-height:1.1
+- Nunca use Arial, Helvetica ou Times New Roman
 
-ESTRUTURA POR TIPO DE FUNIL:
+CORES:
+- Escolha uma paleta com personalidade — não branco e azul genérico
+- Dark premium: fundo #0a0a0a ou #0f0f1a com accent neon/vibrante
+- Bold light: fundo off-white #f8f5f0 com accent escuro ou colorido
+- Gradientes liberados e encorajados em fundos e botões
+- Defina no :root: --bg, --bg-alt, --surface, --text, --text-muted, --accent, --accent-2, --border
+- OBRIGATÓRIO: html,body{background:var(--bg);color:var(--text);opacity:1!important;visibility:visible!important} como primeira regra CSS
 
-landing_page:
-- Hero com headline forte baseada no hook dominante dos anúncios
-- Subheadline que resolve a objeção principal
-- CTA acima da dobra (botão grande e visível)
-- Seção de benefícios (3-5 itens com ícones simples)
-- Prova social (3 depoimentos plausíveis para o nicho com nome e resultado)
-- Garantia (7 ou 30 dias conforme o nicho)
-- FAQ (3-5 perguntas reais do nicho)
-- CTA final com urgência real
-- Sticky mobile com CTA
-- Cores baseadas no design_context
+MOTION E ANIMAÇÕES OBRIGATÓRIAS:
+- IntersectionObserver para fade-in suave nas seções ao scrollar (opacity 0→1, translateY 30px→0, 0.6s ease)
+- Contador animado nos números (ex: "0 → 47.832 alunos" em 2s) via JS
+- Botão CTA com pulse suave: @keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--accent-alpha)}50%{box-shadow:0 0 0 12px transparent}}
+- Hero gradient animado: @keyframes gradShift que rotaciona o ângulo do gradiente lentamente
+- Hover nos cards com transform:translateY(-4px) e box-shadow elevado
 
-quiz:
-- Container centralizado com barra de progresso visual
-- 3-5 perguntas qualificadoras com botões de opção
-- Resultado parcialmente revelado com blur nos dados mais valiosos
-- CTA para desbloquear resultado completo
-- Transições suaves entre steps via JavaScript
+LAYOUT:
+- Seções com padding generoso: 80px-120px vertical
+- Grid/Flexbox — zero tabelas, zero floats
+- Cards com border-radius:16px-24px, backdrop-filter:blur() quando sobre imagem
+- Glassmorphism liberado: background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1)
+- Mobile-first, wrapper max-width:1200px (desktop) e 560px (só mobile quando indicado), margin:0 auto
 
-ferramenta_freemium:
-- Interface de ferramenta com campo de input relevante
-- Resultado parcial visível (ex: primeiros 2 itens)
-- Blur progressivo nos dados mais valiosos
-- Paywall elegante com CTA de upgrade
-- Badge 'Grátis' + 'Pro' bem diferenciados
+COPY:
+- Manchetes com verbo de ação, resultado específico e urgência: "Pare de X. Comece a Y em Z dias"
+- Subheadlines que validam a dor em 1 frase
+- Bullets com ícones SVG customizados (não emoji), resultado concreto por linha
+- CTA text: ação + benefício imediato ("Quero meu acesso agora →", "Sim, quero transformar X")
 
-vsl:
-- Área de vídeo como hero (placeholder escuro com ícone play)
-- Headline acima do vídeo
-- Copy de suporte abaixo
-- CTA inicialmente oculto que aparece após 30s (via setTimeout)
-- Depoimentos abaixo do vídeo
+BOTÕES:
+- Primários: gradiente vibrante, border-radius:99px, padding:18px 48px, font-size:1.1rem, font-weight:800
+- Sombra: box-shadow:0 8px 32px rgba(accent,0.4)
+- Sempre com animação pulse no CTA principal
 
-whatsapp:
-- Página simples e direta
-- Headline forte com benefício principal
-- 3 bullets de benefício com ícone ✓
-- Botão verde WhatsApp como único CTA (wa.me/... com link placeholder)
-- 1-2 depoimentos curtos`,
+IMAGENS:
+- Use as URLs fornecidas no briefing — nunca placeholder genérico
+- object-fit:cover em containers com aspect-ratio definido
+- Adicione onerror="this.style.display='none'" em todo <img>
+
+PROIBIDO:
+- Bootstrap, Tailwind, jQuery, qualquer CDN
+- Fontes genéricas (Arial, Helvetica, sans-serif puro)
+- Animações que dependem de JS para exibir conteúdo no load inicial (tela preta)
+- opacity:0 ou display:none em elementos visíveis no load
+- Design genérico, sem personalidade`,
           'claude-sonnet-4-6',
           16000
         )
