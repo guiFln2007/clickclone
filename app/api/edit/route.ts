@@ -212,9 +212,8 @@ export async function POST(req: NextRequest) {
       `Edição: ${message}`,
     ].filter(Boolean).join('\n\n')
 
-    // Use Haiku for simple text/color/price edits (cheaper), Sonnet for structural
-    const model = isSimpleEdit(message) ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-6'
-    console.log(`[Edit] Modelo: ${model} | Simple: ${isSimpleEdit(message)}`)
+    const model = 'claude-opus-4-6'
+    console.log(`[Edit] Modelo: ${model}`)
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 

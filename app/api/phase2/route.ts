@@ -3,6 +3,45 @@ import { dbGetUserById, dbGetFreeUsage } from '@/lib/db'
 
 export const maxDuration = 300
 
+async function extractPageAssets(url: string): Promise<string[]> {
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(15000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    })
+    if (!res.ok) return []
+    const html = await res.text()
+    const urls = new Set<string>()
+
+    // <img src>
+    const imgRe = /<img[^>]+src=["']([^"']+)["']/gi
+    let m: RegExpExecArray | null
+    while ((m = imgRe.exec(html)) !== null) {
+      if (m[1].startsWith('http') && !m[1].startsWith('data:')) urls.add(m[1])
+    }
+
+    // <video src> e <source src>
+    const videoRe = /<(?:video|source)[^>]+src=["']([^"']+)["']/gi
+    while ((m = videoRe.exec(html)) !== null) {
+      if (m[1].startsWith('http')) urls.add(m[1])
+    }
+
+    // background-image: url(...)
+    const bgRe = /url\(["']?(https?:[^"')]+)["']?\)/gi
+    while ((m = bgRe.exec(html)) !== null) urls.add(m[1])
+
+    // data-src (lazy load)
+    const lazyRe = /data-src=["']([^"']+)["']/gi
+    while ((m = lazyRe.exec(html)) !== null) {
+      if (m[1].startsWith('http')) urls.add(m[1])
+    }
+
+    return Array.from(urls).slice(0, 60)
+  } catch {
+    return []
+  }
+}
+
 async function capturePageScreenshots(url: string): Promise<string[]> {
   const accessKey = process.env.SCREENSHOTONE_API_KEY
   if (!accessKey) {
@@ -98,11 +137,17 @@ RETORNE APENAS O JSON ABAIXO, sem texto antes ou depois:
     "problemas_de_design": ["problema 1", "problema 2"],
     "acertos_de_design": ["acerto 1", "acerto 2"]
   },
-  "assets_reaproveitaveis": {
-    "imagens": [{ "url": "...", "descricao": "...", "onde_usar": "..." }],
-    "videos": [{ "url": "...", "descricao": "...", "onde_usar": "..." }],
-    "icones_ou_badges": [{ "descricao": "...", "onde_usar": "..." }]
-  },
+  "assets_classificados": [
+    {
+      "url": "https://...",
+      "tipo": "mockup_produto | foto_perfil_expert | print_whatsapp | badge_garantia | icone_beneficio | foto_background | video_vsl | video_depoimento | logo | outro",
+      "descricao": "Mockup do ebook em perspectiva 3D com capa roxa",
+      "contexto_visual": "Aparece no Hero, lado direito, tamanho grande — elemento principal de desejo",
+      "onde_replicar": "Hero section — posição exata do mockup do produto",
+      "prioridade": "alta | média | baixa",
+      "justificativa_posicao": "É o principal elemento visual da oferta, deve ficar no mesmo lugar no funil gerado"
+    }
+  ],
   "pontos_fracos": [
     { "rank": 1, "problema": "...", "impacto": "alto | médio | baixo", "como_corrigir": "..." }
   ],
@@ -112,7 +157,26 @@ RETORNE APENAS O JSON ABAIXO, sem texto antes ou depois:
     "corrigir": ["o que corrigir"],
     "adicionar": ["o que adicionar"]
   }
-}`
+}
+
+━━━ EXTRAÇÃO E CLASSIFICAÇÃO DE ASSETS ━━━
+Analise as screenshots e o HTML visível para identificar TODOS os assets reais da página.
+Para cada imagem e vídeo encontrado, classifique usando os tipos:
+- mockup_produto → produto físico ou digital renderizado (ebook 3D, caixa, mockup de celular)
+- foto_perfil_expert → foto de rosto/busto do criador/expert
+- print_whatsapp → captura de tela de conversa do WhatsApp ou Telegram
+- badge_garantia → selos de garantia, certificados, ícones de segurança
+- icone_beneficio → ícones pequenos usados em listas de benefícios
+- foto_background → imagem de fundo de seção
+- video_vsl → vídeo de vendas principal (player grande no topo)
+- video_depoimento → vídeo de depoimento de cliente
+- logo → logotipo da marca
+- outro → qualquer coisa que não se encaixe acima
+
+Regras de prioridade:
+- alta: mockup_produto, video_vsl, foto_perfil_expert, badge_garantia
+- média: print_whatsapp, video_depoimento, logo
+- baixa: icone_beneficio, foto_background, outro`
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()
@@ -146,25 +210,37 @@ export async function POST(req: NextRequest) {
         const { url, phase1Report } = await req.json()
         if (!url) throw new Error('URL não fornecida')
 
-        send({ type: 'progress', text: '📸 Tirando screenshots da página...' })
+        send({ type: 'progress', text: '📸 Capturando screenshots e assets da página...' })
 
         let screenshots: string[] = []
-        try {
-          screenshots = await capturePageScreenshots(url)
-          if (screenshots.length > 0) {
-            send({ type: 'progress', text: `✅ ${screenshots.length} screenshots capturados (seção por seção)` })
-          } else {
-            send({ type: 'progress', text: '⚠️ Screenshots não disponíveis — analisando via texto' })
-          }
-        } catch (e) {
+        let pageAssets: string[] = []
+
+        // Run screenshots + asset extraction in parallel
+        const [screenshotsResult, assetsResult] = await Promise.allSettled([
+          capturePageScreenshots(url),
+          extractPageAssets(url),
+        ])
+
+        if (screenshotsResult.status === 'fulfilled') {
+          screenshots = screenshotsResult.value
+          send({ type: 'progress', text: `✅ ${screenshots.length} screenshots capturados` })
+        } else {
           send({ type: 'progress', text: '⚠️ Screenshots falharam — continuando com análise textual' })
-          console.warn('[Phase2] Screenshot error:', e)
+        }
+
+        if (assetsResult.status === 'fulfilled') {
+          pageAssets = assetsResult.value
+          send({ type: 'progress', text: `🖼️ ${pageAssets.length} assets extraídos do HTML` })
         }
 
         send({ type: 'progress', text: '🧠 Analisando estrutura da página com Claude...' })
 
         const Anthropic = (await import('@anthropic-ai/sdk')).default
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+        const assetsSection = pageAssets.length > 0
+          ? `\n\nASSETS REAIS EXTRAÍDOS DO HTML (URLs para reaproveitamento na Fase 3):\n${pageAssets.join('\n')}`
+          : ''
 
         type ContentBlock = { type: string; text?: string; source?: { type: string; media_type: string; data: string } }
         const userContent: ContentBlock[] = [
@@ -173,9 +249,9 @@ export async function POST(req: NextRequest) {
             text: `URL: ${url}
 
 RELATÓRIO FASE 1:
-${JSON.stringify(phase1Report, null, 2)}
+${JSON.stringify(phase1Report, null, 2)}${assetsSection}
 
-Analise a página completa usando as screenshots fornecidas e retorne o JSON de análise.`,
+Analise a página completa usando as screenshots e a lista de assets reais. Para cada asset identificado, use a URL real da lista acima no campo "url" do JSON.`,
           },
         ]
 

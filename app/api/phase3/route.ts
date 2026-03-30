@@ -87,6 +87,23 @@ TYPEBOT/WHATSAPP:
 - Accordion FAQ: apenas CSS (input[type=checkbox] + label), sem JS
 - Scroll suave: document.querySelectorAll('[href^="#"]') → behavior:'smooth'
 
+━━━ USO INTELIGENTE DE ASSETS ━━━
+O relatório da Fase 2 contém "assets_classificados" com URLs REAIS extraídas da página original.
+Use essas URLs diretamente no HTML gerado — não invente placeholders quando existe URL real:
+
+- mockup_produto → <img src="[url]" alt="produto" style="max-width:100%"> no Hero (posição central ou direita)
+- video_vsl → <video src="[url]" controls playsinline autoplay muted style="width:100%;border-radius:12px"></video> no Hero
+- foto_perfil_expert → <img src="[url]" style="border-radius:50%;width:80px;height:80px;object-fit:cover"> na seção de autoridade
+- print_whatsapp → <img src="[url]" style="max-width:320px;border-radius:8px"> na seção de prova social
+- badge_garantia → <img src="[url]" style="width:100px"> próximo ao botão de compra
+- icone_beneficio → <img src="[url]" style="width:32px;height:32px"> em listas de benefícios
+- foto_background → background-image: url("[url]") na seção correspondente
+- logo → <img src="[url]" style="height:40px"> no header/navbar
+- video_depoimento → <video src="[url]" controls style="width:100%;border-radius:8px"></video>
+
+Se o asset não tem URL real (url vazia ou null) → use placeholder descritivo como comentário HTML ou omita.
+Links CTA: SEMPRE com target="_blank" rel="noopener noreferrer".
+
 ━━━ QUALIDADE FINAL ━━━
 Antes de fechar </html>, verifique:
 □ Mecanismo central presente e funcional
@@ -96,7 +113,8 @@ Antes de fechar </html>, verifique:
 □ data-component em todos os containers de seção
 □ Animações CSS no CTA e nos cards
 □ ≥8 seções completas com conteúdo real
-□ Responsivo: mobile-first, sem scroll horizontal`
+□ Responsivo: mobile-first, sem scroll horizontal
+□ Assets reais da página original incorporados (não placeholders)`
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()
