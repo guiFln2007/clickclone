@@ -191,14 +191,15 @@ export async function POST(req: NextRequest) {
             messages: [{ role: 'user', content: prompt }],
           })
 
-          for await (const text of sdkStream.text_stream) {
-            fullText += text
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: text })}\n\n`),
-            )
+          for await (const event of sdkStream) {
+            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+              const text = event.delta.text
+              fullText += text
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: text })}\n\n`),
+              )
+            }
           }
-
-          await sdkStream.finalMessage()
 
           if (!fullText) throw new Error('Resposta vazia do modelo')
 
