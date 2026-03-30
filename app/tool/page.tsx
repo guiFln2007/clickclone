@@ -466,6 +466,7 @@ export default function ToolPage() {
   const [pendingDelete, setPendingDelete] = useState<Project | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [userId, setUserId] = useState<number | null>(null)
   const [userName, setUserName] = useState('')
   const [userEmail, setUserEmail] = useState('')
   const [userPlano, setUserPlano] = useState('pro')
@@ -477,6 +478,7 @@ export default function ToolPage() {
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
+      if (typeof d.user?.id === 'number') setUserId(d.user.id)
       if (d.user?.nome) setUserName(d.user.nome.split(' ')[0])
       if (d.user?.email) setUserEmail(d.user.email)
       if (d.user?.plano) setUserPlano(d.user.plano)
@@ -660,9 +662,11 @@ export default function ToolPage() {
     try {
       // ── Phase 1: Ad analysis ──
       setTermLines([{ text: '> Iniciando análise de anúncios...', type: 'wait' }])
+      const authHeaders: Record<string, string> = { 'Content-Type': 'application/json', 'x-session-id': getSessionId() }
+      if (userId) authHeaders['x-user-id'] = String(userId)
       const res1 = await fetch('/api/phase1', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
+        headers: authHeaders,
         body: JSON.stringify({ url }),
       })
       if (res1.status === 402) { setUpgradeModal(true); return }
@@ -693,7 +697,7 @@ export default function ToolPage() {
       setTermLines(prev => [...prev, { text: '> Analisando página de destino...', type: 'wait' }])
       const res2 = await fetch('/api/phase2', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
+        headers: authHeaders,
         body: JSON.stringify({ url: landingUrl, phase1Report: p1 }),
       })
       if (res2.status === 402) { setUpgradeModal(true); return }
@@ -735,9 +739,11 @@ export default function ToolPage() {
     setPhase3Loading(true)
     setTermLines([])
     try {
+      const authHdrs: Record<string, string> = { 'Content-Type': 'application/json', 'x-session-id': getSessionId() }
+      if (userId) authHdrs['x-user-id'] = String(userId)
       const res = await fetch('/api/phase3', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
+        headers: authHdrs,
         body: JSON.stringify({ phase1Report, phase2Report, screenshots: phase2Screenshots }),
       })
       if (res.status === 402) { setUpgradeModal(true); return }
@@ -1017,9 +1023,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 240000)
     try {
+      const editHdrs: Record<string, string> = { 'Content-Type': 'application/json', 'x-session-id': getSessionId() }
+      if (userId) editHdrs['x-user-id'] = String(userId)
       const res = await fetch('/api/edit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
+        headers: editHdrs,
         signal: controller.signal,
         body: JSON.stringify({
           html: editorHtmlRef.current || editorHtml,

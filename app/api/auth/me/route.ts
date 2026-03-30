@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     user: {
+      id: user.id,
       nome: user.name,
       email: user.email,
       plano: user.plano,
