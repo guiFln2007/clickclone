@@ -542,7 +542,44 @@ Analise o nicho "${niche}" e o ângulo "${analysis.dominant_angle}" e escolha a 
 
 Execute com CORAGEM. Esta página deve ser visualmente memorável — não uma landing page genérica.`
 
-  const briefing = `${visualDirection}
+  const preAnalysis = `━━━ ANÁLISE OBRIGATÓRIA ANTES DE GERAR ━━━
+Antes de escrever uma linha de HTML, responda internamente:
+1. funnel_type: ${funnel} — qual é o mecanismo central? (o que o usuário FAZ nessa página)
+2. A página original tem campo de input/formulário? Verifique no texto original abaixo — se sim, DEVE estar na geração funcionando com JS
+3. A página original tem pricing? ${landingPage?.prices?.length ? `SIM — valores reais detectados: ${landingPage.prices.join(', ')} — USE ESTES VALORES EXATOS` : `Use ${price}`}
+4. Quais 3 elementos do funil original NÃO PODEM faltar? (mecanismo central, pricing, prova social)
+Só então comece a gerar.`
+
+  const goldenRule = `━━━ REGRA DE OURO ━━━
+Você está gerando uma versão MELHORADA do funil original — não uma página sobre o mesmo tema. Isso significa:
+1. Mesma estrutura de conversão do original, melhorada visualmente
+2. Mesmo mecanismo central (ferramenta → ferramenta funcional; quiz → quiz JS; VSL → player de vídeo)
+3. Copy baseado no original (headlines, bullets, depoimentos reais), não inventado
+4. Todos os elementos interativos funcionando com JS inline (inputs, simulações, accordions, countdowns)
+5. Design superior ao original — mais moderno, mais animado, mais impactante
+
+OBRIGATÓRIO SE DETECTADO NO ORIGINAL:
+• Campo de input/ferramenta → gere funcional com simulação JS e resultados verossímeis para o nicho "${niche}"
+• Pricing ${landingPage?.prices?.length ? `(valores reais: ${landingPage.prices.join(', ')})` : `(${price})`} → seção de pricing obrigatória com planos lado a lado
+• ${landingPage?.testimonials?.length ? `${landingPage.testimonials.length} depoimentos detectados → use o copy real abaixo` : `Crie 4 depoimentos ultra-realistas com nome, cidade e resultado específico`}
+• Se detectou contador de urgência → gere countdown JS (24h a partir do load)
+• Se detectou bônus → gere grid de bônus com valores riscados + "INCLUSO GRÁTIS"
+
+Se o produto original tem um campo onde o usuário digita algo e recebe um resultado, sua página DEVE ter esse campo funcionando com uma simulação realista.`
+
+  const qualityChecklist = `━━━ CHECKLIST FINAL — execute antes de fechar </html> ━━━
+□ Mecanismo central presente e funcional? (${funnel === 'ferramenta_freemium' ? 'input + simulação JS com dados reais do nicho' : funnel === 'quiz' ? 'quiz com ≥5 perguntas JS + resultado bloqueado' : funnel === 'vsl' ? 'player de vídeo principal visível' : 'CTA/formulário principal funcionando'})
+□ Pricing com valor real (${price}) aparece na página?
+□ CTA principal aparece ≥3 vezes?
+□ Animações CSS implementadas: pulse no CTA, hover:transform nos cards, gradiente animado no hero?
+□ Página tem ≥8 seções completas com conteúdo real (não placeholder)?
+□ ZERO IntersectionObserver — todo conteúdo visível imediatamente no load?
+□ Marcadores <!-- cc:X --> envolvendo todas as seções principais?
+Se qualquer item faltar → adicione antes de fechar.`
+
+  const briefing = `${preAnalysis}
+
+${visualDirection}
 
 ━━━ BRIEFING ━━━
 Produto: "${pageName}" | Nicho: ${niche} | Ângulo: ${angle} | Preço: ${price}
@@ -564,7 +601,11 @@ Depoimentos: ${testimonials}
 
 ${mediaSection}
 
-${designRules}`
+${designRules}
+
+${goldenRule}
+
+${qualityChecklist}`
 
   if (funnel === 'quiz') {
     return `${briefing}
@@ -652,44 +693,111 @@ Página simples, mobile-first, objetivo único: fazer o visitante clicar no What
 
 ━━━ ESTRUTURA: FERRAMENTA FREEMIUM ━━━
 
-Interface de ferramenta real com funcionalidades pagas bloqueadas. Parece um SaaS — não uma LP.
+Página que parece um SaaS real. Cada seção deve usar o copy REAL dos anúncios e da landing page acima — não invente copy genérico.
 
 [0] NAVBAR (height:56px, sticky, fundo --bg, border-bottom:1px solid --border):
-  Logo + nome da ferramenta à esquerda
-  Badge "FREE" à direita + botão "Upgrade ${price}" (pill, acento)
+  Logo + nome à esquerda | Badge "GRÁTIS" + botão "Upgrade → ${price}" (pill acento) à direita
 
-[1] HERO TOOL (padding:40px 20px):
-  - H1 pequeno (20-22px): o que a ferramenta faz em 6 palavras
-  - Sub: 1 frase do benefício principal
-  - INPUT ou FORMULÁRIO PRINCIPAL visível e funcional (aparência):
-    Campo de texto, select, ou inputs relevantes para o nicho
-    Botão "Analisar / Verificar / Gerar" (acento, pill)
-  - Nota: "Versão gratuita: X análises por dia"
+<!-- cc:announce -->
+[1] HERO (padding:80px 20px, fundo --bg, text-align:center):
+  - H1 impactante baseado nos hooks dos anúncios: clamp(2.4rem,6vw,4rem), font-weight:900
+  - Sub: 1 frase clara do benefício principal (do copy original)
+  - INPUT PRINCIPAL visível (campo relevante pro nicho: username, URL, CPF, nome, etc.)
+    padding:16px 20px; border:2px solid --border; border-radius:12px; font-size:1rem; width:100%; max-width:480px
+    + Botão de ação ao lado ou abaixo: "Analisar Agora →" (pill, acento, padding:16px 32px, font-weight:800)
+  - Social proof abaixo: "✦ +X.XXX usuários ativos · X.XXX análises feitas hoje"
+    (use números verossímeis para o nicho)
+<!-- /cc:announce -->
 
-[2] RESULTADO GRÁTIS (mostra 1 resultado parcial como preview):
-  - Card de resultado com dados reais parciais (1-2 itens visíveis)
-  - Resto do resultado com blur(6px) + overlay "Desbloqueie o relatório completo"
-    Overlay: padding:24px; background:rgba(0,0,0,.7); border-radius:12px; text-align:center
-    "🔒 Mais ${Math.floor(Math.random()*5)+3} insights disponíveis no plano Pro"
-    Botão "DESBLOQUEAR TUDO — ${price}" (pill, acento, font-size:15px)
+<!-- cc:hero -->
+[2] DEMO INTERATIVA (padding:60px 20px, fundo --bg-alt, border-radius:16px, max-width:640px, margin:0 auto):
+  Título: "Veja como funciona — teste agora"
+  - INPUT FUNCIONAL: analise o texto original acima e identifique o tipo EXATO de input do produto original
+    (username Instagram, URL do site, domínio, CPF, keyword, email, nome, etc.)
+    Placeholder realista para o nicho "${niche}". O input deve ser idêntico ao mecanismo do original.
+  - Botão "Analisar →" dispara simulação JS:
+    1. Botão muda para "Analisando..." + spinner CSS (border:3px solid --accent, animation:spin 0.8s linear infinite)
+    2. Após 1500ms (setTimeout): resultado aparece com opacity transition (0→1, 300ms)
+  - RESULTADO SIMULADO com dados VEROSSÍMEIS E ESPECÍFICOS para o nicho "${niche}":
+    Gere 3-4 métricas numéricas realistas — adapte ao nicho (NÃO use genéricos como "Score: 85/100"):
+    Ex Instagram/Social: "Seguidores: 12.483 · Engajamento: 4,2% · Alcance: ~8.900/post · Crescimento: +312/mês"
+    Ex SEO/Site: "DA: 34 · Backlinks: 1.247 · Posição média Google: 18,4 · Velocidade: 2,1s"
+    Ex Finanças/Crédito: "Score: 687 · Limite estimado: R$4.200 · Aprovação: 78% · Nível: Bom"
+    Ex Conteúdo/Copy: "Hooks testados: 47 · Taxa clique: 6,8% · Viral score: 72/100 · Potencial: Alto"
+    Ex Saúde/Fitness: "IMC: 24,3 · Meta em: 42 dias · Queima estimada: 0,4kg/semana · Nível: Moderado"
+    3-4 métricas visíveis + restante com filter:blur(8px) + overlay escuro com cadeado 🔒
+    Overlay: "🔒 Relatório completo disponível no plano Pro" + botão "DESBLOQUEAR — ${price}"
+  JS OBRIGATÓRIO: captura o valor digitado e exibe no resultado personalizado
+  Padrão: function runDemo(btn){const v=document.getElementById('demoInput').value||'exemplo';btn.disabled=true;btn.innerHTML='Analisando... <span class="spin"></span>';setTimeout(function(){document.getElementById('demoUser').textContent=v;document.getElementById('demoResult').style.cssText='display:block;opacity:1'},1500)}
+  NUNCA use opacity:0 no estado inicial sem garantir o reveal via JS inline no mesmo script
+<!-- /cc:hero -->
 
-[3] O QUE VOCÊ DESBLOQUEIA (padding:60px 20px):
-  - H2: "Tudo que você recebe no plano completo"
-  - Lista de 6-8 funcionalidades premium (cada linha: ✓ emoji + feature + resultado específico)
-  - Destaque: a funcionalidade mais valiosa em card separado com borda acento
+<!-- cc:benefits -->
+[3] FEATURES GRID (padding:80px 20px):
+  H2: "Tudo que você consegue com ${pageName}"
+  Grid 2-3 colunas, gap:20px:
+  Gere 8-10 cards baseados nas forças e features reais da ferramenta. Cada card:
+  - Ícone SVG inline (20x20, cor --accent)
+  - Título da feature (font-weight:700)
+  - Descrição curta 1 frase (resultado concreto)
+  - Badge no canto: "GRÁTIS" (verde) | "PRO" (acento) | "EM BREVE" (cinza)
+  background:--surface; border:1px solid --border; border-radius:16px; padding:24px
+<!-- /cc:benefits -->
 
-[4] DEPOIMENTOS (grid 2 col, padding:60px 20px, fundo alternado):
-  - 4 cards com resultado específico de quem usou a versão paga
-  ${persons.length > 0 ? `Avatares: [PESSOAS]` : 'Círculos CSS'}
+<!-- cc:testimonials -->
+[4] DEPOIMENTOS (padding:80px 20px, fundo --bg-alt):
+  H2: "Quem usou ${pageName} não voltou para o manual"
+  Grid 2 colunas (mobile:1 col):
+  4 cards — use os depoimentos reais ou crie 4 ultra-realistas com nome brasileiro, cidade, resultado específico em negrito
+  ${persons.length > 0 ? `Avatares reais: ${persons.slice(0,4).join(', ')}` : 'Avatar: círculo CSS com inicial do nome, cor --accent'}
+  Card: background:--surface; border:1px solid --border; border-radius:16px; padding:24px
+  Estrutura: ★★★★★ | quote | nome + cidade + resultado em destaque (cor --accent, font-weight:700)
+<!-- /cc:testimonials -->
 
-[5] PRICING (padding:60px 20px, centralizado):
-  - Plano GRÁTIS vs Plano COMPLETO lado a lado
-  - Free: features limitadas (3 itens riscados)
-  - Pro: tudo liberado + preço ${price}
-  - Botão "QUERO O PLANO COMPLETO" (pill, acento, max-width:380px)
+<!-- cc:guarantee -->
+[5] PRICING (padding:80px 20px, text-align:center):
+  H2: "Escolha seu plano"
+  Dois cards lado a lado (mobile:empilhados), gap:20px, max-width:700px, margin:0 auto:
 
-[DESIGN ESPECIAL]: Use fontes monoespaçadas (JetBrains Mono ou similar) para os resultados.
-Elementos de loading (skeleton shimmer animado) nos campos de resultado.`
+  CARD GRÁTIS (border:1px solid --border; border-radius:20px; padding:32px):
+  - Badge "GRÁTIS"
+  - Preço: R$0
+  - 4-5 limitações listadas com ✗ vermelho (baseadas nas fraquezas reais do plano grátis)
+
+  CARD PRO (border:2px solid --accent; border-radius:20px; padding:32px; position:relative):
+  - Badge "MAIS POPULAR" (position:absolute; top:-14px; background:--accent; color:#fff; border-radius:99px; padding:4px 16px; font-size:12px; font-weight:700)
+  - Preço: ${price} (font-size:2.5rem; font-weight:900)
+  - 6-8 benefícios com ✓ verde (baseados nos pontos fortes reais)
+  - Botão "QUERO O PLANO PRO →" (pill, acento, width:100%, padding:18px, font-weight:900)
+  - Garantia abaixo do botão: "🛡️ Garantia de 7 dias — devolução total sem perguntas"
+
+  Se houver bônus nos anúncios: seção BÔNUS logo abaixo do pricing:
+  H3: "Bônus incluídos no plano Pro"
+  Grid 2-3 col, cards com: ícone + nome do bônus + valor original riscado + "INCLUSO GRÁTIS"
+<!-- /cc:guarantee -->
+
+<!-- cc:faq -->
+[6] FAQ (padding:80px 20px, max-width:680px, margin:0 auto):
+  H2: "Suas dúvidas respondidas"
+  5 perguntas reais do nicho (baseadas no copy original e fraquezas identificadas)
+  Accordion CSS: cada item tem input[type=checkbox] hidden + label como header + div.faq-body
+  CSS: .faq-body{max-height:0;overflow:hidden;transition:max-height 0.3s ease}
+       input:checked ~ .faq-body{max-height:300px}
+  Sem JavaScript no accordion — apenas CSS.
+<!-- /cc:faq -->
+
+<!-- cc:cta-final -->
+[7] ÚLTIMA CHAMADA (padding:80px 20px, fundo --accent, text-align:center):
+  - H2 curto e emocional (cor #fff, font-size:clamp(1.8rem,5vw,3rem))
+  - Sub: 1 frase de urgência ou escassez plausível
+  - Botão "COMEÇAR AGORA — ${price}" (fundo #fff, cor --accent, pill, padding:20px 48px, font-weight:900)
+  - Abaixo: "🔒 Pagamento seguro · 🛡️ Garantia 7 dias · ⚡ Acesso imediato"
+<!-- /cc:cta-final -->
+
+[DESIGN ESPECIAL]:
+- Fontes dos resultados/dados: JetBrains Mono ou monospace do Google Fonts
+- Skeleton loader nos campos de resultado (shimmer: @keyframes shimmer{0%{background-position:-200%}100%{background-position:200%}})
+- Sticky bottom bar mobile: "Testar grátis + Upgrade ${price}" com 2 botões`
   }
 
   if (funnel === 'vsl') {

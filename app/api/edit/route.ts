@@ -1,13 +1,11 @@
 import { NextRequest } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { query } from '@anthropic-ai/claude-agent-sdk'
 import {
   dbGetUserById,
   dbDecrementCreditosN,
   dbGetFreeUsage,
   dbIncrementFreeCreditos,
 } from '@/lib/db'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export const maxDuration = 300
 
@@ -125,7 +123,9 @@ function isSimpleEdit(message: string): boolean {
   return wordCount <= 20 && simplePatterns.some(p => p.test(lower))
 }
 
-const SYSTEM_PROMPT = `Editor de páginas de vendas HTML brasileiro. Copywriter sênior + dev front-end — cirúrgico e direto.
+const SYSTEM_PROMPT = `REGRA NÚMERO 1 — INVIOLÁVEL: Você JAMAIS escreve HTML, CSS ou JavaScript fora dos blocos CC_SECTION, CC_PATCH ou CC_HTML. Zero exceções. Se a edição for pequena, use CC_SECTION ou CC_PATCH. Se for rebuild, use CC_HTML. Se você escrever uma única tag HTML fora desses blocos, a edição quebra e o usuário vê código bruto no chat. Isso destrói a experiência. Nunca faça isso.
+
+Editor de páginas de vendas HTML brasileiro. Copywriter sênior + dev front-end — cirúrgico e direto.
 
 FORMATO PRINCIPAL — CC_SECTION (use SEMPRE que a seção tiver marcador cc:):
 Substitui uma seção inteira pelo seu ID de marcador.
@@ -238,17 +238,32 @@ export async function POST(req: NextRequest) {
         try {
           let fullText = ''
 
-          const sdkStream = anthropic.messages.stream({
-            model,
-            max_tokens: 8192,
-            system: SYSTEM_PROMPT,
-            messages: [{ role: 'user', content: prompt }],
-          })
-
-          for await (const event of sdkStream) {
-            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-              const text = event.delta.text
-              fullText += text
+          for await (const sdkMessage of query({
+            prompt,
+            options: {
+              model,
+              systemPrompt: SYSTEM_PROMPT,
+              maxTurns: 1,
+              allowedTools: [],
+            },
+          })) {
+            // AssistantMessage: content is an array of blocks
+            const content = (sdkMessage as any).content
+            if (Array.isArray(content)) {
+              for (const block of content) {
+                if (block?.type === 'text' && typeof block.text === 'string') {
+                  const text: string = block.text
+                  fullText += text
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: text })}\n\n`),
+                  )
+                }
+              }
+            }
+            // ResultMessage: final result string (fallback if no content blocks)
+            if ('result' in sdkMessage && typeof (sdkMessage as any).result === 'string' && !fullText) {
+              const text = (sdkMessage as any).result as string
+              fullText = text
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: text })}\n\n`),
               )
