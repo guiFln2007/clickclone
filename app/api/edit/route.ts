@@ -1,10 +1,13 @@
 import { NextRequest } from 'next/server'
+import Anthropic from '@anthropic-ai/sdk'
 import {
   dbGetUserById,
   dbDecrementCreditosN,
   dbGetFreeUsage,
   dbIncrementFreeCreditos,
 } from '@/lib/db'
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export const maxDuration = 300
 
@@ -181,26 +184,21 @@ export async function POST(req: NextRequest) {
         try {
           let fullText = ''
 
-          const Anthropic = (await import('@anthropic-ai/sdk')).default
-          const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-          const stream = await client.messages.stream({
+          const sdkStream = anthropic.messages.stream({
             model: 'claude-haiku-4-5-20251001',
             max_tokens: 8192,
             system: SYSTEM_PROMPT,
             messages: [{ role: 'user', content: prompt }],
           })
-          for await (const event of stream) {
-            if (
-              event.type === 'content_block_delta' &&
-              event.delta.type === 'text_delta' &&
-              event.delta.text
-            ) {
-              fullText += event.delta.text
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: event.delta.text })}\n\n`),
-              )
-            }
+
+          for await (const text of sdkStream.text_stream) {
+            fullText += text
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'text', chunk: text })}\n\n`),
+            )
           }
+
+          await sdkStream.finalMessage()
 
           if (!fullText) throw new Error('Resposta vazia do modelo')
 

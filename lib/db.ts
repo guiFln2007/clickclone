@@ -246,6 +246,16 @@ export async function dbGetCachedAnalysis(pageId: string): Promise<{ analysis: s
   return { analysis: row.analysis as string, html: row.html as string }
 }
 
+export async function dbDeleteCachedAnalysis(pageId: string): Promise<void> {
+  await initDb()
+  // Show every stored page_id so we can spot mismatches
+  const all = await db.execute({ sql: 'SELECT page_id, created_at FROM analysis_cache', args: [] })
+  console.log('[Cache] Todos os registros:', all.rows.map(r => ({ page_id: r.page_id, created_at: r.created_at })))
+  console.log('[Cache] DELETE tentando pageId:', JSON.stringify(pageId), '| tipo:', typeof pageId, '| length:', pageId.length)
+  const result = await db.execute({ sql: 'DELETE FROM analysis_cache WHERE page_id = ?', args: [pageId] })
+  console.log('[Cache] DELETE rowsAffected:', result.rowsAffected)
+}
+
 export async function dbSaveCachedAnalysis(pageId: string, analysis: string, html: string): Promise<void> {
   await initDb()
   await db.execute({

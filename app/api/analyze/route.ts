@@ -833,6 +833,7 @@ export async function POST(req: NextRequest) {
         if (pageId) {
           const cached = await dbGetCachedAnalysis(pageId)
           if (cached) {
+            console.log('[Cache HIT] pageId:', JSON.stringify(pageId), '| length:', pageId.length)
             send({ step: 'scraping', message: '✓ Resultado em cache. Carregando...', percent: 60 })
             const analysis = JSON.parse(cached.analysis)
             // Cache hit — não debita créditos do usuário

@@ -184,6 +184,9 @@ export default function ToolPage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [paneWidth, setPaneWidth] = useState(0)
   const [upgradeModal, setUpgradeModal] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<Project | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const [userName, setUserName] = useState('')
   const [userEmail, setUserEmail] = useState('')
   const [userPlano, setUserPlano] = useState('pro')
@@ -434,10 +437,38 @@ export default function ToolPage() {
     openEditor({ ...proj, html: injectRevealFix(proj.html) })
   }
 
-  function deleteProject(id: string) {
-    const updated = projects.filter(p => p.id !== id)
+  async function confirmDelete(proj: Project) {
+    setDeleting(true)
+    setDeleteError('')
+    let cacheClearFailed = false
+    // Clear analysis_cache on the server so the next analysis of the same URL
+    // runs from scratch instead of returning the cached old result.
+    try {
+      const pageId = new URL(proj.url).searchParams.get('view_all_page_id')
+      if (pageId) {
+        const res = await fetch('/api/projects/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pageId }),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body?.error || `HTTP ${res.status}`)
+        }
+      }
+    } catch (err) {
+      cacheClearFailed = true
+      setDeleteError(
+        `Projeto removido localmente, mas o cache não pôde ser limpo: ${err instanceof Error ? err.message : String(err)}. A próxima análise desta URL pode retornar o resultado anterior.`
+      )
+    }
+    // Always remove from local state, regardless of cache clear result.
+    const updated = projects.filter(p => p.id !== proj.id)
     setProjects(updated)
     localStorage.setItem('cc_projects', JSON.stringify(updated))
+    setDeleting(false)
+    // Keep modal open on failure so the user can read the error message.
+    if (!cacheClearFailed) setPendingDelete(null)
   }
 
   function openReport(proj: Project) {
@@ -1279,7 +1310,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
                             </button>
                             <button className="proj-action-btn del" title="Excluir" onClick={e => {
                               e.stopPropagation()
-                              if (confirm(`Excluir "${p.name}"?`)) deleteProject(p.id)
+                              setPendingDelete(p)
                             }}>
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                             </button>
@@ -1629,6 +1660,42 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
               )}
               <button className="preview-mob-toggle" onClick={() => setMobChatOpen(true)}>Chat ↑</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {pendingDelete && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999 }} onClick={() => { if (!deleting) { setPendingDelete(null); setDeleteError('') } }}>
+          <div style={{ background:'#111',border:'1px solid #222',borderRadius:16,padding:'32px 28px',maxWidth:360,width:'90%',textAlign:'center' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:32,marginBottom:12 }}>🗑️</div>
+            <h2 style={{ fontSize:18,fontWeight:800,color:'#fff',marginBottom:8 }}>
+              {deleteError ? 'Aviso' : 'Excluir projeto?'}
+            </h2>
+            {deleteError ? (
+              <p style={{ color:'#f87171',fontSize:13,lineHeight:1.6,marginBottom:24,textAlign:'left' }}>{deleteError}</p>
+            ) : (
+              <p style={{ color:'#888',fontSize:14,lineHeight:1.6,marginBottom:24 }}>
+                <strong style={{ color:'#fff' }}>{pendingDelete.name}</strong> será removido permanentemente.<br />
+                A próxima análise da mesma URL será gerada do zero.
+              </p>
+            )}
+            {!deleteError && (
+              <button
+                onClick={() => confirmDelete(pendingDelete)}
+                disabled={deleting}
+                style={{ display:'block',width:'100%',background:'#ef4444',color:'#fff',padding:'12px 0',borderRadius:8,fontWeight:700,fontSize:15,border:'none',cursor:deleting?'not-allowed':'pointer',marginBottom:8,opacity:deleting?0.6:1 }}
+              >
+                {deleting ? 'Excluindo...' : 'Excluir'}
+              </button>
+            )}
+            <button
+              onClick={() => { setPendingDelete(null); setDeleteError('') }}
+              disabled={deleting}
+              style={{ display:'block',width:'100%',background:'transparent',border:'1px solid #333',color:'#666',padding:'10px 0',borderRadius:8,fontWeight:500,fontSize:14,cursor:'pointer' }}
+            >
+              {deleteError ? 'Fechar' : 'Cancelar'}
+            </button>
           </div>
         </div>
       )}
