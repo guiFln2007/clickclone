@@ -528,7 +528,9 @@ CORES CSS: ${cssColors} | FONTES: ${cssFonts}
 Mobile-first. Wrapper: max-width:560px; margin:0 auto; padding:0 20px.
 Paleta: defina --bg,--bg-alt,--text,--text2,--accent,--accent-dark,--border,--card-bg,--green:#16A34A no :root.
 Botões: border-radius:99px (pílula), gradiente acento, font-weight:900.
-Sem IntersectionObserver. Sem animações de scroll. Opacity:1 desde o load.`
+Sem IntersectionObserver. Sem animações de scroll. Opacity:1 desde o load.
+PRIMEIRA LINHA DO CSS (obrigatório): html,body{margin:0;padding:0;background:#fff;color:#111;opacity:1!important;visibility:visible!important}
+Todos os elementos visíveis no load devem ter display:block/flex/grid — NUNCA display:none ou opacity:0 no estado inicial.`
 
   const briefing = `━━━ BRIEFING ━━━
 Produto: "${pageName}" | Nicho: ${niche} | Ângulo: ${angle} | Preço: ${price}
@@ -969,6 +971,10 @@ SCHEMA OBRIGATÓRIO:
         // 5. Geração HTML
         send({ step: 'generating', message: `Gerando página de vendas modelada (tipo: ${analysis.funnel_type || 'landing_page'})...`, percent: 75 })
         console.log('[Funil] Tipo detectado:', analysis.funnel_type || 'landing_page')
+        // Keepalive: envia SSE ping a cada 15s para evitar timeout do nginx na Hostinger
+        const keepAlive = setInterval(() => {
+          try { controller.enqueue(encoder.encode(': ping\n\n')) } catch {}
+        }, 15000)
         const rawText = await callClaude(
           buildHtmlPrompt(analysis, landingPage, adCopies, pageMedia),
           `Você é um dev front-end + copywriter brasileiro especialista em páginas de vendas de alta conversão para produtos low ticket. Você vai gerar uma página que seja SUPERIOR ao concorrente analisado.
@@ -988,6 +994,13 @@ REGRAS TÉCNICAS:
 - Todos os CTAs com href="#comprar" ou data-cta="principal"
 - Quando URLs de imagens reais forem fornecidas no briefing, USE-AS diretamente nas tags <img src='...'> e <video src='...'>. Quando não houver imagens disponíveis, use gradientes CSS ou SVG inline como fallback.
 - JavaScript mínimo: apenas o essencial para interatividade
+
+ANTI-TELA-PRETA (OBRIGATÓRIO — viola esta regra = página invisível):
+- A PRIMEIRA regra CSS do <style> DEVE ser: html,body{background:#fff;color:#111;opacity:1!important;visibility:visible!important}
+- NUNCA use display:none, opacity:0 ou visibility:hidden em elementos visíveis no load
+- Se usar variáveis CSS (--bg, --text, etc.), defina valores claros explícitos no :root — nunca dependa de herança
+- NUNCA use animações de entrada que dependem de JS para revelar conteúdo
+- Todos os textos devem ter contraste mínimo: texto escuro (#111-#333) em fundo claro, ou texto claro (#eee-#fff) em fundo escuro — NUNCA texto preto em fundo preto
 
 ESTRUTURA POR TIPO DE FUNIL:
 
@@ -1033,6 +1046,7 @@ whatsapp:
           'claude-sonnet-4-6',
           16000
         )
+        clearInterval(keepAlive)
         let generatedHtml = rawText.replace(/^```html\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim()
         if (!generatedHtml.startsWith('<!')) {
           const idx = generatedHtml.indexOf('<!DOCTYPE')

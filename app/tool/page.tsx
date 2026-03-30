@@ -371,7 +371,7 @@ export default function ToolPage() {
       }
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
-      let buffer = ''
+      let buffer = '', streamDone = false
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -384,6 +384,7 @@ export default function ToolPage() {
           try { ev = JSON.parse(part.slice(6)) } catch { continue }
           if (ev.step === 'error') throw new Error(ev.message)
           if (ev.step === 'done' && ev.data) {
+            streamDone = true
             setDashProgress(100)
             if (typeof ev.data.analises === 'number') setAnalises(ev.data.analises)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -408,6 +409,9 @@ export default function ToolPage() {
           const isCheck = ev.message.startsWith('✓')
           setTermLines(prev => [...prev, { text: isCheck ? ev.message : `> ${ev.message}`, type: isCheck ? 'done' : 'wait' }])
         }
+      }
+      if (!streamDone) {
+        throw new Error('A conexão foi interrompida antes da análise concluir. O servidor pode ter demorado demais — tente novamente.')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao analisar. Tente novamente.')
