@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@anthropic-ai/claude-agent-sdk'
+import Anthropic from '@anthropic-ai/sdk'
 import { load } from 'cheerio'
 import {
   dbGetUserById,
@@ -9,27 +9,22 @@ import {
   dbLogAnalysis,
 } from '@/lib/db'
 
+const anthropic = new Anthropic()
+
 export const maxDuration = 300
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
 async function callClaude(prompt: string, systemPrompt?: string): Promise<string> {
   try {
-    let result = ''
-    for await (const message of query({
-      prompt,
-      options: {
-        allowedTools: [],
-        maxTurns: 1,
-        ...(systemPrompt ? { systemPrompt } : {}),
-      },
-    })) {
-      if ('result' in message && typeof (message as { result: string }).result === 'string') {
-        result = (message as { result: string }).result
-        break
-      }
-    }
-    return result
+    const response = await anthropic.messages.create({
+      model: 'claude-opus-4-6',
+      max_tokens: 16000,
+      ...(systemPrompt ? { system: systemPrompt } : {}),
+      messages: [{ role: 'user', content: prompt }],
+    })
+    const block = response.content.find(b => b.type === 'text')
+    return block?.type === 'text' ? block.text : ''
   } catch (err) {
     console.error('[callClaude] ERRO:', err)
     return ''
@@ -854,14 +849,17 @@ setTimeout(reveal,300);setTimeout(reveal,800);
         generatedHtml = generatedHtml.replace('</body>', revealFix + '</body>')
 
         // Decrementa uso após sucesso e loga
+        let newAnalises: number | undefined
         if (userId) {
           await dbDecrementAnalises(userId)
+          const updatedUser = await dbGetUserById(userId)
+          newAnalises = updatedUser?.analises
         } else {
           await dbIncrementFreeAnalises(ip, sessionId)
         }
         await dbLogAnalysis(userId, ip)
 
-        send({ step: 'done', message: 'Análise concluída. Abrindo editor_', percent: 100, data: { analysis, generatedHtml } })
+        send({ step: 'done', message: 'Análise concluída. Abrindo editor_', percent: 100, data: { analysis, generatedHtml, analises: newAnalises } })
         controller.close()
 
       } catch (err) {
