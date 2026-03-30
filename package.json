@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "postinstall": "echo 'deps installed'"
+    "postinstall": "rm -rf node_modules/@anthropic-ai && npm install @anthropic-ai/claude-agent-sdk @anthropic-ai/claude-code --no-save"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.87",
