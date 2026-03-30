@@ -1,5 +1,23 @@
 import { NextRequest } from 'next/server'
 import { dbGetUserById, dbGetFreeUsage } from '@/lib/db'
+import sharp from 'sharp'
+
+const MAX_DIM = 7000
+
+async function resizeIfNeeded(base64: string): Promise<string> {
+  try {
+    const buffer = Buffer.from(base64, 'base64')
+    const meta = await sharp(buffer).metadata()
+    if ((meta.width ?? 0) <= MAX_DIM && (meta.height ?? 0) <= MAX_DIM) return base64
+    const resized = await sharp(buffer)
+      .resize({ width: MAX_DIM, height: MAX_DIM, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 70 })
+      .toBuffer()
+    return resized.toString('base64')
+  } catch {
+    return base64
+  }
+}
 
 export const maxDuration = 300
 
@@ -51,8 +69,8 @@ async function capturePageScreenshots(url: string): Promise<string[]> {
 
   const baseUrl = 'https://api.screenshotone.com/take'
 
-  // Step 1: full page to get total height
-  const fullPageUrl = `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&full_page=true&viewport_width=1440&format=jpg&image_quality=70&response_type=json`
+  // Step 1: full page to get total height (max_height=7000 to stay within Claude's limit)
+  const fullPageUrl = `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&full_page=true&viewport_width=1440&max_height=7000&format=jpg&image_quality=70&response_type=json`
 
   let pageHeight = 6000
   try {
@@ -75,13 +93,13 @@ async function capturePageScreenshots(url: string): Promise<string[]> {
     scrollY += sectionHeight - overlap
   }
 
-  // Step 3: build screenshot URLs for each scroll position + mobile hero (fixed viewport, not full page)
+  // Step 3: build screenshot URLs for each scroll position + mobile hero
   const shotUrls: string[] = [
     ...scrollPositions.map(sy =>
-      `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=1440&viewport_height=${sectionHeight}&scroll_position=${sy}&format=jpg&image_quality=75&block_ads=true&block_cookie_banners=true`
+      `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=1440&viewport_height=${sectionHeight}&scroll_position=${sy}&format=jpg&image_quality=60&block_ads=true&block_cookie_banners=true`
     ),
-    // Mobile hero — fixed 812px viewport to avoid exceeding Claude's 8000px limit
-    `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=375&viewport_height=812&format=jpg&image_quality=70&block_ads=true&block_cookie_banners=true`,
+    // Mobile hero — fixed viewport, never full_page to avoid >8000px
+    `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=375&viewport_height=812&format=jpg&image_quality=60&block_ads=true&block_cookie_banners=true`,
   ]
 
   // Step 4: fire all in parallel, discard failures
@@ -255,9 +273,9 @@ Analise a página completa usando as screenshots e a lista de assets reais. Para
           },
         ]
 
-        // Add screenshots — up to 6 sections to cover the full funnel
-        for (const img of screenshots.slice(0, 6)) {
-          // Skip if too large (>1.4MB base64 ≈ 750KB image)
+        // Resize screenshots to stay within Claude's 8000px dimension limit, then send up to 6
+        const safeScreenshots = await Promise.all(screenshots.slice(0, 6).map(resizeIfNeeded))
+        for (const img of safeScreenshots) {
           if (img.length > 1400000) continue
           userContent.push({
             type: 'image',
