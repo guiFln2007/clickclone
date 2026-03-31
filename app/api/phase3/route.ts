@@ -180,6 +180,18 @@ Linguagem: ${phase2Report.analise_de_copy?.linguagem ?? 'informal'}
 Tom visual: ${phase2Report.analise_de_design?.tom_visual ?? 'urgente'}
 Paleta: ${JSON.stringify(phase2Report.analise_de_design?.paleta_dominante ?? [])}
 
+━━━ ASSETS REAIS PARA USAR NO HTML ━━━
+${(() => {
+  const assets: Array<Record<string, unknown>> = phase2Report.assets_classificados ?? []
+  if (assets.length === 0) return 'Nenhum asset classificado encontrado.'
+  const alta = assets.filter((a: Record<string, unknown>) => a.prioridade === 'alta')
+  const media = assets.filter((a: Record<string, unknown>) => a.prioridade === 'média' || a.prioridade === 'media')
+  const format = (list: Array<Record<string, unknown>>) => list.map((a: Record<string, unknown>) => `  [${a.tipo}] ${a.url}\n    → ${a.onde_replicar || a.descricao || ''}`).join('\n')
+  return `PRIORIDADE ALTA (USE OBRIGATORIAMENTE):\n${format(alta) || '  nenhum'}\n\nPRIORIDADE MÉDIA:\n${format(media) || '  nenhum'}`
+})()}
+
+REGRA CRÍTICA: Cada asset com URL real DEVE aparecer no HTML na posição indicada em "onde_replicar". NÃO use placeholders quando existe URL real. NÃO invente imagens.
+
 Gere agora o HTML completo do funil melhorado. Comece com <!DOCTYPE html>.`,
           }
         ]

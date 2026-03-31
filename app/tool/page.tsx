@@ -412,6 +412,37 @@ function ReportView({ phase1, phase2, screenshots, phase3Loading, phase3Lines, o
           </div>
         )}
 
+        {/* ── ASSETS DO FUNIL ── */}
+        {((phase2.assets_classificados as Record<string, unknown>[] | undefined) || []).filter((a) => a.url && typeof a.url === 'string' && (a.url as string).startsWith('http')).length > 0 && (
+          <ReportSection label="Assets do Funil" badge={`${((phase2.assets_classificados as Record<string, unknown>[]) || []).filter((a) => a.url && typeof a.url === 'string' && (a.url as string).startsWith('http')).length} imagens`} badgeCls="p2">
+            <div className="rpt-assets-scroll">
+              {((phase2.assets_classificados as Record<string, unknown>[]) || [])
+                .filter((a) => a.url && typeof a.url === 'string' && (a.url as string).startsWith('http'))
+                .map((a, i) => (
+                  <div key={i} className="rpt-asset-card">
+                    <div className="rpt-asset-img-wrap">
+                      {(a.tipo as string || '').startsWith('video') ? (
+                        <div className="rpt-asset-video-placeholder">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#555' }}><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </div>
+                      ) : (
+                        <img
+                          src={a.url as string}
+                          alt={a.descricao as string || ''}
+                          onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+                        />
+                      )}
+                    </div>
+                    <div className="rpt-asset-info">
+                      <span className={`rpt-asset-tipo rpt-asset-tipo-${(a.tipo as string || '').split('_')[0]}`}>{(a.tipo as string || '').replace(/_/g, ' ')}</span>
+                      {(a.prioridade as string) === 'alta' && <span className="rpt-asset-prio">★ alta</span>}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </ReportSection>
+        )}
+
         {/* ── SCREENSHOTS ── */}
         {screenshots.length > 0 && (
           <ReportSection label={`Screenshots — ${screenshots.length} capturas`}>
@@ -1576,6 +1607,24 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
         /* Palette */
         .rpt-palette{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px}
         .rpt-swatch{width:28px;height:28px;border-radius:6px;border:1px solid rgba(255,255,255,.06);flex-shrink:0}
+
+        /* Assets strip */
+        .rpt-assets-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-top:8px;scrollbar-width:thin;scrollbar-color:#222 transparent}
+        .rpt-assets-scroll::-webkit-scrollbar{height:3px}
+        .rpt-assets-scroll::-webkit-scrollbar-track{background:transparent}
+        .rpt-assets-scroll::-webkit-scrollbar-thumb{background:#222;border-radius:4px}
+        .rpt-asset-card{flex-shrink:0;width:130px;border-radius:8px;overflow:hidden;border:1px solid #1a1a1a;background:#0d0d0d}
+        .rpt-asset-img-wrap{width:130px;height:100px;overflow:hidden;background:#111;display:flex;align-items:center;justify-content:center}
+        .rpt-asset-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+        .rpt-asset-video-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#111}
+        .rpt-asset-info{padding:5px 7px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+        .rpt-asset-tipo{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#555;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .rpt-asset-tipo-mockup{color:#E8692A}
+        .rpt-asset-tipo-video{color:#818cf8}
+        .rpt-asset-tipo-foto{color:#22c55e}
+        .rpt-asset-tipo-badge{color:#eab308}
+        .rpt-asset-tipo-logo{color:#ccc}
+        .rpt-asset-prio{font-size:9px;font-weight:700;color:#E8692A;flex-shrink:0}
 
         /* Screenshots strip */
         .rpt-shots-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-top:8px;scrollbar-width:thin;scrollbar-color:#222 transparent}
