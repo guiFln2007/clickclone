@@ -194,7 +194,13 @@ function ReportView({ phase1, phase2, screenshots, phase3Loading, phase3Lines, o
   const elementosFuncionam: string[] = phase2.elementos_que_funcionam || []
   const paleta: string[] = design.paleta_dominante || []
 
-  const r = 34, circ = 2 * Math.PI * r, dash = (score / 10) * circ
+  const r = 40, circ = 2 * Math.PI * r, dash = (score / 10) * circ
+
+  const verdict = score >= 7
+    ? { label: 'Vale Entrar', icon: '✓', cls: 'vrd-green', desc: 'Mercado validado com bom potencial de lucro' }
+    : score >= 5
+    ? { label: 'Com Cuidado', icon: '⚠', cls: 'vrd-yellow', desc: 'Mercado funciona mas tem barreiras relevantes' }
+    : { label: 'Evitar', icon: '✕', cls: 'vrd-red', desc: 'Mercado difícil ou saturado — risco elevado' }
 
   return (
     <div className="report-wrap">
@@ -208,123 +214,153 @@ function ReportView({ phase1, phase2, screenshots, phase3Loading, phase3Lines, o
 
       <div className="report-body">
 
-        {/* Phase 1 — Ads */}
-        <ReportSection label="Fase 1 — Análise dos Anúncios" badge="Meta Ad Library" badgeCls="p1">
-          <div className="score-ring-wrap">
-            <svg className="score-ring-svg" width="84" height="84" viewBox="0 0 84 84">
-              <circle cx="42" cy="42" r={r} fill="none" stroke="#111" strokeWidth="5" />
-              <circle cx="42" cy="42" r={r} fill="none" stroke="#E8692A" strokeWidth="5"
+        {/* ── VEREDICTO HERO ── */}
+        <div className={`vrd-hero ${verdict.cls}`}>
+          <div className="vrd-left">
+            <div className="vrd-icon">{verdict.icon}</div>
+            <div>
+              <div className="vrd-label">{verdict.label}</div>
+              <div className="vrd-desc">{verdict.desc}</div>
+            </div>
+          </div>
+          <div className="vrd-right">
+            <svg width="100" height="100" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="6" />
+              <circle cx="50" cy="50" r={r} fill="none" stroke="currentColor" strokeWidth="6"
                 strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-                transform="rotate(-90 42 42)"
+                transform="rotate(-90 50 50)"
                 style={{ transition: 'stroke-dasharray 1.2s cubic-bezier(.16,1,.3,1)' }}
               />
-              <text x="42" y="44" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="900" fontFamily="Roboto,sans-serif">{score}</text>
-              <text x="42" y="56" textAnchor="middle" fill="#444" fontSize="9" fontFamily="Roboto,sans-serif">/10</text>
+              <text x="50" y="54" textAnchor="middle" fill="currentColor" fontSize="24" fontWeight="900" fontFamily="Roboto,sans-serif">{score}</text>
+              <text x="50" y="66" textAnchor="middle" fill="currentColor" fontSize="11" opacity=".5" fontFamily="Roboto,sans-serif">/10</text>
             </svg>
-            <div className="score-ring-info">
-              <div className="score-sub">
-                <span className="score-sub-lbl">Facilidade</span>
-                <div className="score-sub-bar"><div className="score-sub-fill" style={{ width: `${(facilidade / 5) * 100}%` }} /></div>
-                <span className="score-sub-num">{facilidade}/5</span>
+            <div className="vrd-bars">
+              <div className="vrd-bar-row">
+                <span className="vrd-bar-lbl">Facilidade</span>
+                <div className="vrd-bar-track"><div className="vrd-bar-fill" style={{ width: `${(facilidade / 5) * 100}%` }} /></div>
+                <span className="vrd-bar-num">{facilidade}<span style={{ opacity: .4 }}>/5</span></span>
               </div>
-              <div className="score-sub">
-                <span className="score-sub-lbl">Escalabilidade</span>
-                <div className="score-sub-bar"><div className="score-sub-fill" style={{ width: `${(escalabilidade / 5) * 100}%` }} /></div>
-                <span className="score-sub-num">{escalabilidade}/5</span>
+              <div className="vrd-bar-row">
+                <span className="vrd-bar-lbl">Escalabilidade</span>
+                <div className="vrd-bar-track"><div className="vrd-bar-fill" style={{ width: `${(escalabilidade / 5) * 100}%` }} /></div>
+                <span className="vrd-bar-num">{escalabilidade}<span style={{ opacity: .4 }}>/5</span></span>
               </div>
-              {nota.justificativa && <div style={{ fontSize: 12, color: '#555', maxWidth: 360, lineHeight: 1.5, marginTop: 4 }}>{nota.justificativa}</div>}
+              {nota.justificativa && <div className="vrd-just">{nota.justificativa}</div>}
             </div>
           </div>
+        </div>
 
-          <div className="rpt-grid">
-            <div className="rpt-card">
+        {/* ── FASE 1 — ANÚNCIOS ── */}
+        <ReportSection label="Fase 1 — Anúncios" badge="Meta Ad Library" badgeCls="p1">
+          {phase1.angulo_dominante && (
+            <div className="rpt-highlight-card">
               <div className="rpt-card-lbl">Ângulo dominante</div>
-              <div className="rpt-card-val">{phase1.angulo_dominante || '—'}</div>
-            </div>
-            <div className="rpt-card">
-              <div className="rpt-card-lbl">Formatos validados</div>
-              <div className="chips-row">
-                {formatos.map((f, i) => <span key={i} className="rpt-chip orange">{f}</span>)}
-                {formatos.length === 0 && <span className="rpt-chip">—</span>}
-              </div>
-            </div>
-            <div className="rpt-card">
-              <div className="rpt-card-lbl">Copy patterns</div>
-              <div className="chips-row">
-                {copyPatterns.map((p, i) => <span key={i} className="rpt-chip">{p}</span>)}
-              </div>
-            </div>
-            <div className="rpt-card">
-              <div className="rpt-card-lbl">Fraquezas criativas</div>
-              <div className="rpt-list">
-                {pontosFragosCriativos.map((w, i) => (
-                  <div key={i} className="rpt-list-item weak"><span className="ic">✗</span><span>{w}</span></div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {(phase1.sugestoes_criativos || []).length > 0 && (
-            <div style={{ marginTop: 14 }}>
-              <div className="rpt-card-lbl" style={{ marginBottom: 8 }}>Sugestões de criativos</div>
-              <div className="rpt-list">
-                {(phase1.sugestoes_criativos as string[]).map((s, i) => (
-                  <div key={i} className="rpt-list-item info"><span className="ic">→</span><span>{s}</span></div>
-                ))}
-              </div>
+              <div className="rpt-highlight-val">{phase1.angulo_dominante}</div>
             </div>
           )}
+          <div className="rpt-grid" style={{ marginTop: 12 }}>
+            {formatos.length > 0 && (
+              <div className="rpt-card">
+                <div className="rpt-card-lbl">Formatos validados</div>
+                <div className="chips-row">
+                  {formatos.map((f, i) => <span key={i} className="rpt-chip orange">{f}</span>)}
+                </div>
+              </div>
+            )}
+            {copyPatterns.length > 0 && (
+              <div className="rpt-card">
+                <div className="rpt-card-lbl">Copy patterns</div>
+                <div className="chips-row">
+                  {copyPatterns.map((p, i) => <span key={i} className="rpt-chip">{p}</span>)}
+                </div>
+              </div>
+            )}
+            {pontosFragosCriativos.length > 0 && (
+              <div className="rpt-card">
+                <div className="rpt-card-lbl">Fraquezas criativas</div>
+                <div className="rpt-list" style={{ marginTop: 0 }}>
+                  {pontosFragosCriativos.map((w, i) => (
+                    <div key={i} className="rpt-list-item weak"><span className="ic">✕</span><span>{w}</span></div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {(phase1.sugestoes_criativos || []).length > 0 && (
+              <div className="rpt-card">
+                <div className="rpt-card-lbl">Sugestões de criativos</div>
+                <div className="rpt-list" style={{ marginTop: 0 }}>
+                  {(phase1.sugestoes_criativos as string[]).map((s, i) => (
+                    <div key={i} className="rpt-list-item info"><span className="ic">→</span><span>{s}</span></div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </ReportSection>
 
-        {/* Phase 2 — Page */}
-        <ReportSection label="Fase 2 — Análise da Página" badge={phase2.tipo_de_funil || 'página'} badgeCls="p2">
-          <div className="rpt-grid" style={{ marginBottom: 16 }}>
-            <div className="rpt-card">
+        {/* ── FASE 2 — PÁGINA ── */}
+        <ReportSection label="Fase 2 — Página" badge={phase2.tipo_de_funil || 'página'} badgeCls="p2">
+          {analise.promessa_central && (
+            <div className="rpt-highlight-card" style={{ marginBottom: 12 }}>
               <div className="rpt-card-lbl">Promessa central</div>
-              <div className="rpt-card-val">{analise.promessa_central || '—'}</div>
+              <div className="rpt-highlight-val">{analise.promessa_central}</div>
             </div>
+          )}
+          <div className="rpt-grid" style={{ marginBottom: 14 }}>
+            {analise.mecanismo_de_dor && (
+              <div className="rpt-card">
+                <div className="rpt-card-lbl">Mecanismo de dor</div>
+                <div className="rpt-card-val">{analise.mecanismo_de_dor}</div>
+              </div>
+            )}
+            {(analise.gap_anuncio_pagina) && (
+              <div className="rpt-card">
+                <div className="rpt-card-lbl">Gap anúncio → página</div>
+                <div className="rpt-card-val">{analise.gap_anuncio_pagina}</div>
+              </div>
+            )}
             <div className="rpt-card">
-              <div className="rpt-card-lbl">Mecanismo de dor</div>
-              <div className="rpt-card-val">{analise.mecanismo_de_dor || '—'}</div>
+              <div className="rpt-card-lbl">Linguagem / Tom visual</div>
+              <div className="chips-row" style={{ marginTop: 4 }}>
+                {analise.linguagem && <span className="rpt-chip">{analise.linguagem}</span>}
+                {design.tom_visual && <span className="rpt-chip orange">{design.tom_visual}</span>}
+              </div>
             </div>
-            <div className="rpt-card">
-              <div className="rpt-card-lbl">Linguagem</div>
-              <div className="rpt-card-val">{analise.linguagem || '—'}</div>
-            </div>
-            <div className="rpt-card">
-              <div className="rpt-card-lbl">Tom visual</div>
-              <div className="rpt-card-val">{design.tom_visual || '—'}</div>
-            </div>
+            {paleta.length > 0 && (
+              <div className="rpt-card">
+                <div className="rpt-card-lbl">Paleta de cores</div>
+                <div className="rpt-palette" style={{ marginTop: 6 }}>
+                  {paleta.map((c, i) => (
+                    <div key={i} className="rpt-swatch" style={{ background: c }} title={c} />
+                  ))}
+                  {paleta.map((c, i) => (
+                    <span key={`hex-${i}`} style={{ fontSize: 10, color: '#444', alignSelf: 'center' }}>{c}</span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {(analise.palavras_gatilho || []).length > 0 && (
-            <div className="rpt-card" style={{ marginBottom: 14 }}>
-              <div className="rpt-card-lbl">Palavras-gatilho</div>
+            <div style={{ marginBottom: 14 }}>
+              <div className="rpt-card-lbl" style={{ marginBottom: 6 }}>Palavras-gatilho</div>
               <div className="chips-row">
                 {(analise.palavras_gatilho as string[]).map((w, i) => <span key={i} className="rpt-chip orange">{w}</span>)}
               </div>
             </div>
           )}
 
-          {paleta.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div className="rpt-card-lbl" style={{ marginBottom: 6 }}>Paleta de cores</div>
-              <div className="rpt-palette">
-                {paleta.map((c, i) => (
-                  <div key={i} className="rpt-swatch" style={{ background: c }} title={c} />
-                ))}
-              </div>
-            </div>
-          )}
-
           {estrutura.length > 0 && (
             <div>
-              <div className="rpt-card-lbl" style={{ marginBottom: 8 }}>Estrutura da página ({estrutura.length} seções)</div>
+              <div className="rpt-card-lbl" style={{ marginBottom: 8 }}>Estrutura — {estrutura.length} seções</div>
               <div className="rpt-struct-list">
                 {estrutura.map((sec, i) => (
                   <div key={i} className="rpt-struct-item">
                     <div className="rpt-struct-pos">{sec.posicao as number}</div>
-                    <div className="rpt-struct-name">{sec.nome as string}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="rpt-struct-name">{sec.nome as string}</div>
+                      {sec.copy_principal && <div className="rpt-struct-copy">&ldquo;{sec.copy_principal as string}&rdquo;</div>}
+                    </div>
                     <span className={`rpt-struct-qual ${(sec.qualidade as string) || ''}`}>{sec.qualidade as string}</span>
                   </div>
                 ))}
@@ -333,62 +369,71 @@ function ReportView({ phase1, phase2, screenshots, phase3Loading, phase3Lines, o
           )}
         </ReportSection>
 
-        {/* Weak points */}
-        {pontosFracos.length > 0 && (
-          <ReportSection label="Pontos Fracos" badge={`${pontosFracos.length} encontrados`} badgeCls="p2">
-            <div className="rpt-pontos-fracos">
-              {pontosFracos.map((pf, i) => (
-                <div key={i} className="rpt-pf-item">
-                  <div className="rpt-pf-header">
-                    <div className="rpt-pf-rank">#{pf.rank as number || i + 1}</div>
-                    <div className="rpt-pf-prob">{pf.problema as string}</div>
-                    <span className={`rpt-pf-impact ${(pf.impacto as string || '').toLowerCase()}`}>{pf.impacto as string}</span>
-                  </div>
-                  {pf.como_corrigir && <div className="rpt-pf-fix">{pf.como_corrigir as string}</div>}
-                </div>
-              ))}
-            </div>
+        {/* ── O QUE FUNCIONA / PONTOS FRACOS ── */}
+        {(pontosFracos.length > 0 || elementosFuncionam.length > 0) && (
+          <div className="rpt-two-col">
             {elementosFuncionam.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <div className="rpt-card-lbl" style={{ marginBottom: 8 }}>O que funciona</div>
-                <div className="rpt-list">
-                  {elementosFuncionam.map((e, i) => (
-                    <div key={i} className="rpt-list-item strong"><span className="ic">✓</span><span>{e}</span></div>
-                  ))}
+              <div className="rpt-section rpt-col-card">
+                <div className="rpt-section-hd" style={{ cursor: 'default' }}>
+                  <span className="rpt-sec-label">O que funciona</span>
+                  <span className="rpt-sec-badge" style={{ background: 'rgba(34,197,94,.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,.2)' }}>{elementosFuncionam.length}</span>
+                </div>
+                <div className="rpt-section-body">
+                  <div className="rpt-list" style={{ marginTop: 0 }}>
+                    {elementosFuncionam.map((e, i) => (
+                      <div key={i} className="rpt-list-item strong"><span className="ic">✓</span><span>{e}</span></div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
-          </ReportSection>
+            {pontosFracos.length > 0 && (
+              <div className="rpt-section rpt-col-card">
+                <div className="rpt-section-hd" style={{ cursor: 'default' }}>
+                  <span className="rpt-sec-label">Pontos fracos</span>
+                  <span className="rpt-sec-badge" style={{ background: 'rgba(239,68,68,.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,.2)' }}>{pontosFracos.length}</span>
+                </div>
+                <div className="rpt-section-body">
+                  <div className="rpt-pontos-fracos">
+                    {pontosFracos.map((pf, i) => (
+                      <div key={i} className="rpt-pf-item">
+                        <div className="rpt-pf-header">
+                          <div className="rpt-pf-rank">#{(pf.rank as number) || i + 1}</div>
+                          <div className="rpt-pf-prob">{pf.problema as string}</div>
+                          <span className={`rpt-pf-impact ${(pf.impacto as string || '').toLowerCase()}`}>{pf.impacto as string}</span>
+                        </div>
+                        {pf.como_corrigir && <div className="rpt-pf-fix">{pf.como_corrigir as string}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Screenshots */}
+        {/* ── SCREENSHOTS ── */}
         {screenshots.length > 0 && (
-          <ReportSection label="Screenshots da página">
-            <div className="rpt-shots">
-              {screenshots[0] && (
-                <div className="rpt-shot">
-                  <img src={`data:image/jpeg;base64,${screenshots[0]}`} alt="Desktop" />
-                  <div className="rpt-shot-lbl">Desktop 1440px</div>
+          <ReportSection label={`Screenshots — ${screenshots.length} capturas`}>
+            <div className="rpt-shots-scroll">
+              {screenshots.map((shot, i) => (
+                <div key={i} className="rpt-shot">
+                  <img src={`data:image/jpeg;base64,${shot}`} alt={`Screenshot ${i + 1}`} />
+                  <div className="rpt-shot-lbl">{i === screenshots.length - 1 ? 'Mobile 375px' : `Seção ${i + 1}`}</div>
                 </div>
-              )}
-              {screenshots[1] && (
-                <div className="rpt-shot">
-                  <img src={`data:image/jpeg;base64,${screenshots[1]}`} alt="Mobile" />
-                  <div className="rpt-shot-lbl">Mobile 375px</div>
-                </div>
-              )}
+              ))}
             </div>
           </ReportSection>
         )}
 
       </div>
 
-      {/* CTA */}
+      {/* ── CTA ── */}
       <div className="report-cta-wrap">
         <div className="report-cta-box">
           <div className="report-cta-text">
-            <h3>Gerar funil melhorado →</h3>
-            <p>Claude Opus vai criar um HTML completo, superior ao original, aplicando todas as correções identificadas.</p>
+            <h3>Gerar funil melhorado</h3>
+            <p>Claude Opus cria um HTML completo, superior ao original, com todas as correções identificadas aplicadas.</p>
           </div>
           <button className="report-gen-btn" onClick={onGenerate} disabled={phase3Loading}>
             {phase3Loading ? (
@@ -396,7 +441,7 @@ function ReportView({ phase1, phase2, screenshots, phase3Loading, phase3Lines, o
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                 Gerando...
               </>
-            ) : 'Acessar Funil Modelado →'}
+            ) : <>Acessar Funil Modelado <span style={{ opacity: .6 }}>→</span></>}
           </button>
         </div>
         {phase3Loading && phase3Lines.length > 0 && (
@@ -1458,31 +1503,55 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
         .report-back{display:flex;align-items:center;justify-content:center;width:30px;height:30px;background:transparent;border:1px solid #222;border-radius:7px;color:#666;cursor:pointer;transition:all .15s;flex-shrink:0}
         .report-back:hover{border-color:#444;color:#ccc}
         .report-title{font-size:13px;font-weight:700;color:#fff}
-        .report-subtitle{font-size:11px;color:#444;margin-left:auto}
-        .report-body{flex:1;overflow-y:auto;padding:32px 24px;max-width:900px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+        .report-subtitle{font-size:11px;color:#444;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
+        .report-body{flex:1;overflow-y:auto;padding:28px 24px;max-width:940px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+
+        /* Verdict hero */
+        .vrd-hero{border-radius:16px;padding:28px 32px;display:flex;align-items:center;justify-content:space-between;gap:28px;flex-wrap:wrap}
+        .vrd-green{background:linear-gradient(135deg,rgba(34,197,94,.07) 0%,rgba(22,163,74,.04) 100%);border:1px solid rgba(34,197,94,.18);color:#22c55e}
+        .vrd-yellow{background:linear-gradient(135deg,rgba(234,179,8,.07) 0%,rgba(202,138,4,.04) 100%);border:1px solid rgba(234,179,8,.18);color:#eab308}
+        .vrd-red{background:linear-gradient(135deg,rgba(239,68,68,.07) 0%,rgba(185,28,28,.04) 100%);border:1px solid rgba(239,68,68,.18);color:#ef4444}
+        .vrd-left{display:flex;align-items:center;gap:20px;flex:1;min-width:0}
+        .vrd-icon{font-size:36px;line-height:1;flex-shrink:0;filter:drop-shadow(0 0 12px currentColor)}
+        .vrd-label{font-size:28px;font-weight:900;letter-spacing:-.02em;line-height:1;margin-bottom:6px}
+        .vrd-desc{font-size:13px;opacity:.6;line-height:1.4;font-weight:400;color:#ccc}
+        .vrd-right{display:flex;align-items:center;gap:24px;flex-shrink:0}
+        .vrd-bars{display:flex;flex-direction:column;gap:10px;min-width:200px}
+        .vrd-bar-row{display:flex;align-items:center;gap:10px}
+        .vrd-bar-lbl{font-size:11px;color:#666;width:90px;flex-shrink:0}
+        .vrd-bar-track{flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden}
+        .vrd-bar-fill{height:100%;border-radius:4px;background:currentColor;transition:width .8s cubic-bezier(.16,1,.3,1);opacity:.8}
+        .vrd-bar-num{font-size:12px;font-weight:700;width:28px;text-align:right;flex-shrink:0}
+        .vrd-just{font-size:11px;color:#555;line-height:1.55;margin-top:6px}
+        @media(max-width:640px){.vrd-hero{padding:20px;gap:20px}.vrd-right{flex-direction:column;gap:16px}.vrd-bars{min-width:160px}.vrd-label{font-size:22px}}
+
+        /* Sections */
         .rpt-section{background:#070707;border:1px solid #141414;border-radius:12px;overflow:hidden}
-        .rpt-section-hd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #141414;cursor:pointer;user-select:none;transition:background .15s}
+        .rpt-section-hd{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid #141414;cursor:pointer;user-select:none;transition:background .15s}
         .rpt-section-hd:hover{background:#0d0d0d}
-        .rpt-sec-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#555}
+        .rpt-sec-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#555}
         .rpt-sec-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:auto}
         .rpt-sec-badge.p1{background:rgba(232,105,42,.1);color:#E8692A;border:1px solid rgba(232,105,42,.2)}
         .rpt-sec-badge.p2{background:rgba(99,102,241,.1);color:#818cf8;border:1px solid rgba(99,102,241,.2)}
         .rpt-chevron{color:#333;font-size:10px;transition:transform .2s;margin-left:8px}
         .rpt-chevron.open{transform:rotate(180deg)}
         .rpt-section-body{padding:18px}
+
+        /* Two-col layout for works/weak */
+        .rpt-two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .rpt-col-card{height:fit-content}
+        @media(max-width:640px){.rpt-two-col{grid-template-columns:1fr}}
+
+        /* Cards */
         .rpt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
         @media(max-width:600px){.rpt-grid{grid-template-columns:1fr}}
         .rpt-card{background:#0d0d0d;border:1px solid #1a1a1a;border-radius:8px;padding:14px}
+        .rpt-highlight-card{background:rgba(232,105,42,.04);border:1px solid rgba(232,105,42,.12);border-radius:10px;padding:16px}
         .rpt-card-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#444;margin-bottom:6px}
         .rpt-card-val{font-size:13px;color:#bbb;line-height:1.6}
-        .score-ring-wrap{display:flex;align-items:center;gap:20px;padding:4px 0 12px}
-        .score-ring-svg{flex-shrink:0}
-        .score-ring-info{display:flex;flex-direction:column;gap:8px}
-        .score-sub{display:flex;align-items:center;gap:8px}
-        .score-sub-lbl{font-size:11px;color:#444;width:96px}
-        .score-sub-bar{flex:1;height:4px;background:#1a1a1a;border-radius:4px;overflow:hidden}
-        .score-sub-fill{height:100%;border-radius:4px;background:#E8692A;transition:width .6s ease}
-        .score-sub-num{font-size:11px;color:#666;width:20px;text-align:right}
+        .rpt-highlight-val{font-size:15px;font-weight:600;color:#e0d0c8;line-height:1.5}
+
+        /* Misc */
         .chips-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
         .rpt-chip{font-size:11px;padding:3px 10px;border-radius:20px;background:#111;border:1px solid #1e1e1e;color:#888}
         .rpt-chip.orange{background:rgba(232,105,42,.08);border-color:rgba(232,105,42,.2);color:#E8692A}
@@ -1492,21 +1561,33 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
         .rpt-list-item.weak .ic{color:#ef4444}
         .rpt-list-item.strong .ic{color:#22c55e}
         .rpt-list-item.info .ic{color:#E8692A}
-        .rpt-struct-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
-        .rpt-struct-item{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:#0d0d0d;border:1px solid #141414;border-radius:8px;font-size:12px}
-        .rpt-struct-pos{width:20px;height:20px;border-radius:5px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#444;flex-shrink:0}
-        .rpt-struct-name{font-weight:600;color:#bbb;flex:1}
-        .rpt-struct-qual{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0}
+
+        /* Struct */
+        .rpt-struct-list{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+        .rpt-struct-item{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:#0d0d0d;border:1px solid #141414;border-radius:8px;font-size:12px}
+        .rpt-struct-pos{width:20px;height:20px;border-radius:5px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#444;flex-shrink:0;margin-top:1px}
+        .rpt-struct-name{font-weight:600;color:#bbb;margin-bottom:2px}
+        .rpt-struct-copy{font-size:11px;color:#444;line-height:1.4;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+        .rpt-struct-qual{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0;margin-left:auto}
         .rpt-struct-qual.forte{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
         .rpt-struct-qual.médio,.rpt-struct-qual.medio{background:rgba(234,179,8,.1);color:#eab308;border:1px solid rgba(234,179,8,.2)}
         .rpt-struct-qual.fraco{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
-        .rpt-palette{display:flex;gap:8px;margin-top:4px}
-        .rpt-swatch{width:32px;height:32px;border-radius:6px;border:1px solid rgba(255,255,255,.06);cursor:default;title:attr(title)}
-        .rpt-shots{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
-        .rpt-shot{border-radius:8px;overflow:hidden;border:1px solid #1a1a1a}
+
+        /* Palette */
+        .rpt-palette{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px}
+        .rpt-swatch{width:28px;height:28px;border-radius:6px;border:1px solid rgba(255,255,255,.06);flex-shrink:0}
+
+        /* Screenshots strip */
+        .rpt-shots-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-top:8px;scrollbar-width:thin;scrollbar-color:#222 transparent}
+        .rpt-shots-scroll::-webkit-scrollbar{height:3px}
+        .rpt-shots-scroll::-webkit-scrollbar-track{background:transparent}
+        .rpt-shots-scroll::-webkit-scrollbar-thumb{background:#222;border-radius:4px}
+        .rpt-shot{flex-shrink:0;width:220px;border-radius:8px;overflow:hidden;border:1px solid #1a1a1a}
         .rpt-shot img{width:100%;height:auto;display:block}
-        .rpt-shot-lbl{font-size:10px;color:#444;padding:6px 8px;background:#0d0d0d}
-        .rpt-pontos-fracos{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+        .rpt-shot-lbl{font-size:10px;color:#444;padding:5px 8px;background:#0d0d0d}
+
+        /* Weak/strong */
+        .rpt-pontos-fracos{display:flex;flex-direction:column;gap:8px;margin-top:0}
         .rpt-pf-item{padding:10px 14px;background:#0d0d0d;border:1px solid #141414;border-radius:8px;display:flex;flex-direction:column;gap:4px}
         .rpt-pf-header{display:flex;align-items:center;gap:8px}
         .rpt-pf-rank{width:18px;height:18px;border-radius:50%;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#555;flex-shrink:0}
@@ -1516,11 +1597,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0d0d0d;min-height:100v
         .rpt-pf-impact.médio,.rpt-pf-impact.medio{background:rgba(234,179,8,.1);color:#eab308;border:1px solid rgba(234,179,8,.2)}
         .rpt-pf-impact.baixo{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
         .rpt-pf-fix{font-size:11px;color:#555;line-height:1.5;padding-left:26px}
-        .report-cta-wrap{padding:32px 24px;max-width:900px;width:100%;margin:0 auto}
-        .report-cta-box{background:linear-gradient(135deg,#0f0700,#150c00);border:1px solid rgba(232,105,42,.2);border-radius:16px;padding:28px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+
+        /* CTA */
+        .report-cta-wrap{padding:24px;max-width:940px;width:100%;margin:0 auto}
+        .report-cta-box{background:linear-gradient(135deg,#0f0700,#150c00);border:1px solid rgba(232,105,42,.2);border-radius:16px;padding:26px 30px;display:flex;align-items:center;justify-content:space-between;gap:24px}
         @media(max-width:600px){.report-cta-box{flex-direction:column;align-items:flex-start}}
-        .report-cta-text h3{font-size:18px;font-weight:800;color:#fff;margin:0 0 6px}
-        .report-cta-text p{font-size:13px;color:#888;margin:0;line-height:1.5}
+        .report-cta-text h3{font-size:17px;font-weight:800;color:#fff;margin:0 0 5px}
+        .report-cta-text p{font-size:12px;color:#666;margin:0;line-height:1.5}
         .report-gen-btn{padding:14px 28px;background:#E8692A;border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:8px}
         .report-gen-btn:hover:not(:disabled){background:#c4551d;transform:translateY(-1px)}
         .report-gen-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
