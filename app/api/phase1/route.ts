@@ -193,21 +193,25 @@ CRITÉRIO 1 — Volume de anúncios ativos (0 a 4 pontos):
 - 50+ anúncios → 4 pts
 
 CRITÉRIO 2 — Tempo rodando (0 a 3 pontos):
-Use a data mais antiga de "ad_delivery_start_time" dos anúncios para calcular dias.
+Use o campo "TEMPO RODANDO" fornecido no prompt (já calculado pelo sistema).
 - Menos de 10 dias → 0 pts
 - 10-20 dias → 1 pt
 - 21-40 dias → 2 pts
 - 41+ dias → 3 pts
+- Se "Data não disponível" → o sistema vai desconsiderar este critério automaticamente
 
-CRITÉRIO 3 — Ausência de expert (0 a 3 pontos):
-- Expert real identificável (pessoa física com nome, rosto recorrente, perfil com seguidores) → 0 pts
-- Marca/personagem sem persona forte → 2 pts
-- Sem expert nenhum, marca genérica ou produto direto → 3 pts
+CRITÉRIO 3 — Expert identificável (0 a 3 pontos):
+ATENÇÃO: Ausência de expert é POSITIVO (facilita entrar na oferta).
+- 3 pontos → Sem expert nenhum identificável nos criativos (marca genérica, produto direto, nenhum nome/rosto/persona recorrente)
+- 3 pontos → Se todos os anúncios são de marca genérica sem pessoa por trás
+- 2 pontos → Dúvida se existe expert (não consegue confirmar presença NEM ausência total)
+- 2 pontos → Personagem/marca com nome mas sem persona forte nem seguidores
+- 0 pontos → Expert REAL e IDENTIFICÁVEL (pessoa física com nome, rosto recorrente nos criativos, perfil público com seguidores)
+REGRA: NUNCA dar 0 pontos por não conseguir confirmar a existência de expert. Se não há menção a persona, nome ou rosto = 3 pontos.
 
 score = volume_pts + tempo_pts + expert_pts (máximo 10)
 
 IMPORTANTE: Formatos de criativos NÃO afetam a nota.
-Use o campo "TEMPO RODANDO" fornecido no prompt para preencher dias_rodando e tempo_pts.
 
 ━━━ ANÁLISE PROFUNDA DOS CRIATIVOS ━━━
 
@@ -362,20 +366,39 @@ IMPORTANTE: Use o dado "TEMPO RODANDO" acima para preencher dias_rodando e calcu
         report.dias_rodando = tempoInfo.dias
         report.tempo_rodando_texto = tempoInfo.texto
 
-        // Recalculate tempo_pts based on real data
+        // Recalculate tempo_pts and score based on real data
         const notaEntrada = report.nota_entrada as Record<string, unknown> | undefined
-        if (notaEntrada && tempoInfo.dias !== null) {
-          const tempoPts = tempoInfo.dias >= 41 ? 3 : tempoInfo.dias >= 21 ? 2 : tempoInfo.dias >= 10 ? 1 : 0
-          notaEntrada.tempo_pts = tempoPts
-          notaEntrada.tempo_desc = tempoInfo.texto
-          // Recalculate total score
+        if (notaEntrada) {
           const vPts = Number(notaEntrada.volume_pts) || 0
-          const ePts = Number(notaEntrada.expert_pts) || 0
-          notaEntrada.score = vPts + tempoPts + ePts
+          let ePts = Number(notaEntrada.expert_pts) || 0
+
+          // Fix expert: if Claude gave 0 but couldn't confirm expert exists, bump to 2-3
+          if (ePts === 0) {
+            const desc = String(notaEntrada.expert_desc || '').toLowerCase()
+            const hasRealExpert = desc.includes('expert real') || desc.includes('pessoa física') || desc.includes('seguidores')
+            if (!hasRealExpert) {
+              ePts = desc.includes('marca') || desc.includes('genéric') || desc.includes('sem expert') || desc.includes('sem persona') ? 3 : 2
+              notaEntrada.expert_pts = ePts
+              console.log(`[Phase1] Expert pts corrigido: 0 → ${ePts} (desc: ${desc.slice(0, 80)})`)
+            }
+          }
+
+          if (tempoInfo.dias !== null) {
+            // Tempo disponível: calcula normalmente
+            const tempoPts = tempoInfo.dias >= 41 ? 3 : tempoInfo.dias >= 21 ? 2 : tempoInfo.dias >= 10 ? 1 : 0
+            notaEntrada.tempo_pts = tempoPts
+            notaEntrada.tempo_desc = tempoInfo.texto
+            notaEntrada.score = vPts + tempoPts + ePts
+          } else {
+            // Tempo NÃO disponível: desconsidera critério, escala sobre 7 pontos
+            notaEntrada.tempo_pts = null
+            notaEntrada.tempo_desc = 'Data não disponível — critério desconsiderado'
+            const pontosObtidos = vPts + ePts
+            const pontosPossiveis = 7 // 4 (volume) + 3 (expert), sem tempo
+            notaEntrada.score = Math.round((pontosObtidos / pontosPossiveis) * 10)
+            console.log(`[Phase1] Tempo null: score = (${pontosObtidos}/${pontosPossiveis}) * 10 = ${notaEntrada.score}`)
+          }
           report.nota_entrada = notaEntrada
-        } else if (notaEntrada && tempoInfo.dias === null) {
-          notaEntrada.tempo_pts = 0
-          notaEntrada.tempo_desc = tempoInfo.texto
         }
 
         // Deduct quota

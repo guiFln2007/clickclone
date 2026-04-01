@@ -156,7 +156,7 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
             </svg>
             <div className="nota-breakdown">
               <div className="nota-crit"><div className="nota-crit-top"><span>Volume de an{'\u00FA'}ncios</span><span className="nota-crit-pts">{volumePts}/4</span></div><div className="nota-bar"><div className="nota-bar-fill" style={{ width: `${(volumePts / 4) * 100}%` }} /></div><div className="nota-crit-desc">{volumeDesc}</div></div>
-              <div className="nota-crit"><div className="nota-crit-top"><span>Tempo rodando</span><span className="nota-crit-pts">{tempoPts}/3</span></div><div className="nota-bar"><div className="nota-bar-fill" style={{ width: `${(tempoPts / 3) * 100}%` }} /></div><div className="nota-crit-desc">{tempoDesc}</div></div>
+              <div className="nota-crit"><div className="nota-crit-top"><span>Tempo rodando</span><span className="nota-crit-pts">{tempoPts !== null ? `${tempoPts}/3` : '\u2014/3'}</span></div><div className="nota-bar">{tempoPts !== null ? <div className="nota-bar-fill" style={{ width: `${(tempoPts / 3) * 100}%` }} /> : <div className="nota-bar-na" />}</div><div className="nota-crit-desc">{tempoDesc}</div></div>
               <div className="nota-crit"><div className="nota-crit-top"><span>Expert identific{'\u00E1'}vel</span><span className="nota-crit-pts">{expertPts}/3</span></div><div className="nota-bar"><div className="nota-bar-fill" style={{ width: `${(expertPts / 3) * 100}%` }} /></div><div className="nota-crit-desc">{expertDesc}</div></div>
             </div>
           </div>
@@ -1207,6 +1207,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .nota-crit-pts{font-weight:700;color:currentColor}
 .nota-bar{height:6px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
 .nota-bar-fill{height:100%;border-radius:4px;background:currentColor;transition:width .8s cubic-bezier(.16,1,.3,1);opacity:.7}
+.nota-bar-na{height:100%;width:100%;border-radius:4px;background:repeating-linear-gradient(90deg,#27272a 0,#27272a 4px,transparent 4px,transparent 8px);opacity:.4}
 .nota-crit-desc{font-size:11px;color:#52525b}
 .nota-just{font-size:12px;color:#71717a;line-height:1.6;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06);white-space:normal;word-wrap:break-word}
 @media(max-width:640px){.nota-card{padding:20px}.nota-score-row{gap:16px}}
