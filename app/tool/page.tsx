@@ -388,24 +388,29 @@ export default function ToolPage() {
   }
 
   // ── SAVE TO RADAR ──
+  const [savedModal, setSavedModal] = useState(false)
+  const [savingRadar, setSavingRadar] = useState(false)
+
   async function saveToRadar() {
     if (!phase1Report || !phase2Report) return
-    if (userId) {
-      try {
-        const totalAds = phase1Report.total_ads_analyzed || phase1Report.ad_analysis?.total_ads || 0
-        await fetch('/api/radar', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
-          pagina_nome: phase1Report.pagina_nome || phase2Report.url_analisada?.replace(/^https?:\/\//, '').split('/')[0] || phase1Report.angulo_dominante || 'Oferta',
-          ad_library_url: url,
-          landing_url: phase2Report.url_analisada || phase1Report.landing_url || null,
-          nicho: phase1Report.nicho_identificado || phase1Report.nota_entrada?.nicho || null,
-          snapshot_ads: totalAds,
-          snapshot_data: { phase1: phase1Report, phase2: phase2Report },
-        }) })
-        await loadRadar()
-        showToast('Oferta salva no Radar!')
-      } catch { showToast('Erro ao salvar no Radar', 'err') }
-    } else {
-      showToast('Faça login para salvar no Radar', 'err')
+    if (!userId) { showToast('Fa\u00e7a login para salvar no Radar', 'err'); return }
+    setSavingRadar(true)
+    try {
+      const totalAds = phase1Report.total_ads_analyzed || phase1Report.ad_analysis?.total_ads || 0
+      await fetch('/api/radar', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
+        pagina_nome: phase1Report.pagina_nome || phase2Report.url_analisada?.replace(/^https?:\/\//, '').split('/')[0] || phase1Report.angulo_dominante || 'Oferta',
+        ad_library_url: url,
+        landing_url: phase2Report.url_analisada || phase1Report.landing_url || null,
+        nicho: phase1Report.nicho_identificado || phase1Report.nota_entrada?.nicho || null,
+        snapshot_ads: totalAds,
+        snapshot_data: { phase1: phase1Report, phase2: phase2Report },
+      }) })
+      await loadRadar()
+      setSavingRadar(false)
+      setSavedModal(true)
+    } catch {
+      setSavingRadar(false)
+      showToast('Erro ao salvar no Radar', 'err')
     }
   }
 
@@ -500,7 +505,7 @@ export default function ToolPage() {
     return (
       <>
         <style>{CSS}</style>
-        <ReportView phase1={phase1Report} phase2={phase2Report} onBack={() => setShowReport(false)} onSaveToRadar={saveToRadar} />
+        <ReportView phase1={phase1Report} phase2={phase2Report} onBack={() => setShowReport(false)} onSaveToRadar={saveToRadar} saving={savingRadar} />
       </>
     )
   }
@@ -829,6 +834,28 @@ export default function ToolPage() {
                   )) : <tr><td colSpan={4} style={{ textAlign: 'center', color: '#4B5563', padding: 32 }}>Nenhum snapshot registrado</td></tr>}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Saved to radar modal */}
+      {savedModal && (
+        <div className="modal-overlay" onClick={() => setSavedModal(false)}>
+          <div className="saved-modal" onClick={e => e.stopPropagation()}>
+            <div className="saved-check">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <h3 className="saved-title">Oferta salva no Radar!</h3>
+            <p className="saved-desc">Voc&ecirc; ser&aacute; notificado quando houver mudan&ccedil;as nos an&uacute;ncios.</p>
+            <div className="saved-btns">
+              <button className="saved-btn-outline" onClick={() => { setSavedModal(false); setShowReport(false); setActiveTab('rastreamento') }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                Ir pro Rastreamento
+              </button>
+              <button className="saved-btn-solid" onClick={() => setSavedModal(false)}>
+                Voltar pra An&aacute;lise
+              </button>
             </div>
           </div>
         </div>
@@ -1171,6 +1198,17 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .confirm-cancel:hover{border-color:#555;color:#fff}
 .confirm-delete{flex:1;padding:10px 0;background:#EF4444;border:none;border-radius:8px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
 .confirm-delete:hover{background:#DC2626}
+
+/* SAVED MODAL */
+.saved-modal{background:#111;border:1px solid #1F2937;border-radius:16px;padding:36px 32px;max-width:380px;width:90%;text-align:center;animation:confirmIn .25s ease}
+.saved-check{width:56px;height:56px;border-radius:50%;background:rgba(16,185,129,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;border:2px solid rgba(16,185,129,.2)}
+.saved-title{font-size:18px;font-weight:800;color:#fff;margin-bottom:6px}
+.saved-desc{font-size:13px;color:#6B7280;margin-bottom:24px;line-height:1.5}
+.saved-btns{display:flex;flex-direction:column;gap:8px}
+.saved-btn-outline{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 0;background:transparent;border:1px solid #2D2D2D;border-radius:10px;color:#a1a1aa;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
+.saved-btn-outline:hover{border-color:#FF6B00;color:#FF6B00;background:rgba(255,107,0,.04)}
+.saved-btn-solid{padding:12px 0;background:#FF6B00;border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
+.saved-btn-solid:hover{background:#e05e00}
 
 /* TOAST */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;z-index:300;animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;pointer-events:none}
