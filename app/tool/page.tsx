@@ -445,9 +445,17 @@ export default function ToolPage() {
     setRefreshingAll(false)
   }
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+
   async function removeFromRadar(id: string) {
+    setConfirmDeleteId(null)
+    setRemovingId(id)
+    // Wait for fade-out animation
+    await new Promise(r => setTimeout(r, 300))
     await fetch('/api/radar', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) })
     await loadRadar()
+    setRemovingId(null)
   }
 
   // ── MINE ──
@@ -664,12 +672,12 @@ export default function ToolPage() {
                     const pct = initial > 0 ? ((diff / initial) * 100).toFixed(1) : '0.0'
                     const pctNum = parseFloat(pct)
                     return (
-                      <div key={o.id} className="rc">
+                      <div key={o.id} className={`rc${removingId === o.id ? ' rc-removing' : ''}`}>
                         <div className="rc-hd">
                           <div className="rc-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
                           <div className="rc-hd-info"><div className="rc-name">{o.pagina_nome}</div><div className="rc-url">{o.ad_library_url.replace(/^https?:\/\//, '').slice(0, 38)}...</div></div>
                         </div>
-                        <button className="rc-del" onClick={(e) => { e.stopPropagation(); removeFromRadar(o.id) }} title="Remover">
+                        <button className="rc-del" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(o.id) }} title="Remover">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
                         </button>
                         <div className="rc-mets">
@@ -821,6 +829,23 @@ export default function ToolPage() {
                   )) : <tr><td colSpan={4} style={{ textAlign: 'center', color: '#4B5563', padding: 32 }}>Nenhum snapshot registrado</td></tr>}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm delete modal */}
+      {confirmDeleteId && (
+        <div className="modal-overlay" onClick={() => setConfirmDeleteId(null)}>
+          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+            <div className="confirm-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </div>
+            <h3 className="confirm-title">Tem certeza que deseja excluir?</h3>
+            <p className="confirm-desc">Essa oferta ser&aacute; removida do seu radar permanentemente.</p>
+            <div className="confirm-btns">
+              <button className="confirm-cancel" onClick={() => setConfirmDeleteId(null)}>Cancelar</button>
+              <button className="confirm-delete" onClick={() => removeFromRadar(confirmDeleteId)}>Excluir</button>
             </div>
           </div>
         </div>
@@ -1008,7 +1033,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 @media(max-width:500px){.rdr-grid{grid-template-columns:1fr}}
 
 /* Offer card */
-.rc{background:#111;border:1px solid #1F2937;border-radius:12px;padding:16px;transition:border-color .15s;position:relative}
+.rc{background:#111;border:1px solid #1F2937;border-radius:12px;padding:16px;transition:all .3s ease;position:relative;opacity:1;transform:scale(1)}
+.rc-removing{opacity:0;transform:scale(.95);pointer-events:none}
 .rc:hover{border-color:#374151}
 .rc-hd{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
 .rc-fb{width:30px;height:30px;border-radius:8px;background:#1a2744;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -1130,6 +1156,18 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .alert-item.alert-pagina_mudou{border-left-color:#eab308}
 .alert-time{font-size:11px;color:#52525b;margin-bottom:4px}
 .alert-msg{font-size:13px;color:#a1a1aa;line-height:1.5}
+
+/* CONFIRM DELETE */
+.confirm-modal{background:#111;border:1px solid #1F2937;border-radius:16px;padding:32px;max-width:380px;width:90%;text-align:center;animation:confirmIn .2s ease}
+@keyframes confirmIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.confirm-icon{width:48px;height:48px;border-radius:12px;background:rgba(239,68,68,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.confirm-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:8px}
+.confirm-desc{font-size:13px;color:#6B7280;margin-bottom:24px;line-height:1.5}
+.confirm-btns{display:flex;gap:10px}
+.confirm-cancel{flex:1;padding:10px 0;background:transparent;border:1px solid #2D2D2D;border-radius:8px;color:#a1a1aa;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.confirm-cancel:hover{border-color:#555;color:#fff}
+.confirm-delete{flex:1;padding:10px 0;background:#EF4444;border:none;border-radius:8px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
+.confirm-delete:hover{background:#DC2626}
 
 /* EMPTY */
 .empty-state{padding:48px 20px;text-align:center;color:#3f3f46;font-size:13px}
