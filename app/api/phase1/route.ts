@@ -90,6 +90,24 @@ function extractPageId(url: string): string {
   } catch { return url }
 }
 
+function calcDiasRodando(ads: Record<string, unknown>[]): { dias: number | null; texto: string; dataInicio: string | null } {
+  const datas: Date[] = []
+  for (const ad of ads) {
+    const raw = (ad.ad_delivery_start_time as string) || (ad.startDate as string) || (ad.startedRunningAt as string) || ''
+    if (!raw) continue
+    const d = new Date(raw)
+    if (!isNaN(d.getTime())) datas.push(d)
+  }
+  if (datas.length === 0) return { dias: null, texto: 'Data não disponível nos criativos', dataInicio: null }
+
+  const maisAntiga = datas.reduce((o, d) => d < o ? d : o, datas[0])
+  const dias = Math.floor((Date.now() - maisAntiga.getTime()) / 86400000)
+  const meses = Math.floor(dias / 30)
+  const textoTempo = meses >= 2 ? `${meses} meses` : `${dias} dias`
+  const dataFormatada = maisAntiga.toLocaleDateString('pt-BR')
+  return { dias, texto: `Rodando há ${textoTempo} (desde ${dataFormatada})`, dataInicio: dataFormatada }
+}
+
 function buildAdsDigest(ads: Record<string, unknown>[]): string {
   return ads.slice(0, 50).map((ad, i) => {
     const snap = ad.snapshot as Record<string, unknown> | undefined
@@ -270,6 +288,9 @@ export async function POST(req: NextRequest) {
 
         const landingUrl = extractLandingUrl(ads) || ''
         const digest = buildAdsDigest(ads)
+        const tempoInfo = calcDiasRodando(ads)
+
+        console.log(`[Phase1] Dias rodando: ${tempoInfo.dias}, desde: ${tempoInfo.dataInicio}`)
 
         const Anthropic = (await import('@anthropic-ai/sdk')).default
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -278,14 +299,17 @@ export async function POST(req: NextRequest) {
 
 TOTAL DE ANÚNCIOS ATIVOS: ${ads.length}
 
+TEMPO RODANDO: ${tempoInfo.dias !== null ? `${tempoInfo.dias} dias (desde ${tempoInfo.dataInicio})` : 'Data não disponível'}
+
 CRIATIVOS:
 ${digest}
 
-Analise estes criativos e retorne o JSON estruturado.`
+Analise estes criativos e retorne o JSON estruturado.
+IMPORTANTE: Use o dado "TEMPO RODANDO" acima para preencher dias_rodando e calcular tempo_pts corretamente.`
 
         const response = await client.messages.create({
           model: 'claude-sonnet-4-6',
-          max_tokens: 4000,
+          max_tokens: 8000,
           system: SYSTEM_PROMPT_PHASE1,
           messages: [{ role: 'user', content: prompt }],
         })
@@ -301,9 +325,29 @@ Analise estes criativos e retorne o JSON estruturado.`
           throw new Error('Claude retornou JSON inválido na Fase 1')
         }
 
-        // Ensure landing_url is set
+        // Ensure fields are set with real data (override Claude's guesses)
         if (!report.landing_url && landingUrl) report.landing_url = landingUrl
         if (!report.total_ads_analyzed) report.total_ads_analyzed = ads.length
+
+        // Override dias_rodando with our calculated value (more accurate than Claude's guess)
+        report.dias_rodando = tempoInfo.dias
+        report.tempo_rodando_texto = tempoInfo.texto
+
+        // Recalculate tempo_pts based on real data
+        const notaEntrada = report.nota_entrada as Record<string, unknown> | undefined
+        if (notaEntrada && tempoInfo.dias !== null) {
+          const tempoPts = tempoInfo.dias >= 41 ? 3 : tempoInfo.dias >= 21 ? 2 : tempoInfo.dias >= 10 ? 1 : 0
+          notaEntrada.tempo_pts = tempoPts
+          notaEntrada.tempo_desc = tempoInfo.texto
+          // Recalculate total score
+          const vPts = Number(notaEntrada.volume_pts) || 0
+          const ePts = Number(notaEntrada.expert_pts) || 0
+          notaEntrada.score = vPts + tempoPts + ePts
+          report.nota_entrada = notaEntrada
+        } else if (notaEntrada && tempoInfo.dias === null) {
+          notaEntrada.tempo_pts = 0
+          notaEntrada.tempo_desc = tempoInfo.texto
+        }
 
         // Deduct quota
         if (userId) {
