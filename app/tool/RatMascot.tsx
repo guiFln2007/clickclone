@@ -20,16 +20,14 @@ export default function RatMascot({ isAnalyzing }: { isAnalyzing: boolean }) {
       <style>{`
         .rat-container{display:flex;flex-direction:column;align-items:center;padding:48px 0 24px;transition:all .3s ease}
         .rat-img-wrap{position:relative;display:flex;align-items:center;justify-content:center}
-        .rat-img{display:block;width:280px;height:auto;transition:all .3s ease}
+        .rat-img{display:block;width:280px;height:auto}
 
-        /* IDLE — breathing */
-        .rat-container.idle .rat-img{animation:breathe 3s ease-in-out infinite}
-        @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+        /* IDLE — static, no animation */
+        .rat-container.idle .rat-img{animation:none}
 
-        /* ANALYZING — search scan */
-        .rat-container.analyzing .rat-img-wrap{animation:searchScan 1.5s ease-in-out infinite;transform-origin:center bottom}
-        @keyframes searchScan{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
-        .rat-container.analyzing .rat-img{animation:none}
+        /* ANALYZING — gentle sway */
+        .rat-container.analyzing .rat-img-wrap{animation:searchScan 2.5s ease-in-out infinite;transform-origin:center bottom}
+        @keyframes searchScan{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
 
         /* Particles */
         .rat-particle{position:absolute;width:8px;height:8px;background:#FF6B00;border-radius:50%;opacity:0;pointer-events:none}
