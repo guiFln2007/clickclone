@@ -592,7 +592,7 @@ export default function ToolPage() {
 
           {/* ── ABA RASTREAMENTO ── */}
           {activeTab === 'rastreamento' && (
-            <div className="tab-content" style={{ maxWidth: 1200 }}>
+            <div className="tab-content" style={{ maxWidth: 1400, padding: '24px' }}>
               {/* Header */}
               <div className="rdr-header">
                 <div className="rdr-search-wrap">
@@ -613,46 +613,42 @@ export default function ToolPage() {
 
               {/* 4 Metric cards */}
               <div className="rdr-metrics">
-                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Total de Ofertas</span><svg className="rdr-mc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div className="rdr-mc-val">{countByStatus.total}</div></div>
-                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Ofertas em Progressao</span><svg className="rdr-mc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div><div className="rdr-mc-val" style={{ color: '#10B981' }}>{countByStatus.escalando}</div></div>
-                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Ofertas em Regressao</span><svg className="rdr-mc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></div><div className="rdr-mc-val" style={{ color: '#EF4444' }}>{countByStatus.caindo}</div></div>
-                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Ultima Atualizacao</span><svg className="rdr-mc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></div><div className="rdr-mc-val">{lastUpdate ? new Date(lastUpdate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '--/--'}</div></div>
+                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Total de Ofertas</span><div className="rdr-mc-ic" style={{ background: 'rgba(255,107,0,.1)' }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div></div><div className="rdr-mc-val">{countByStatus.total}</div></div>
+                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Ofertas em Progress&atilde;o</span><div className="rdr-mc-ic" style={{ background: 'rgba(16,185,129,.1)' }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div></div><div className="rdr-mc-val" style={{ color: '#10B981' }}>{countByStatus.escalando}</div></div>
+                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Ofertas em Regress&atilde;o</span><div className="rdr-mc-ic" style={{ background: 'rgba(239,68,68,.1)' }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></div></div><div className="rdr-mc-val" style={{ color: '#EF4444' }}>{countByStatus.caindo}</div></div>
+                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">&Uacute;ltima Atualiza&ccedil;&atilde;o</span><div className="rdr-mc-ic" style={{ background: 'rgba(139,92,246,.1)' }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></div></div><div className="rdr-mc-val">{(() => { const d = lastUpdate || trackedOffers[0]?.criado_em; return d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '--/--' })()}</div></div>
               </div>
 
-              {/* Offer cards */}
+              {/* Offer cards — 4 column grid */}
               {filteredOffers.length > 0 ? (
                 <div className="rdr-grid">
                   {filteredOffers.map(o => {
-                    const ads = o.ultimo_snapshot_ads ?? 0
-                    const initial = o.primeiro_snapshot_ads ?? ads
+                    const ads = o.ultimo_snapshot_ads ?? o.primeiro_snapshot_ads ?? 0
+                    const initial = o.primeiro_snapshot_ads ?? 0
                     const diff = ads - initial
                     const pct = initial > 0 ? ((diff / initial) * 100).toFixed(1) : '0.0'
                     const pctNum = parseFloat(pct)
                     const stCls = o.status === 'escalando' ? 'esc' : o.status === 'caindo' ? 'caindo' : o.status === 'morta' ? 'morta' : 'estavel'
-                    const stTxt = o.status === 'escalando' ? 'ESCALANDO' : o.status === 'caindo' ? 'CAINDO' : o.status === 'morta' ? 'MORTA' : 'ESTAVEL'
+                    const stTxt = o.status === 'escalando' ? 'ESCALANDO' : o.status === 'caindo' ? 'CAINDO' : o.status === 'morta' ? 'MORTA' : 'EST\u00C1VEL'
                     return (
                       <div key={o.id} className="rc">
-                        {/* Header */}
                         <div className="rc-hd">
                           <div className="rc-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
                           <div className="rc-hd-info"><div className="rc-name">{o.pagina_nome}</div><div className="rc-url">{o.ad_library_url.replace(/^https?:\/\//, '').slice(0, 38)}...</div></div>
-                          <span className={`rc-st rc-st-${stCls}`}>{stTxt} &bull;</span>
+                          <span className={`rc-st rc-st-${stCls}`}>{stTxt}</span>
                         </div>
-                        {/* Metrics */}
                         <div className="rc-mets">
-                          <div className="rc-met"><div className="rc-met-lbl">Total Hoje:</div><div className="rc-met-num">{ads}</div><span className={`rc-met-badge ${pctNum > 0 ? 'up' : pctNum < 0 ? 'dn' : 'flat'}`}>{pctNum > 0 ? '+' : ''}{pct}% de variacao</span></div>
+                          <div className="rc-met"><div className="rc-met-lbl">Total Hoje:</div><div className="rc-met-num">{ads}</div><span className={`rc-met-badge ${pctNum > 0 ? 'up' : pctNum < 0 ? 'dn' : 'flat'}`}>{pctNum > 0 ? '+' : ''}{pct}% de varia&ccedil;&atilde;o</span></div>
                           <div className="rc-met"><div className="rc-met-lbl">Primeiro registro:</div><div className="rc-met-num">{initial}</div><span className="rc-met-date">{new Date(o.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span></div>
                         </div>
-                        {/* Variations */}
                         <div className="rc-vars">
-                          <div className="rc-var"><span className="rc-var-l">Variacao diaria:</span><span className={`rc-var-v${diff > 0 ? ' up' : diff < 0 ? ' dn' : ''}`}>{diff !== 0 ? (diff > 0 ? '+' : '') + diff : '0'} anuncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span></div>
-                          <div className="rc-var"><span className="rc-var-l">Variacao semanal:</span><span className={`rc-var-v${diff > 0 ? ' up' : diff < 0 ? ' dn' : ''}`}>{diff !== 0 ? (diff > 0 ? '+' : '') + diff : '0'} anuncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span></div>
+                          <div className="rc-var"><span className="rc-var-l">Varia&ccedil;&atilde;o di&aacute;ria:</span><span className={`rc-var-v${diff > 0 ? ' up' : diff < 0 ? ' dn' : ''}`}>{diff !== 0 ? (diff > 0 ? '+' : '') + diff : '0'} an&uacute;ncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span></div>
+                          <div className="rc-var"><span className="rc-var-l">Varia&ccedil;&atilde;o semanal:</span><span className={`rc-var-v${diff > 0 ? ' up' : diff < 0 ? ' dn' : ''}`}>{diff !== 0 ? (diff > 0 ? '+' : '') + diff : '0'} an&uacute;ncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span></div>
                         </div>
-                        {/* Actions */}
                         <div className="rc-acts">
                           <button className="rc-hist-btn" onClick={() => viewAlerts(o)}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                            Ver Historico
+                            Ver Hist&oacute;rico
                           </button>
                           <button className="rc-ref-btn" onClick={loadRadar} title="Atualizar">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
@@ -663,7 +659,7 @@ export default function ToolPage() {
                   })}
                 </div>
               ) : (
-                <div className="empty-state">{radarSearch ? 'Nenhuma oferta encontrada.' : 'Nenhuma oferta no radar. Analise uma oferta e clique em &quot;Salvar no Radar&quot;.'}</div>
+                <div className="empty-state">{radarSearch ? 'Nenhuma oferta encontrada.' : 'Nenhuma oferta no radar. Analise uma oferta e clique em "Salvar no Radar".'}</div>
               )}
             </div>
           )}
@@ -671,7 +667,7 @@ export default function ToolPage() {
           {/* ── ABA MINERADOR ── */}
           {activeTab === 'minerador' && (
             <div className="tab-content">
-              <h1 style={{ marginBottom: 24 }}>Minerador Automatico</h1>
+              <h1 style={{ marginBottom: 24 }}>Minerador Autom&aacute;tico</h1>
               <div className="mine-filters">
                 <div className="rpt-card-lbl" style={{ marginBottom: 10 }}>Nicho</div>
                 <div className="mine-nichos">
@@ -932,17 +928,17 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .rdr-btn-solid:hover{background:#e05e00}
 
 /* Metric cards */
-.rdr-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.rdr-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 @media(max-width:768px){.rdr-metrics{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.rdr-metrics{grid-template-columns:1fr}}
 .rdr-mc{background:#111;border:1px solid #1F2937;border-radius:12px;padding:20px 22px}
 .rdr-mc-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .rdr-mc-label{font-size:12px;color:#6B7280;font-weight:500}
-.rdr-mc-icon{flex-shrink:0;opacity:.8}
+.rdr-mc-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .rdr-mc-val{font-size:40px;font-weight:800;color:#fff;line-height:1}
 
 /* Card grid */
-.rdr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.rdr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 @media(max-width:1100px){.rdr-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:768px){.rdr-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:500px){.rdr-grid{grid-template-columns:1fr}}
