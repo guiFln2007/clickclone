@@ -90,6 +90,18 @@ export async function initDb() {
       )`,
       args: [],
     },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS offer_snapshots (
+        id                 TEXT PRIMARY KEY,
+        tracked_offer_id   TEXT NOT NULL,
+        ads_count          INTEGER NOT NULL,
+        variacao           INTEGER NOT NULL DEFAULT 0,
+        variacao_percent   REAL NOT NULL DEFAULT 0,
+        registrado_em      TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (tracked_offer_id) REFERENCES tracked_offers(id)
+      )`,
+      args: [],
+    },
   ])
   initialized = true
 }
@@ -574,6 +586,68 @@ export async function dbMarkAlertsRead(offerId: string): Promise<void> {
   await initDb()
   await db.execute({ sql: 'UPDATE offer_alerts SET lido = 1 WHERE tracked_offer_id = ? AND lido = 0', args: [offerId] })
   await db.execute({ sql: 'UPDATE tracked_offers SET alertas_nao_lidos = 0 WHERE id = ?', args: [offerId] })
+}
+
+// ── Offer snapshots ──────────────────────────────────────────────────────────
+
+export type OfferSnapshot = {
+  id: string
+  tracked_offer_id: string
+  ads_count: number
+  variacao: number
+  variacao_percent: number
+  registrado_em: string
+}
+
+export async function dbCreateSnapshot(data: {
+  id: string
+  tracked_offer_id: string
+  ads_count: number
+  variacao?: number
+  variacao_percent?: number
+}): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: 'INSERT INTO offer_snapshots (id, tracked_offer_id, ads_count, variacao, variacao_percent) VALUES (?, ?, ?, ?, ?)',
+    args: [data.id, data.tracked_offer_id, data.ads_count, data.variacao ?? 0, data.variacao_percent ?? 0],
+  })
+}
+
+export async function dbGetSnapshots(offerId: string): Promise<OfferSnapshot[]> {
+  await initDb()
+  const res = await db.execute({
+    sql: 'SELECT * FROM offer_snapshots WHERE tracked_offer_id = ? ORDER BY registrado_em DESC LIMIT 90',
+    args: [offerId],
+  })
+  return res.rows.map(r => {
+    const row = r as Record<string, unknown>
+    return {
+      id: row.id as string,
+      tracked_offer_id: row.tracked_offer_id as string,
+      ads_count: row.ads_count as number,
+      variacao: row.variacao as number,
+      variacao_percent: row.variacao_percent as number,
+      registrado_em: row.registrado_em as string,
+    }
+  })
+}
+
+export async function dbGetLastSnapshot(offerId: string): Promise<OfferSnapshot | null> {
+  await initDb()
+  const res = await db.execute({
+    sql: 'SELECT * FROM offer_snapshots WHERE tracked_offer_id = ? ORDER BY registrado_em DESC LIMIT 1',
+    args: [offerId],
+  })
+  if (!res.rows[0]) return null
+  const row = res.rows[0] as Record<string, unknown>
+  return {
+    id: row.id as string,
+    tracked_offer_id: row.tracked_offer_id as string,
+    ads_count: row.ads_count as number,
+    variacao: row.variacao as number,
+    variacao_percent: row.variacao_percent as number,
+    registrado_em: row.registrado_em as string,
+  }
 }
 
 export default db

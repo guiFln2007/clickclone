@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbGetUserById, dbCreateTrackedOffer, dbGetTrackedOffers, dbDeleteTrackedOffer } from '@/lib/db'
+import { dbGetUserById, dbCreateTrackedOffer, dbGetTrackedOffers, dbDeleteTrackedOffer, dbCreateSnapshot } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   const userId = Number(req.headers.get('x-user-id'))
@@ -37,6 +37,17 @@ export async function POST(req: NextRequest) {
     primeiro_snapshot_ads: snapshot_ads,
     primeiro_snapshot_data: snapshot_data ? JSON.stringify(snapshot_data) : undefined,
   })
+
+  // Create initial snapshot if we have ads count
+  if (snapshot_ads && snapshot_ads > 0) {
+    await dbCreateSnapshot({
+      id: crypto.randomUUID(),
+      tracked_offer_id: id,
+      ads_count: snapshot_ads,
+      variacao: 0,
+      variacao_percent: 0,
+    })
+  }
 
   return NextResponse.json({ id, message: 'Oferta salva no radar' })
 }

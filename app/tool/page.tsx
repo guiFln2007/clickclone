@@ -43,6 +43,14 @@ interface OfferAlert {
   lido: number
 }
 
+interface Snapshot {
+  id: string
+  ads_count: number
+  variacao: number
+  variacao_percent: number
+  registrado_em: string
+}
+
 interface MineResult {
   pagina_nome: string
   ad_library_url: string
@@ -249,7 +257,9 @@ export default function ToolPage() {
   // Radar
   const [trackedOffers, setTrackedOffers] = useState<TrackedOffer[]>([])
   const [radarSearch, setRadarSearch] = useState('')
-  const [alertsModal, setAlertsModal] = useState<{ offer: TrackedOffer; alerts: OfferAlert[] } | null>(null)
+  const [historyView, setHistoryView] = useState<{ offer: TrackedOffer; snapshots: Snapshot[] } | null>(null)
+  const [refreshingId, setRefreshingId] = useState<string | null>(null)
+  const [refreshingAll, setRefreshingAll] = useState(false)
   const [addOfferModal, setAddOfferModal] = useState(false)
   const [newOfferName, setNewOfferName] = useState('')
   const [newOfferUrl, setNewOfferUrl] = useState('')
@@ -407,17 +417,32 @@ export default function ToolPage() {
     await loadRadar()
   }
 
-  async function viewAlerts(offer: TrackedOffer) {
+  async function viewHistory(offer: TrackedOffer) {
     try {
-      const res = await fetch(`/api/radar/${offer.id}/alerts`, { headers: { 'x-user-id': String(userId) } })
-      const data = res.ok ? await res.json() : { alerts: [] }
-      setAlertsModal({ offer, alerts: data.alerts || [] })
-      // Mark as read
+      const res = await fetch(`/api/radar/${offer.id}/snapshots`, { headers: { 'x-user-id': String(userId) } })
+      const data = res.ok ? await res.json() : { snapshots: [] }
+      setHistoryView({ offer, snapshots: data.snapshots || [] })
       if (offer.alertas_nao_lidos > 0) {
         await fetch(`/api/radar/${offer.id}/read`, { method: 'PATCH', headers: authHeaders() })
         await loadRadar()
       }
-    } catch { setAlertsModal({ offer, alerts: [] }) }
+    } catch { setHistoryView({ offer, snapshots: [] }) }
+  }
+
+  async function refreshOffer(offerId: string) {
+    setRefreshingId(offerId)
+    try {
+      await fetch(`/api/radar/${offerId}/refresh`, { method: 'PATCH', headers: authHeaders() })
+      await loadRadar()
+    } catch { /* ok */ }
+    setRefreshingId(null)
+  }
+
+  async function refreshAll() {
+    setRefreshingAll(true)
+    await Promise.allSettled(trackedOffers.map(o => fetch(`/api/radar/${o.id}/refresh`, { method: 'PATCH', headers: authHeaders() })))
+    await loadRadar()
+    setRefreshingAll(false)
   }
 
   async function removeFromRadar(id: string) {
@@ -600,9 +625,9 @@ export default function ToolPage() {
                   <input className="rdr-search" placeholder="Buscar por nome ou URL..." value={radarSearch} onChange={e => setRadarSearch(e.target.value)} />
                 </div>
                 <div className="rdr-actions">
-                  <button className="rdr-btn-outline" onClick={loadRadar}>
+                  <button className="rdr-btn-outline" onClick={refreshAll} disabled={refreshingAll}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-                    Atualizar Todas
+                    {refreshingAll ? 'Atualizando...' : 'Atualizar Todas'}
                   </button>
                   <button className="rdr-btn-solid" onClick={() => setAddOfferModal(true)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -646,11 +671,11 @@ export default function ToolPage() {
                           <div className="rc-var"><span className="rc-var-l">Varia&ccedil;&atilde;o semanal:</span><span className={`rc-var-v${diff > 0 ? ' up' : diff < 0 ? ' dn' : ''}`}>{diff !== 0 ? (diff > 0 ? '+' : '') + diff : '0'} an&uacute;ncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span></div>
                         </div>
                         <div className="rc-acts">
-                          <button className="rc-hist-btn" onClick={() => viewAlerts(o)}>
+                          <button className="rc-hist-btn" onClick={() => viewHistory(o)}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                             Ver Hist&oacute;rico
                           </button>
-                          <button className="rc-ref-btn" onClick={loadRadar} title="Atualizar">
+                          <button className="rc-ref-btn" onClick={() => refreshOffer(o.id)} disabled={refreshingId === o.id} title="Atualizar" style={refreshingId === o.id ? { animation: 'spin 1s linear infinite' } : undefined}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
                           </button>
                         </div>
@@ -720,53 +745,75 @@ export default function ToolPage() {
 
       {/* ── MODALS ── */}
 
-      {/* History drawer (right side) */}
-      {alertsModal && (
-        <>
-          <div className="drawer-overlay" onClick={() => setAlertsModal(null)} />
-          <div className="drawer">
-            <div className="drawer-hd">
-              <h3>{alertsModal.offer.pagina_nome}</h3>
-              <button className="drawer-close" onClick={() => setAlertsModal(null)}>&times;</button>
+      {/* History full-page view */}
+      {historyView && (
+        <div className="modal-overlay" onClick={() => setHistoryView(null)}>
+          <div className="hist-page" onClick={e => e.stopPropagation()}>
+            {/* Breadcrumb */}
+            <div className="hist-bread">
+              <button className="hist-back" onClick={() => setHistoryView(null)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span className="hist-bread-txt">Rastreamento de Ofertas / <span style={{ color: '#FF6B00' }}>{historyView.offer.pagina_nome}</span></span>
             </div>
+
+            <h2 className="hist-title">Hist&oacute;rico de M&eacute;tricas</h2>
+            <p className="hist-sub">{historyView.offer.pagina_nome}</p>
+
+            {/* 3 metric cards */}
+            <div className="hist-mets">
+              <div className="hist-met"><div className="hist-met-lbl">Total Hoje</div><div className="hist-met-num">{historyView.offer.ultimo_snapshot_ads ?? historyView.offer.primeiro_snapshot_ads ?? 0}</div></div>
+              <div className="hist-met"><div className="hist-met-lbl">Varia&ccedil;&atilde;o Di&aacute;ria</div><div className="hist-met-num" style={{ color: (historyView.snapshots[0]?.variacao ?? 0) > 0 ? '#10B981' : (historyView.snapshots[0]?.variacao ?? 0) < 0 ? '#EF4444' : '#6B7280' }}>{(historyView.snapshots[0]?.variacao ?? 0) > 0 ? '+' : ''}{historyView.snapshots[0]?.variacao ?? 0}%</div></div>
+              <div className="hist-met"><div className="hist-met-lbl">Varia&ccedil;&atilde;o Semanal</div><div className="hist-met-num" style={{ color: '#FF6B00' }}>+{historyView.snapshots.slice(0, 7).reduce((s, sn) => s + sn.variacao, 0)}</div></div>
+            </div>
+
             {/* Chart */}
-            {alertsModal.alerts.length > 1 && (
-              <div className="drawer-chart">
+            <div className="hist-chart-wrap">
+              <h3 className="hist-chart-title">Evolu&ccedil;&atilde;o dos Criativos</h3>
+              <div className="hist-chart">
                 {(() => {
-                  const points = alertsModal.alerts.slice().reverse().map(a => {
-                    let val = 0
-                    try { const d = JSON.parse(a.dados_novos || '{}'); val = d.ads ?? 0 } catch { /* ok */ }
-                    return { date: new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), ads: val }
-                  }).filter(p => p.ads > 0)
-                  if (points.length < 2) return null
-                  const max = Math.max(...points.map(p => p.ads))
-                  const min = Math.min(...points.map(p => p.ads))
+                  const points = historyView.snapshots.slice().reverse()
+                  if (points.length < 1) return <div className="empty-state" style={{ padding: 40 }}>Nenhum dado ainda</div>
+                  const max = Math.max(...points.map(p => p.ads_count), 1)
+                  const min = Math.min(...points.map(p => p.ads_count))
                   const range = max - min || 1
-                  const w = 100 / (points.length - 1)
-                  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${i * w},${100 - ((p.ads - min) / range) * 80 - 10}`).join(' ')
-                  const areaD = pathD + ` L${(points.length - 1) * w},100 L0,100 Z`
+                  const w = points.length > 1 ? 100 / (points.length - 1) : 50
+                  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${points.length > 1 ? i * w : 50},${100 - ((p.ads_count - min) / range) * 75 - 12}`).join(' ')
+                  const areaD = pathD + ` L${points.length > 1 ? (points.length - 1) * w : 50},100 L0,100 Z`
                   return (
-                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="drawer-chart-svg">
-                      <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FF6B00" stopOpacity=".3"/><stop offset="100%" stopColor="#FF6B00" stopOpacity="0"/></linearGradient></defs>
-                      <path d={areaD} fill="url(#cg)" />
-                      <path d={pathD} fill="none" stroke="#FF6B00" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                      {points.map((p, i) => <circle key={i} cx={i * w} cy={100 - ((p.ads - min) / range) * 80 - 10} r="1.5" fill="#FF6B00" />)}
-                    </svg>
+                    <>
+                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="hist-chart-svg">
+                        <defs><linearGradient id="hcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FF6B00" stopOpacity=".15"/><stop offset="100%" stopColor="#FF6B00" stopOpacity="0"/></linearGradient></defs>
+                        <path d={areaD} fill="url(#hcg)" />
+                        <path d={pathD} fill="none" stroke="#FF6B00" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                        {points.map((p, i) => <circle key={i} cx={points.length > 1 ? i * w : 50} cy={100 - ((p.ads_count - min) / range) * 75 - 12} r="1.5" fill="#FF6B00" />)}
+                      </svg>
+                      <div className="hist-chart-labels">{points.map((p, i) => <span key={i}>{new Date(p.registrado_em).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })}</span>)}</div>
+                    </>
                   )
                 })()}
               </div>
-            )}
-            {/* Timeline */}
-            <div className="drawer-timeline">
-              {alertsModal.alerts.length > 0 ? alertsModal.alerts.map(a => (
-                <div key={a.id} className={`dt-item dt-${a.tipo}`}>
-                  <div className="dt-dot" />
-                  <div><div className="dt-time">{new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div><div className="dt-msg">{a.mensagem}</div></div>
-                </div>
-              )) : <div className="empty-state" style={{ padding: 32 }}>Nenhum evento registrado. O radar verifica diariamente.</div>}
+            </div>
+
+            {/* Table */}
+            <div className="hist-table-wrap">
+              <h3 className="hist-table-title">Dados Hist&oacute;ricos</h3>
+              <table className="hist-table">
+                <thead><tr><th>Data</th><th>An&uacute;ncios Ativos</th><th>Varia&ccedil;&atilde;o</th><th>Varia&ccedil;&atilde;o %</th></tr></thead>
+                <tbody>
+                  {historyView.snapshots.length > 0 ? historyView.snapshots.map(s => (
+                    <tr key={s.id}>
+                      <td>{new Date(s.registrado_em).toLocaleDateString('pt-BR')}</td>
+                      <td>{s.ads_count}</td>
+                      <td style={{ color: s.variacao > 0 ? '#10B981' : s.variacao < 0 ? '#EF4444' : '#6B7280' }}>{s.variacao > 0 ? '+' : ''}{s.variacao}</td>
+                      <td style={{ color: s.variacao_percent > 0 ? '#10B981' : s.variacao_percent < 0 ? '#EF4444' : '#6B7280' }}>{s.variacao_percent > 0 ? '+' : ''}{s.variacao_percent.toFixed(2)}%</td>
+                    </tr>
+                  )) : <tr><td colSpan={4} style={{ textAlign: 'center', color: '#4B5563', padding: 32 }}>Nenhum snapshot registrado</td></tr>}
+                </tbody>
+              </table>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Add offer modal */}
@@ -983,26 +1030,29 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .rc-ref-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid #2D2D2D;border-radius:8px;color:#FF6B00;cursor:pointer;transition:all .15s;flex-shrink:0}
 .rc-ref-btn:hover{border-color:#FF6B00;background:rgba(255,107,0,.06)}
 
-/* ═══ DRAWER ═══ */
-.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;animation:drawerFadeIn .2s ease}
-@keyframes drawerFadeIn{from{opacity:0}to{opacity:1}}
-.drawer{position:fixed;top:0;right:0;bottom:0;width:480px;max-width:90vw;background:#111;border-left:1px solid #1F2937;z-index:201;display:flex;flex-direction:column;animation:drawerSlide .25s ease;overflow-y:auto}
-@keyframes drawerSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}
-.drawer-hd{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #1F2937;flex-shrink:0}
-.drawer-hd h3{font-size:16px;font-weight:700;color:#e4e4e7}
-.drawer-close{background:transparent;border:none;color:#6B7280;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all .12s}
-.drawer-close:hover{color:#fff;background:#1F2937}
-.drawer-chart{height:160px;padding:16px 24px;border-bottom:1px solid #1F2937;overflow:hidden}
-.drawer-chart-svg{width:100%;height:100%}
-.drawer-timeline{padding:16px 24px;display:flex;flex-direction:column;border-left:2px solid #1F2937;margin-left:36px}
-.dt-item{position:relative;display:flex;gap:14px;padding:14px 0}
-.dt-item+.dt-item{border-top:1px solid #0D0D0D}
-.dt-dot{position:absolute;left:-22px;top:18px;width:10px;height:10px;border-radius:50%;border:2px solid #2D2D2D;background:#111;flex-shrink:0}
-.dt-escalou .dt-dot{border-color:#10B981;background:#10B981}
-.dt-caiu .dt-dot,.dt-morreu .dt-dot{border-color:#EF4444;background:#EF4444}
-.dt-pagina_mudou .dt-dot{border-color:#F59E0B;background:#F59E0B}
-.dt-time{font-size:11px;color:#4B5563;margin-bottom:3px}
-.dt-msg{font-size:13px;color:#a1a1aa;line-height:1.5}
+/* ═══ HISTORY PAGE ═══ */
+.hist-page{background:#0A0A0A;width:100%;max-width:900px;margin:0 auto;min-height:100vh;padding:24px 32px 60px;overflow-y:auto}
+.hist-bread{display:flex;align-items:center;gap:8px;margin-bottom:24px}
+.hist-back{background:transparent;border:none;color:#6B7280;cursor:pointer;padding:6px;border-radius:6px;display:flex;transition:all .12s}
+.hist-back:hover{color:#fff;background:#1F2937}
+.hist-bread-txt{font-size:13px;color:#6B7280}
+.hist-title{font-size:24px;font-weight:800;color:#fff;margin-bottom:4px}
+.hist-sub{font-size:14px;color:#6B7280;margin-bottom:24px}
+.hist-mets{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+.hist-met{background:#111;border:1px solid #1F2937;border-radius:12px;padding:18px 20px;text-align:center}
+.hist-met-lbl{font-size:12px;color:#6B7280;margin-bottom:6px}
+.hist-met-num{font-size:28px;font-weight:800;color:#fff}
+.hist-chart-wrap{background:#111;border:1px solid #1F2937;border-radius:12px;padding:20px 24px;margin-bottom:24px}
+.hist-chart-title{font-size:16px;font-weight:700;color:#e4e4e7;margin-bottom:16px}
+.hist-chart{height:200px;position:relative}
+.hist-chart-svg{width:100%;height:100%}
+.hist-chart-labels{display:flex;justify-content:space-between;padding-top:8px;font-size:10px;color:#4B5563}
+.hist-table-wrap{background:#111;border:1px solid #1F2937;border-radius:12px;padding:20px 24px}
+.hist-table-title{font-size:16px;font-weight:700;color:#e4e4e7;margin-bottom:16px}
+.hist-table{width:100%;border-collapse:collapse}
+.hist-table th{text-align:left;font-size:12px;color:#6B7280;font-weight:500;padding:10px 12px;border-bottom:1px solid #1F2937}
+.hist-table td{font-size:13px;color:#e4e4e7;padding:10px 12px;border-bottom:1px solid #111}
+.hist-table tr:hover td{background:#1A1A1A}
 
 /* BUTTONS */
 .btn-sm{padding:6px 12px;border-radius:6px;border:1px solid #27272a;background:transparent;color:#a1a1aa;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;text-decoration:none;white-space:nowrap}
