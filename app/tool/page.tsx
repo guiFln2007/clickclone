@@ -212,7 +212,7 @@ function ReportView({ phase1, phase2, screenshots, onBack, onSaveToRadar }: {
               {((phase2.assets_classificados as Record<string, unknown>[]) || []).filter(a => (a.url as string || '').startsWith('http')).map((a, i) => (
                 <div key={i} className="rpt-asset-card">
                   <div className="rpt-asset-img-wrap">{(a.tipo as string || '').startsWith('video') ? <div className="rpt-asset-video-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><polygon points="5 3 19 12 5 21"/></svg></div> : <img src={a.url as string} alt="" onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />}</div>
-                  <div className="rpt-asset-info"><span className={`rpt-asset-tipo rpt-asset-tipo-${(a.tipo as string || '').split('_')[0]}`}>{(a.tipo as string || '').replace(/_/g, ' ')}</span>{(a.prioridade as string) === 'alta' && <span className="rpt-asset-prio">&starf;</span>}</div>
+                  <div className="rpt-asset-info"><span className={`rpt-asset-tipo rpt-asset-tipo-${(a.tipo as string || '').split('_')[0]}`}>{(a.tipo as string || '').replace(/_/g, ' ')}</span>{(a.prioridade as string) === 'alta' && <span className="rpt-asset-prio">{'\u2605'}</span>}</div>
                 </div>
               ))}
             </div>
@@ -220,13 +220,13 @@ function ReportView({ phase1, phase2, screenshots, onBack, onSaveToRadar }: {
         )}
 
         {/* SCREENSHOTS */}
-        {screenshots.length > 0 && <ReportSection label={`Screenshots - ${screenshots.length}`}><div className="rpt-shots-scroll">{screenshots.map((s, i) => <div key={i} className="rpt-shot"><img src={`data:image/jpeg;base64,${s}`} alt="" /><div className="rpt-shot-lbl">{i === screenshots.length - 1 ? 'Mobile' : `Secao ${i + 1}`}</div></div>)}</div></ReportSection>}
+        {screenshots.length > 0 && <ReportSection label={`Screenshots - ${screenshots.length}`}><div className="rpt-shots-grid">{screenshots.map((s, i) => <div key={i} className="rpt-shot"><img src={`data:image/jpeg;base64,${s}`} alt="" /><div className="rpt-shot-lbl">{i === screenshots.length - 1 ? 'Mobile' : `Se\u00e7\u00e3o ${i + 1}`}</div></div>)}</div></ReportSection>}
       </div>
 
-      {/* CTA */}
-      <div className="report-cta-wrap">
+      {/* CTA — sticky bottom */}
+      <div className="report-cta-sticky">
         <button className="cta-radar-btn" onClick={onSaveToRadar}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
           Salvar no Radar
         </button>
       </div>
@@ -273,6 +273,13 @@ export default function ToolPage() {
   const [mining, setMining] = useState(false)
   const [mineResults, setMineResults] = useState<MineResult[]>([])
   const [mineError, setMineError] = useState('')
+
+  // Toast
+  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+  function showToast(msg: string, type: 'ok' | 'err' = 'ok') {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3000)
+  }
 
   // Auth
   const [userId, setUserId] = useState<number | null>(null)
@@ -396,16 +403,20 @@ export default function ToolPage() {
     if (!phase1Report || !phase2Report) return
     if (userId) {
       try {
+        const totalAds = phase1Report.total_ads_analyzed || phase1Report.ad_analysis?.total_ads || 0
         await fetch('/api/radar', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
-          pagina_nome: phase2Report.analise_de_copy?.promessa_central?.split(' ').slice(0, 5).join(' ') || phase1Report.angulo_dominante || 'Oferta',
-          ad_library_url: url, landing_url: phase1Report.landing_url || null,
-          nicho: phase1Report.nota_entrada?.nicho || null,
-          snapshot_ads: phase1Report.ad_analysis?.total_ads || null,
+          pagina_nome: phase1Report.pagina_nome || phase2Report.url_analisada?.replace(/^https?:\/\//, '').split('/')[0] || phase1Report.angulo_dominante || 'Oferta',
+          ad_library_url: url,
+          landing_url: phase2Report.url_analisada || phase1Report.landing_url || null,
+          nicho: phase1Report.nicho_identificado || phase1Report.nota_entrada?.nicho || null,
+          snapshot_ads: totalAds,
           snapshot_data: { phase1: phase1Report, phase2: phase2Report },
         }) })
         await loadRadar()
-        alert('Salvo no Radar!')
-      } catch { alert('Erro ao salvar') }
+        showToast('Oferta salva no Radar!')
+      } catch { showToast('Erro ao salvar no Radar', 'err') }
+    } else {
+      showToast('Faça login para salvar no Radar', 'err')
     }
   }
 
@@ -886,6 +897,8 @@ export default function ToolPage() {
           </div>
         </div>
       )}
+      {/* Toast */}
+      {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
     </>
   )
 }
@@ -1169,18 +1182,26 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .confirm-delete{flex:1;padding:10px 0;background:#EF4444;border:none;border-radius:8px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
 .confirm-delete:hover{background:#DC2626}
 
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;z-index:300;animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;pointer-events:none}
+.toast-ok{background:#10B981;color:#fff}
+.toast-err{background:#EF4444;color:#fff}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0}}
+
 /* EMPTY */
 .empty-state{padding:48px 20px;text-align:center;color:#3f3f46;font-size:13px}
 
 /* ─── REPORT ─── */
-.report-wrap{min-height:100vh;background:#09090b;color:#e4e4e7;display:flex;flex-direction:column}
+.report-wrap{min-height:100vh;background:#09090b;color:#e4e4e7;display:flex;flex-direction:column;overflow-x:hidden}
 .report-topbar{display:flex;align-items:center;gap:12px;padding:12px 24px;border-bottom:1px solid #1a1a1e;flex-shrink:0}
 .report-back{display:flex;align-items:center;gap:6px;background:transparent;border:1px solid #27272a;border-radius:8px;color:#71717a;padding:6px 12px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
 .report-back:hover{border-color:#3f3f46;color:#e4e4e7}
 .report-subtitle{font-size:11px;color:#3f3f46;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
-.report-body{flex:1;overflow-y:auto;padding:28px 24px;max-width:940px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:20px}
-.report-cta-wrap{padding:24px;max-width:940px;width:100%;margin:0 auto;display:flex;justify-content:center}
-.cta-radar-btn{padding:14px 32px;background:#FF6B00;border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px}
+.report-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:28px 24px;max-width:940px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:32px}
+.report-body>*{max-width:100%}
+.report-cta-sticky{position:sticky;bottom:0;background:linear-gradient(transparent,#09090b 40%);padding:24px;display:flex;justify-content:center;z-index:10}
+.cta-radar-btn{padding:16px 48px;background:#FF6B00;border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;width:100%;max-width:400px;justify-content:center}
 .cta-radar-btn:hover{background:#e05e00;transform:translateY(-1px)}
 
 /* Verdict */
@@ -1205,7 +1226,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .vrd-bar-track{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
 .vrd-bar-fill{height:100%;border-radius:4px;background:currentColor;transition:width .8s cubic-bezier(.16,1,.3,1);opacity:.8}
 .vrd-bar-num{font-size:12px;font-weight:700;width:28px;text-align:right;flex-shrink:0}
-.vrd-just{font-size:11px;color:#52525b;line-height:1.55;margin-top:6px}
+.vrd-just{font-size:11px;color:#52525b;line-height:1.55;margin-top:6px;white-space:normal;word-wrap:break-word}
 @media(max-width:640px){.vrd-hero{padding:20px;gap:20px}.vrd-right{flex-direction:column;gap:16px}.vrd-bars{min-width:160px}.vrd-label{font-size:22px}}
 
 /* Report sections */
@@ -1227,8 +1248,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .rpt-card{background:#09090b;border:1px solid #1a1a1e;border-radius:8px;padding:14px}
 .rpt-highlight-card{background:rgba(249,115,22,.04);border:1px solid rgba(249,115,22,.12);border-radius:10px;padding:16px}
 .rpt-card-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#52525b;margin-bottom:6px}
-.rpt-card-val{font-size:13px;color:#a1a1aa;line-height:1.6}
-.rpt-highlight-val{font-size:15px;font-weight:600;color:#e4e4e7;line-height:1.5}
+.rpt-card-val{font-size:13px;color:#a1a1aa;line-height:1.6;white-space:normal;word-wrap:break-word}
+.rpt-highlight-val{font-size:15px;font-weight:600;color:#e4e4e7;line-height:1.5;white-space:normal;word-wrap:break-word}
 .chips-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .rpt-chip{font-size:11px;padding:3px 10px;border-radius:20px;background:#18181b;border:1px solid #27272a;color:#71717a}
 .rpt-chip.orange{background:rgba(249,115,22,.08);border-color:rgba(249,115,22,.2);color:#FF6B00}
@@ -1242,14 +1263,14 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .rpt-struct-item{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:#09090b;border:1px solid #1a1a1e;border-radius:8px;font-size:12px}
 .rpt-struct-pos{width:20px;height:20px;border-radius:5px;background:#18181b;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#52525b;flex-shrink:0}
 .rpt-struct-name{font-weight:600;color:#a1a1aa;margin-bottom:2px}
-.rpt-struct-copy{font-size:11px;color:#3f3f46;line-height:1.4;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+.rpt-struct-copy{font-size:11px;color:#3f3f46;line-height:1.4;font-style:italic;white-space:normal;word-wrap:break-word}
 .rpt-struct-qual{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0;margin-left:auto}
 .rpt-struct-qual.forte{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
 .rpt-struct-qual.medio{background:rgba(234,179,8,.1);color:#eab308;border:1px solid rgba(234,179,8,.2)}
 .rpt-struct-qual.fraco{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
 .rpt-palette{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px}
 .rpt-swatch{width:28px;height:28px;border-radius:6px;border:1px solid rgba(255,255,255,.06);flex-shrink:0}
-.rpt-assets-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-top:8px;scrollbar-width:thin;scrollbar-color:#27272a transparent}
+.rpt-assets-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-top:8px;scrollbar-width:thin;scrollbar-color:#27272a transparent;max-width:100%}
 .rpt-asset-card{flex-shrink:0;width:130px;border-radius:8px;overflow:hidden;border:1px solid #1a1a1e;background:#111113}
 .rpt-asset-img-wrap{width:130px;height:100px;overflow:hidden;background:#18181b;display:flex;align-items:center;justify-content:center}
 .rpt-asset-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
@@ -1260,9 +1281,10 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .rpt-asset-tipo-video{color:#818cf8}
 .rpt-asset-tipo-foto{color:#22c55e}
 .rpt-asset-prio{font-size:9px;font-weight:700;color:#FF6B00;flex-shrink:0}
-.rpt-shots-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-top:8px;scrollbar-width:thin;scrollbar-color:#27272a transparent}
-.rpt-shot{flex-shrink:0;width:220px;border-radius:8px;overflow:hidden;border:1px solid #1a1a1e}
-.rpt-shot img{width:100%;height:auto;display:block}
+.rpt-shots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px}
+@media(max-width:600px){.rpt-shots-grid{grid-template-columns:1fr}}
+.rpt-shot{border-radius:8px;overflow:hidden;border:1px solid #1F2937}
+.rpt-shot img{width:100%;height:160px;object-fit:cover;object-position:top;display:block}
 .rpt-shot-lbl{font-size:10px;color:#3f3f46;padding:5px 8px;background:#111113}
 .rpt-pontos-fracos{display:flex;flex-direction:column;gap:8px}
 .rpt-pf-item{padding:10px 14px;background:#09090b;border:1px solid #1a1a1e;border-radius:8px;display:flex;flex-direction:column;gap:4px}
