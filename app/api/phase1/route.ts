@@ -92,12 +92,33 @@ function extractPageId(url: string): string {
 
 function calcDiasRodando(ads: Record<string, unknown>[]): { dias: number | null; texto: string; dataInicio: string | null } {
   const datas: Date[] = []
+
+  // Log first ad keys to debug field names
+  if (ads[0]) {
+    console.log('[Phase1] Ad keys:', Object.keys(ads[0]).join(', '))
+    const snap = ads[0].snapshot as Record<string, unknown> | undefined
+    if (snap) console.log('[Phase1] Snapshot keys:', Object.keys(snap).join(', '))
+  }
+
   for (const ad of ads) {
-    const raw = (ad.ad_delivery_start_time as string) || (ad.startDate as string) || (ad.startedRunningAt as string) || ''
+    const snap = ad.snapshot as Record<string, unknown> | undefined
+    // Try every possible date field from Apify scrapers
+    const raw =
+      (ad.ad_delivery_start_time as string) ||
+      (ad.startDate as string) ||
+      (ad.startedRunningAt as string) ||
+      (ad.start_date as string) ||
+      (ad.deliveryStartTime as string) ||
+      (snap?.start_date as string) ||
+      (snap?.startDate as string) ||
+      (snap?.ad_delivery_start_time as string) ||
+      ''
     if (!raw) continue
     const d = new Date(raw)
-    if (!isNaN(d.getTime())) datas.push(d)
+    if (!isNaN(d.getTime()) && d.getFullYear() > 2000) datas.push(d)
   }
+
+  console.log(`[Phase1] Datas encontradas: ${datas.length}/${ads.length} anúncios`)
   if (datas.length === 0) return { dias: null, texto: 'Data não disponível nos criativos', dataInicio: null }
 
   const maisAntiga = datas.reduce((o, d) => d < o ? d : o, datas[0])
