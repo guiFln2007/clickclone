@@ -37,6 +37,8 @@ interface OfferAlert {
   id: string
   tipo: string
   mensagem: string
+  dados_anteriores: string | null
+  dados_novos: string | null
   criado_em: string
   lido: number
 }
@@ -229,7 +231,7 @@ export default function ToolPage() {
 
   // Radar
   const [trackedOffers, setTrackedOffers] = useState<TrackedOffer[]>([])
-  const [radarFilter, setRadarFilter] = useState<'todas' | 'alertas' | 'escalando' | 'mortas'>('todas')
+  const [radarSearch, setRadarSearch] = useState('')
   const [alertsModal, setAlertsModal] = useState<{ offer: TrackedOffer; alerts: OfferAlert[] } | null>(null)
   const [addOfferModal, setAddOfferModal] = useState(false)
   const [newOfferName, setNewOfferName] = useState('')
@@ -423,11 +425,22 @@ export default function ToolPage() {
   }
 
   const filteredOffers = trackedOffers.filter(o => {
-    if (radarFilter === 'alertas') return o.alertas_nao_lidos > 0
-    if (radarFilter === 'escalando') return o.status === 'escalando'
-    if (radarFilter === 'mortas') return o.status === 'morta'
+    if (radarSearch) {
+      const q = radarSearch.toLowerCase()
+      if (!o.pagina_nome.toLowerCase().includes(q) && !o.ad_library_url.toLowerCase().includes(q)) return false
+    }
     return true
   })
+
+  const countByStatus = {
+    total: trackedOffers.length,
+    escalando: trackedOffers.filter(o => o.status === 'escalando').length,
+    caindo: trackedOffers.filter(o => o.status === 'caindo' || o.status === 'morta').length,
+  }
+  const lastUpdate = trackedOffers.reduce((latest, o) => {
+    if (o.verificado_em && (!latest || o.verificado_em > latest)) return o.verificado_em
+    return latest
+  }, '' as string)
 
   const statusIcon = (s: string, alertas: number) => alertas > 0 ? '\uD83D\uDD34' : s === 'escalando' ? '\uD83D\uDFE0' : s === 'morta' ? '\u26AB' : '\uD83D\uDFE2'
   const statusLabel = (s: string, alertas: number) => alertas > 0 ? 'ALERTA' : s === 'escalando' ? 'ESCALANDO' : s === 'morta' ? 'MORTA' : s === 'caindo' ? 'CAINDO' : 'ESTAVEL'
@@ -563,43 +576,111 @@ export default function ToolPage() {
           {/* ── ABA RASTREAMENTO ── */}
           {activeTab === 'rastreamento' && (
             <div className="tab-content">
-              <div className="radar-header">
-                <h1>Rastreamento de Ofertas</h1>
-                <button className="btn-outline" onClick={() => setAddOfferModal(true)}>+ Adicionar</button>
-              </div>
-              <div className="radar-filters">
-                {(['todas', 'alertas', 'escalando', 'mortas'] as const).map(f => (
-                  <button key={f} className={`rf-btn${radarFilter === f ? ' active' : ''}`} onClick={() => setRadarFilter(f)}>
-                    {f === 'todas' ? 'Todas' : f === 'alertas' ? 'Com alertas' : f === 'escalando' ? 'Escalando' : 'Mortas'}
+              {/* Header: search + actions */}
+              <div className="rdr-header">
+                <div className="rdr-search-wrap">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <input className="rdr-search" placeholder="Buscar por nome ou URL..." value={radarSearch} onChange={e => setRadarSearch(e.target.value)} />
+                </div>
+                <div className="rdr-actions">
+                  <button className="rdr-btn-outline" onClick={loadRadar}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                    Atualizar Todas
                   </button>
-                ))}
+                  <button className="rdr-btn-orange" onClick={() => setAddOfferModal(true)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Adicionar Oferta
+                  </button>
+                </div>
               </div>
-              <div className="radar-list">
-                {filteredOffers.length > 0 ? filteredOffers.map(o => (
-                  <div key={o.id} className={`radar-card${o.alertas_nao_lidos > 0 ? ' has-alert' : ''}`}>
-                    <div className="rc-top">
-                      <span className="rc-status">{statusIcon(o.status, o.alertas_nao_lidos)}</span>
-                      <div className="rc-info">
-                        <div className="rc-name">{o.pagina_nome}</div>
-                        <div className="rc-meta">
-                          {o.nicho && <span>{o.nicho}</span>}
-                          {o.ultimo_snapshot_ads !== null && <span>&middot; {o.ultimo_snapshot_ads} anuncios</span>}
-                          {o.verificado_em && <span>&middot; verificado {timeAgo(o.verificado_em)}</span>}
+
+              {/* 4 Metric cards */}
+              <div className="rdr-metrics">
+                <div className="rdr-metric-card">
+                  <div className="rdr-mc-top"><span className="rdr-mc-label">Total de Ofertas</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+                  <div className="rdr-mc-num">{countByStatus.total}</div>
+                </div>
+                <div className="rdr-metric-card">
+                  <div className="rdr-mc-top"><span className="rdr-mc-label">Ofertas Escalando</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+                  <div className="rdr-mc-num" style={{ color: '#22c55e' }}>{countByStatus.escalando}</div>
+                </div>
+                <div className="rdr-metric-card">
+                  <div className="rdr-mc-top"><span className="rdr-mc-label">Ofertas em Regressao</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></div>
+                  <div className="rdr-mc-num" style={{ color: '#ef4444' }}>{countByStatus.caindo}</div>
+                </div>
+                <div className="rdr-metric-card">
+                  <div className="rdr-mc-top"><span className="rdr-mc-label">Ultima Atualizacao</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></div>
+                  <div className="rdr-mc-num">{lastUpdate ? new Date(lastUpdate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '--/--'}</div>
+                </div>
+              </div>
+
+              {/* Offer cards grid */}
+              {filteredOffers.length > 0 ? (
+                <div className="rdr-grid">
+                  {filteredOffers.map(o => {
+                    const ads = o.ultimo_snapshot_ads ?? 0
+                    const initial = o.primeiro_snapshot_ads ?? ads
+                    const diff = ads - initial
+                    const pct = initial > 0 ? ((diff / initial) * 100).toFixed(1) : '0.0'
+                    const pctNum = parseFloat(pct)
+                    const statusCls = o.status === 'escalando' ? 'esc' : o.status === 'caindo' ? 'caindo' : o.status === 'morta' ? 'morta' : 'estavel'
+                    const statusTxt = o.status === 'escalando' ? 'Escalando' : o.status === 'caindo' ? 'Caindo' : o.status === 'morta' ? 'Morta' : 'Estavel'
+                    return (
+                      <div key={o.id} className="rdr-card">
+                        <span className={`rdr-card-status rdr-st-${statusCls}`}>{statusTxt}</span>
+                        {/* Card header */}
+                        <div className="rdr-card-hd">
+                          <div className="rdr-fb-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                          </div>
+                          <div className="rdr-card-info">
+                            <div className="rdr-card-name">{o.pagina_nome}</div>
+                            <div className="rdr-card-url">{o.ad_library_url.replace(/^https?:\/\//, '').slice(0, 35)}...</div>
+                          </div>
+                        </div>
+                        {/* Metrics row */}
+                        <div className="rdr-card-metrics">
+                          <div className="rdr-cm">
+                            <div className="rdr-cm-label">Total Hoje:</div>
+                            <div className="rdr-cm-num">{ads}</div>
+                            <span className={`rdr-cm-badge ${pctNum > 0 ? 'up' : pctNum < 0 ? 'down' : 'flat'}`}>{pctNum > 0 ? '+' : ''}{pct}% de variacao</span>
+                          </div>
+                          <div className="rdr-cm">
+                            <div className="rdr-cm-label">Primeiro registro:</div>
+                            <div className="rdr-cm-num">{initial}</div>
+                            <span className="rdr-cm-date">{new Date(o.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                          </div>
+                        </div>
+                        {/* Variation rows */}
+                        <div className="rdr-card-vars">
+                          <div className="rdr-var-row">
+                            <span className="rdr-var-label">Variacao diaria:</span>
+                            <span className={`rdr-var-val ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}`}>{diff > 0 ? '+' : ''}{diff} anuncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span>
+                          </div>
+                          <div className="rdr-var-row">
+                            <span className="rdr-var-label">Variacao semanal:</span>
+                            <span className={`rdr-var-val ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}`}>{diff > 0 ? '+' : ''}{diff} anuncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span>
+                          </div>
+                        </div>
+                        {/* Actions */}
+                        <div className="rdr-card-actions">
+                          <button className="rdr-history-btn" onClick={() => viewAlerts(o)}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                            Ver Historico
+                          </button>
+                          <button className="rdr-refresh-btn" onClick={loadRadar} title="Atualizar">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                          </button>
                         </div>
                       </div>
-                      <span className={`rc-badge rc-badge-${o.status}`}>{statusLabel(o.status, o.alertas_nao_lidos)}</span>
-                    </div>
-                    <div className="rc-actions">
-                      <button className="btn-sm" onClick={() => viewAlerts(o)}>Ver Alertas</button>
-                      <button className="btn-sm btn-orange" onClick={() => { setUrl(o.ad_library_url); setActiveTab('analise') }}>Analisar</button>
-                      <a href={o.ad_library_url} target="_blank" rel="noopener noreferrer" className="btn-sm">Ver Ads</a>
-                      <button className="btn-sm btn-ghost" onClick={() => removeFromRadar(o.id)}>Remover</button>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="empty-state">Nenhuma oferta {radarFilter !== 'todas' ? 'com esse filtro' : 'no radar'}. Analise uma oferta e clique em &quot;Salvar no Radar&quot;.</div>
-                )}
-              </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  {radarSearch ? 'Nenhuma oferta encontrada.' : 'Nenhuma oferta no radar. Analise uma oferta e clique em "Salvar no Radar".'}
+                </div>
+              )}
             </div>
           )}
 
@@ -659,21 +740,51 @@ export default function ToolPage() {
 
       {/* ── MODALS ── */}
 
-      {/* Alerts modal */}
+      {/* History/Alerts modal */}
       {alertsModal && (
         <div className="modal-overlay" onClick={() => setAlertsModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-hd">
-              <h3>Alertas - {alertsModal.offer.pagina_nome}</h3>
+              <h3>Historico - {alertsModal.offer.pagina_nome}</h3>
               <button className="modal-close" onClick={() => setAlertsModal(null)}>&times;</button>
             </div>
             <div className="modal-body">
-              {alertsModal.alerts.length > 0 ? alertsModal.alerts.map(a => (
-                <div key={a.id} className={`alert-item alert-${a.tipo}`}>
-                  <div className="alert-time">{new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
-                  <div className="alert-msg">{a.mensagem}</div>
+              {/* Mini chart */}
+              {alertsModal.alerts.length > 1 && (
+                <div className="history-chart">
+                  {(() => {
+                    const points = alertsModal.alerts.slice().reverse().map(a => {
+                      let val = 0
+                      try { const d = JSON.parse(a.dados_novos || '{}'); val = d.ads ?? 0 } catch { /* ok */ }
+                      return { date: new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), ads: val }
+                    }).filter(p => p.ads > 0)
+                    if (points.length < 2) return null
+                    const max = Math.max(...points.map(p => p.ads))
+                    const min = Math.min(...points.map(p => p.ads))
+                    const range = max - min || 1
+                    const w = 100 / (points.length - 1)
+                    const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${i * w},${100 - ((p.ads - min) / range) * 80 - 10}`).join(' ')
+                    return (
+                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="hc-svg">
+                        <path d={pathD} fill="none" stroke="#FF6B00" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                        {points.map((p, i) => <circle key={i} cx={i * w} cy={100 - ((p.ads - min) / range) * 80 - 10} r="1.5" fill="#FF6B00" />)}
+                      </svg>
+                    )
+                  })()}
                 </div>
-              )) : <div className="empty-state">Nenhum alerta ainda</div>}
+              )}
+              {/* Timeline */}
+              <div className="history-timeline">
+                {alertsModal.alerts.length > 0 ? alertsModal.alerts.map(a => (
+                  <div key={a.id} className={`ht-item ht-${a.tipo}`}>
+                    <div className="ht-dot" />
+                    <div className="ht-content">
+                      <div className="ht-time">{new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                      <div className="ht-msg">{a.mensagem}</div>
+                    </div>
+                  </div>
+                )) : <div className="empty-state" style={{ padding: 24 }}>Nenhum evento registrado ainda. O radar verifica diariamente.</div>}
+              </div>
             </div>
           </div>
         </div>
@@ -683,15 +794,21 @@ export default function ToolPage() {
       {addOfferModal && (
         <div className="modal-overlay" onClick={() => setAddOfferModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-hd"><h3>Adicionar oferta ao Radar</h3><button className="modal-close" onClick={() => setAddOfferModal(false)}>&times;</button></div>
+            <div className="modal-hd"><h3>Adicionar Oferta</h3><button className="modal-close" onClick={() => setAddOfferModal(false)}>&times;</button></div>
             <div className="modal-body">
               <label className="modal-label">Nome da pagina</label>
-              <input className="modal-input" value={newOfferName} onChange={e => setNewOfferName(e.target.value)} placeholder="Ex: Martinez1" />
+              <input className="modal-input" value={newOfferName} onChange={e => setNewOfferName(e.target.value)} placeholder="Ex: Velas Lucrativas" />
               <label className="modal-label">URL da Ad Library</label>
-              <input className="modal-input" value={newOfferUrl} onChange={e => setNewOfferUrl(e.target.value)} placeholder="https://www.facebook.com/ads/library/..." />
-              <label className="modal-label">Nicho (opcional)</label>
-              <input className="modal-input" value={newOfferNicho} onChange={e => setNewOfferNicho(e.target.value)} placeholder="Relacionamento" />
-              <button className="mine-btn" style={{ marginTop: 16, width: '100%' }} onClick={addOfferManual} disabled={!newOfferName || !newOfferUrl}>Salvar no Radar</button>
+              <input className="modal-input" value={newOfferUrl} onChange={e => setNewOfferUrl(e.target.value)} placeholder="https://www.facebook.com/ads/library/?active_status=..." />
+              <label className="modal-label">Nicho</label>
+              <select className="modal-input" value={newOfferNicho} onChange={e => setNewOfferNicho(e.target.value)}>
+                <option value="">Selecione...</option>
+                {nichos.map(n => <option key={n} value={n.toLowerCase()}>{n}</option>)}
+              </select>
+              <button className="rdr-btn-orange" style={{ marginTop: 16, width: '100%', justifyContent: 'center', padding: '12px 0' }} onClick={addOfferManual} disabled={!newOfferName || !newOfferUrl}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Salvar no Radar
+              </button>
             </div>
           </div>
         </div>
@@ -819,28 +936,88 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .hc-name{font-size:14px;font-weight:600;color:#e4e4e7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hc-meta{font-size:12px;color:#52525b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* RADAR */
-.radar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
-.radar-header h1{font-size:20px;font-weight:800}
-.radar-filters{display:flex;gap:6px;margin-bottom:20px}
-.rf-btn{padding:6px 14px;border-radius:20px;border:1px solid #27272a;background:transparent;color:#71717a;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:all .12s}
-.rf-btn:hover{border-color:#3f3f46;color:#a1a1aa}
-.rf-btn.active{background:#FF6B00;border-color:#FF6B00;color:#fff}
-.radar-list{display:flex;flex-direction:column;gap:10px}
-.radar-card{background:#18181b;border:1px solid #27272a;border-radius:12px;padding:18px 20px;transition:all .15s}
-.radar-card.has-alert{border-color:rgba(239,68,68,.3)}
-.radar-card:hover{border-color:#3f3f46}
-.rc-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
-.rc-status{font-size:16px;flex-shrink:0;margin-top:2px}
-.rc-info{flex:1;min-width:0}
-.rc-name{font-size:15px;font-weight:700;color:#e4e4e7;margin-bottom:2px}
-.rc-meta{font-size:12px;color:#52525b;display:flex;flex-wrap:wrap;gap:4px}
-.rc-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;flex-shrink:0}
-.rc-badge-ativa{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
-.rc-badge-escalando{background:rgba(234,179,8,.1);color:#eab308;border:1px solid rgba(234,179,8,.2)}
-.rc-badge-caindo{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
-.rc-badge-morta{background:rgba(113,113,122,.1);color:#71717a;border:1px solid rgba(113,113,122,.2)}
-.rc-actions{display:flex;gap:6px;flex-wrap:wrap}
+/* RADAR — REDESIGN */
+.rdr-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.rdr-search-wrap{display:flex;align-items:center;gap:10px;background:#0D0D0D;border:1px solid #1F2937;border-radius:10px;padding:0 14px;flex:1;max-width:360px;transition:border-color .2s}
+.rdr-search-wrap:focus-within{border-color:#FF6B00}
+.rdr-search{flex:1;background:transparent;border:none;padding:11px 0;font-family:inherit;font-size:13px;color:#fafafa;outline:none}
+.rdr-search::placeholder{color:#4B5563}
+.rdr-actions{display:flex;gap:8px;flex-shrink:0}
+.rdr-btn-outline{display:flex;align-items:center;gap:7px;padding:10px 18px;border:1px solid #1F2937;border-radius:10px;background:transparent;color:#a1a1aa;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.rdr-btn-outline:hover{border-color:#3f3f46;color:#e4e4e7}
+.rdr-btn-orange{display:flex;align-items:center;gap:7px;padding:10px 18px;border:none;border-radius:10px;background:#FF6B00;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
+.rdr-btn-orange:hover{background:#e05e00}
+
+/* Metric cards */
+.rdr-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+@media(max-width:768px){.rdr-metrics{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.rdr-metrics{grid-template-columns:1fr}}
+.rdr-metric-card{background:#111111;border:1px solid #1F2937;border-radius:12px;padding:18px 20px}
+.rdr-mc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.rdr-mc-label{font-size:12px;color:#6B7280;font-weight:500}
+.rdr-mc-num{font-size:28px;font-weight:800;color:#fff}
+
+/* Offer cards grid */
+.rdr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:1100px){.rdr-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){.rdr-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.rdr-grid{grid-template-columns:1fr}}
+.rdr-card{background:#111111;border:1px solid #1F2937;border-radius:14px;padding:18px;position:relative;transition:all .15s}
+.rdr-card:hover{border-color:#374151;box-shadow:0 4px 24px rgba(0,0,0,.3)}
+
+/* Card status badge */
+.rdr-card-status{position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
+.rdr-st-esc{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
+.rdr-st-estavel{background:rgba(113,113,122,.08);color:#71717a;border:1px solid rgba(113,113,122,.15)}
+.rdr-st-caindo{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
+.rdr-st-morta{background:rgba(50,50,50,.5);color:#52525b;border:1px solid rgba(50,50,50,.5)}
+
+/* Card header */
+.rdr-card-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-right:70px}
+.rdr-fb-icon{width:28px;height:28px;border-radius:7px;background:#1a2744;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rdr-card-info{min-width:0;flex:1}
+.rdr-card-name{font-size:14px;font-weight:700;color:#e4e4e7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rdr-card-url{font-size:10px;color:#4B5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Card metrics */
+.rdr-card-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.rdr-cm{background:#0D0D0D;border:1px solid #1a2030;border-radius:10px;padding:10px 12px;text-align:center}
+.rdr-cm-label{font-size:10px;color:#6B7280;margin-bottom:4px}
+.rdr-cm-num{font-size:22px;font-weight:800;color:#fff;margin-bottom:4px}
+.rdr-cm-badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px}
+.rdr-cm-badge.up{background:rgba(34,197,94,.12);color:#22c55e}
+.rdr-cm-badge.down{background:rgba(239,68,68,.12);color:#ef4444}
+.rdr-cm-badge.flat{background:rgba(113,113,122,.1);color:#71717a}
+.rdr-cm-date{font-size:10px;color:#FF6B00}
+
+/* Variation rows */
+.rdr-card-vars{margin-bottom:14px}
+.rdr-var-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:12px}
+.rdr-var-label{color:#6B7280}
+.rdr-var-val{color:#71717a;display:flex;align-items:center;gap:3px}
+.rdr-var-val.up{color:#22c55e}
+.rdr-var-val.down{color:#ef4444}
+
+/* Card actions */
+.rdr-card-actions{display:flex;gap:8px;align-items:center}
+.rdr-history-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 0;background:transparent;border:1px solid #1F2937;border-radius:8px;color:#a1a1aa;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.rdr-history-btn:hover{border-color:#374151;color:#fff}
+.rdr-refresh-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid #1F2937;border-radius:8px;color:#FF6B00;cursor:pointer;transition:all .15s;flex-shrink:0}
+.rdr-refresh-btn:hover{border-color:#FF6B00;background:rgba(255,107,0,.06)}
+
+/* History modal */
+.modal-lg{max-width:560px}
+.history-chart{height:120px;background:#0D0D0D;border:1px solid #1F2937;border-radius:10px;padding:12px;margin-bottom:16px;overflow:hidden}
+.hc-svg{width:100%;height:100%}
+.history-timeline{display:flex;flex-direction:column;gap:0;border-left:2px solid #1F2937;margin-left:8px;padding-left:20px}
+.ht-item{position:relative;padding:12px 0}
+.ht-item+.ht-item{border-top:1px solid #111}
+.ht-dot{position:absolute;left:-27px;top:16px;width:10px;height:10px;border-radius:50%;border:2px solid #27272a;background:#18181b}
+.ht-escalou .ht-dot{border-color:#22c55e;background:#22c55e}
+.ht-caiu .ht-dot,.ht-morreu .ht-dot{border-color:#ef4444;background:#ef4444}
+.ht-pagina_mudou .ht-dot{border-color:#eab308;background:#eab308}
+.ht-time{font-size:11px;color:#52525b;margin-bottom:3px}
+.ht-msg{font-size:13px;color:#a1a1aa;line-height:1.5}
 
 /* BUTTONS */
 .btn-sm{padding:6px 12px;border-radius:6px;border:1px solid #27272a;background:transparent;color:#a1a1aa;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;text-decoration:none;white-space:nowrap}
