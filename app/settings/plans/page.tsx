@@ -124,7 +124,7 @@ export default function PlansPage() {
         {user && user.plano === 'inativo' && (
           <div style={{ background: 'linear-gradient(135deg,#1a0e00,#0f0f0f)', border: '1px solid #3a2000', borderRadius: 14, padding: 24 }}>
             <div style={{ fontSize: 11, color: '#E8692A', fontWeight: 700, letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 8 }}>Plano inativo</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Reativar ClickClone Pro</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Reativar RatoAds Pro</div>
             <div style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>R$57,90/mês — cancele quando quiser</div>
             <a
               href={PRO_CHECKOUT_URL}

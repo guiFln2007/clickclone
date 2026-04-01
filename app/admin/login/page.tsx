@@ -37,7 +37,7 @@ export default function AdminLoginPage() {
         padding: '40px 36px', width: '100%', maxWidth: 380,
       }}>
         <div style={{ marginBottom: 28, textAlign: 'center' }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#E8692A', letterSpacing: 1 }}>CLICKCLONE</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#E8692A', letterSpacing: 1 }}>RATOADS</div>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginTop: 8 }}>Painel Admin</h1>
           <p style={{ color: '#555', fontSize: 13, marginTop: 4 }}>Acesso restrito</p>
         </div>

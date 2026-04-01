@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import RatMascot from './RatMascot'
 
 /* ─────────── TYPES ─────────── */
 
@@ -448,16 +449,17 @@ export default function ToolPage() {
         {/* HEADER */}
         <header className="header">
           <div className="header-left">
-            <img src="/logo.png" alt="ClickClone" className="header-logo" />
+            <img src="/logo.png" alt="RatoAds" className="header-logo" />
+            <span className="header-brand">RatoAds</span>
           </div>
           <nav className="header-tabs">
             {[
-              { id: 'analise' as Tab, label: 'Analise de Biblioteca', icon: '\uD83D\uDD0D' },
-              { id: 'rastreamento' as Tab, label: 'Rastreamento', icon: '\uD83D\uDCE1', badge: totalAlerts },
-              { id: 'minerador' as Tab, label: 'Minerador', icon: '\u26CF\uFE0F' },
+              { id: 'analise' as Tab, label: 'Analise de Biblioteca', svg: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> },
+              { id: 'rastreamento' as Tab, label: 'Rastreamento', svg: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>, badge: totalAlerts },
+              { id: 'minerador' as Tab, label: 'Minerador', svg: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> },
             ].map(t => (
               <button key={t.id} className={`header-tab${activeTab === t.id ? ' active' : ''}`} onClick={() => setActiveTab(t.id)}>
-                <span className="tab-icon">{t.icon}</span>
+                <span className="tab-icon">{t.svg}</span>
                 <span className="tab-label">{t.label}</span>
                 {t.badge ? <span className="tab-badge">{t.badge}</span> : null}
               </button>
@@ -486,28 +488,54 @@ export default function ToolPage() {
             <div className="tab-content">
               <div className="analyze-hero">
                 <h1 className="analyze-title">Analise de <span className="acc">Biblioteca</span></h1>
-                <p className="analyze-sub">Cole o link da Ad Library de qualquer concorrente</p>
+                <p className="analyze-sub">Inteligencia competitiva em segundos</p>
                 <form onSubmit={handleAnalyze} className="analyze-form">
-                  <input className="analyze-input" type="url" placeholder="https://www.facebook.com/ads/library/?active_status=active&ad_type=all&..." value={url} onChange={e => setUrl(e.target.value)} />
+                  <div className="analyze-input-wrap">
+                    <svg className="analyze-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input className="analyze-input" type="url" placeholder="Cole o link da Ad Library do concorrente..." value={url} onChange={e => setUrl(e.target.value)} />
+                  </div>
                   <button className="analyze-btn" type="submit" disabled={analyzing || !url.trim()}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                     {analyzing ? 'Analisando...' : 'Analisar'}
                   </button>
                 </form>
               </div>
 
-              {(termLines.length > 0 || analyzing) && (
-                <div className="term" style={{ maxWidth: 680, margin: '0 auto 24px' }}>
-                  <div className="term-bar"><div className="tbd r" /><div className="tbd y" /><div className="tbd g" /><span className="term-title">clickclone</span></div>
-                  <div className="term-progress"><div className="term-progress-bar" style={{ width: `${dashProgress}%` }} /></div>
-                  <div className="term-body">{termLines.map((l, i) => <div key={i} className={`tl-${l.type}`}>{l.text}</div>)}{analyzing && <span className="tcur" />}</div>
+              {/* Stats cards */}
+              <div className="stats-row">
+                <div className="stat-card">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <div className="stat-num">{savedAnalyses.length}</div>
+                  <div className="stat-label">analises realizadas</div>
+                </div>
+                <div className="stat-card">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <div className="stat-num">{trackedOffers.length}</div>
+                  <div className="stat-label">ofertas rastreadas</div>
+                </div>
+                <div className="stat-card">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <div className="stat-num">{analises ?? '\u2014'}</div>
+                  <div className="stat-label">analises restantes</div>
+                </div>
+              </div>
+
+              {/* Rat Mascot */}
+              <RatMascot isAnalyzing={analyzing} />
+
+              {/* Loading status text */}
+              {analyzing && (
+                <div className="rat-loading-info">
+                  <div className="rat-status">{termLines.length > 0 ? termLines[termLines.length - 1].text.replace(/^> /, '').replace(/^\u2713 /, '') : 'Iniciando analise...'}</div>
+                  <div className="rat-progress-bar"><div className="rat-progress-fill" style={{ width: `${dashProgress}%` }} /></div>
                 </div>
               )}
-              {error && <div className="err" style={{ maxWidth: 680, margin: '0 auto 24px' }}>{error}</div>}
+              {!analyzing && error && <div className="err" style={{ maxWidth: 680, margin: '0 auto 24px' }}>{error}</div>}
 
               {/* History */}
-              {savedAnalyses.length > 0 && (
+              {!analyzing && savedAnalyses.length > 0 && (
                 <div style={{ maxWidth: 800, margin: '0 auto' }}>
-                  <div className="sec-hd"><h2>Historico</h2><span className="sec-count">{savedAnalyses.length}</span></div>
+                  <div className="sec-hd"><h2>Ultimas analises</h2><span className="sec-count">{savedAnalyses.length}</span></div>
                   <div className="history-grid">
                     {savedAnalyses.slice(0, 8).map(a => {
                       const cls = a.score >= 7 ? 'green' : a.score >= 5 ? 'yellow' : 'red'
@@ -518,11 +546,16 @@ export default function ToolPage() {
                             <div className="hc-name">{a.name}</div>
                             <div className="hc-meta">{timeAgo(a.createdAt)} &middot; {(a.phase1.angulo_dominante as string || '').slice(0, 40)}</div>
                           </div>
+                          <button className="hc-btn">Ver relatorio</button>
                         </div>
                       )
                     })}
                   </div>
                 </div>
+              )}
+
+              {!analyzing && savedAnalyses.length === 0 && !error && (
+                <div className="empty-state" style={{ marginTop: 0 }}>Nenhuma analise ainda. Cole um link acima para comecar.</div>
               )}
             </div>
           )}
@@ -691,19 +724,22 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 
 /* HEADER */
 .header{display:flex;align-items:center;gap:12px;padding:0 24px;height:56px;border-bottom:1px solid #1a1a1e;background:#09090b;position:sticky;top:0;z-index:50}
-.header-left{display:flex;align-items:center;flex-shrink:0}
-.header-logo{height:18px;opacity:.8}
+.header-left{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.header-logo{height:32px;width:auto}
+.header-brand{font-size:16px;font-weight:800;color:#FF6B00;letter-spacing:-.02em}
 .header-tabs{display:flex;align-items:center;gap:2px;margin-left:32px}
 .header-tab{display:flex;align-items:center;gap:6px;padding:8px 14px;border:none;background:transparent;color:#71717a;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border-radius:8px;transition:all .15s;white-space:nowrap;position:relative}
 .header-tab:hover{color:#a1a1aa;background:#18181b}
 .header-tab.active{color:#fafafa;background:#18181b}
-.header-tab.active::after{content:'';position:absolute;bottom:-9px;left:12px;right:12px;height:2px;background:#f97316;border-radius:1px}
-.tab-icon{font-size:14px}
+.header-tab.active::after{content:'';position:absolute;bottom:-9px;left:12px;right:12px;height:2px;background:#FF6B00;border-radius:1px}
+.tab-icon{display:flex;align-items:center;color:#6B7280;transition:color .15s}
+.header-tab.active .tab-icon{color:#FF6B00}
+.header-tab:hover .tab-icon{color:#9CA3AF}
 .tab-label{}
 .tab-badge{background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center}
 .header-right{display:flex;align-items:center;gap:12px;margin-left:auto;position:relative}
 .header-saldo{font-size:12px;color:#52525b;font-weight:500;white-space:nowrap}
-.header-avatar{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#f97316,#ea580c);border:none;color:#fff;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.header-avatar{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#FF6B00,#e05e00);border:none;color:#fff;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .profile-drop{position:absolute;top:calc(100% + 8px);right:0;background:#18181b;border:1px solid #27272a;border-radius:12px;padding:8px;min-width:160px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 .profile-name{padding:8px 10px;font-size:13px;font-weight:600;color:#e4e4e7;border-bottom:1px solid #27272a;margin-bottom:4px}
 .profile-link{display:block;width:100%;text-align:left;padding:6px 10px;border:none;background:transparent;color:#71717a;font-family:inherit;font-size:13px;cursor:pointer;border-radius:6px;transition:all .12s;text-decoration:none}
@@ -716,17 +752,27 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 @media(max-width:768px){.tab-content{padding:20px 16px 60px}}
 
 /* ANALYZE */
-.analyze-hero{text-align:center;margin-bottom:32px}
-.analyze-title{font-size:clamp(24px,3vw,32px);font-weight:800;letter-spacing:-.03em;margin-bottom:8px}
-.acc{color:#f97316}
-.analyze-sub{font-size:14px;color:#52525b;margin-bottom:24px}
+.analyze-hero{text-align:center;margin-bottom:24px}
+.analyze-title{font-size:clamp(24px,3vw,32px);font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+.acc{color:#FF6B00}
+.analyze-sub{font-size:14px;color:#6B7280;margin-bottom:24px}
 .analyze-form{display:flex;gap:8px;max-width:640px;margin:0 auto}
-.analyze-input{flex:1;background:#18181b;border:1px solid #27272a;border-radius:10px;padding:12px 16px;font-family:inherit;font-size:14px;color:#fafafa;outline:none;transition:border-color .2s}
-.analyze-input:focus{border-color:#f97316}
-.analyze-input::placeholder{color:#3f3f46}
-.analyze-btn{padding:12px 24px;background:#f97316;border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;white-space:nowrap;flex-shrink:0}
-.analyze-btn:hover:not(:disabled){background:#ea580c}
+.analyze-input-wrap{flex:1;display:flex;align-items:center;gap:10px;background:#0D0D0D;border:1px solid #1F2937;border-radius:10px;padding:0 16px;transition:border-color .2s}
+.analyze-input-wrap:focus-within{border-color:#FF6B00;box-shadow:0 0 0 3px rgba(255,107,0,.08)}
+.analyze-input-icon{flex-shrink:0}
+.analyze-input{flex:1;background:transparent;border:none;padding:13px 0;font-family:inherit;font-size:14px;color:#fafafa;outline:none}
+.analyze-input::placeholder{color:#4B5563}
+.analyze-btn{padding:12px 24px;background:#FF6B00;border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:8px}
+.analyze-btn:hover:not(:disabled){background:#e05e00;box-shadow:0 0 20px rgba(255,107,0,.2)}
 .analyze-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:640px;margin:0 auto 8px}
+@media(max-width:500px){.stats-row{grid-template-columns:1fr}}
+.stat-card{background:#111111;border:1px solid #1F2937;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px}
+.stat-card svg{flex-shrink:0}
+.stat-num{font-size:20px;font-weight:800;color:#fff}
+.stat-label{font-size:11px;color:#6B7280;line-height:1.3}
 
 /* TERM */
 .term{background:#0a0a0a;border:1px solid #1a1a1e;border-radius:10px;overflow:hidden}
@@ -734,14 +780,24 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .tbd{width:9px;height:9px;border-radius:50%}.tbd.r{background:#ff5f57}.tbd.y{background:#febc2e}.tbd.g{background:#28c840}
 .term-title{font-size:10px;color:#3f3f46;margin-left:8px;font-family:monospace}
 .term-progress{height:2px;background:#111;overflow:hidden}
-.term-progress-bar{height:100%;background:#f97316;transition:width .4s ease}
+.term-progress-bar{height:100%;background:#FF6B00;transition:width .4s ease}
 .term-body{padding:14px 18px;font-family:monospace;font-size:12px;line-height:2;min-height:60px;color:#52525b}
 .tl-wait{color:#52525b;animation:fadein .3s ease}
-.tl-done{color:#f97316;animation:fadein .3s ease}
-.tcur{display:inline-block;width:7px;height:13px;background:#f97316;animation:blink .7s step-end infinite;vertical-align:middle;margin-left:3px}
+.tl-done{color:#FF6B00;animation:fadein .3s ease}
+.tcur{display:inline-block;width:7px;height:13px;background:#FF6B00;animation:blink .7s step-end infinite;vertical-align:middle;margin-left:3px}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes fadein{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* RAT LOADING */
+.rat-loading-info{display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 20px 24px;max-width:400px;margin:0 auto}
+.rat-status{font-size:14px;color:#a1a1aa;text-align:center;min-height:20px;animation:fadein .3s ease}
+.rat-progress-bar{width:280px;height:4px;background:#1F2937;border-radius:4px;overflow:hidden}
+.rat-progress-fill{height:100%;background:#FF6B00;border-radius:4px;transition:width .6s ease}
+
+/* HISTORY BUTTON */
+.hc-btn{padding:5px 12px;border-radius:6px;border:1px solid #1F2937;background:transparent;color:#6B7280;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;flex-shrink:0;white-space:nowrap}
+.hc-btn:hover{border-color:#FF6B00;color:#FF6B00}
 
 /* ERROR */
 .err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#ef4444;padding:12px 16px;border-radius:8px;font-size:13px;line-height:1.5}
@@ -769,7 +825,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .radar-filters{display:flex;gap:6px;margin-bottom:20px}
 .rf-btn{padding:6px 14px;border-radius:20px;border:1px solid #27272a;background:transparent;color:#71717a;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:all .12s}
 .rf-btn:hover{border-color:#3f3f46;color:#a1a1aa}
-.rf-btn.active{background:#f97316;border-color:#f97316;color:#fff}
+.rf-btn.active{background:#FF6B00;border-color:#FF6B00;color:#fff}
 .radar-list{display:flex;flex-direction:column;gap:10px}
 .radar-card{background:#18181b;border:1px solid #27272a;border-radius:12px;padding:18px 20px;transition:all .15s}
 .radar-card.has-alert{border-color:rgba(239,68,68,.3)}
@@ -789,8 +845,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 /* BUTTONS */
 .btn-sm{padding:6px 12px;border-radius:6px;border:1px solid #27272a;background:transparent;color:#a1a1aa;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;text-decoration:none;white-space:nowrap}
 .btn-sm:hover{border-color:#3f3f46;color:#e4e4e7}
-.btn-sm.btn-orange{background:#f97316;border-color:#f97316;color:#fff}
-.btn-sm.btn-orange:hover{background:#ea580c}
+.btn-sm.btn-orange{background:#FF6B00;border-color:#FF6B00;color:#fff}
+.btn-sm.btn-orange:hover{background:#e05e00}
 .btn-sm.btn-ghost{border-color:transparent;color:#52525b}
 .btn-sm.btn-ghost:hover{color:#ef4444}
 .btn-outline{padding:8px 16px;border-radius:8px;border:1px solid #27272a;background:transparent;color:#a1a1aa;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .12s}
@@ -801,14 +857,14 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .mine-nichos{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
 .nicho-btn{padding:8px 16px;border-radius:20px;border:1px solid #27272a;background:transparent;color:#71717a;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
 .nicho-btn:hover{border-color:#3f3f46;color:#a1a1aa}
-.nicho-btn.active{border-color:#f97316;background:rgba(249,115,22,.1);color:#f97316}
+.nicho-btn.active{border-color:#FF6B00;background:rgba(249,115,22,.1);color:#FF6B00}
 .mine-advanced{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
 @media(max-width:500px){.mine-advanced{grid-template-columns:1fr}}
 .filter-row{display:flex;gap:6px}
 .filter-btn{padding:6px 12px;border-radius:6px;border:1px solid #27272a;background:transparent;color:#52525b;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .12s}
-.filter-btn.active{border-color:#f97316;background:rgba(249,115,22,.1);color:#f97316}
-.mine-btn{padding:12px 28px;background:#f97316;border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
-.mine-btn:hover:not(:disabled){background:#ea580c}
+.filter-btn.active{border-color:#FF6B00;background:rgba(249,115,22,.1);color:#FF6B00}
+.mine-btn{padding:12px 28px;background:#FF6B00;border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
+.mine-btn:hover:not(:disabled){background:#e05e00}
 .mine-btn:disabled{opacity:.4;cursor:not-allowed}
 .mine-results{display:flex;flex-direction:column;gap:8px}
 .mine-card{display:flex;align-items:center;gap:14px;padding:16px 18px;background:#18181b;border:1px solid #27272a;border-radius:12px;transition:all .15s}
@@ -833,7 +889,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .modal-body{display:flex;flex-direction:column;gap:12px}
 .modal-label{font-size:11px;font-weight:600;color:#52525b;text-transform:uppercase;letter-spacing:.06em}
 .modal-input{background:#09090b;border:1px solid #27272a;border-radius:8px;padding:10px 14px;font-family:inherit;font-size:13px;color:#fafafa;outline:none;transition:border-color .15s}
-.modal-input:focus{border-color:#f97316}
+.modal-input:focus{border-color:#FF6B00}
 .modal-input::placeholder{color:#3f3f46}
 
 /* ALERTS */
@@ -855,8 +911,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .report-subtitle{font-size:11px;color:#3f3f46;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
 .report-body{flex:1;overflow-y:auto;padding:28px 24px;max-width:940px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:20px}
 .report-cta-wrap{padding:24px;max-width:940px;width:100%;margin:0 auto;display:flex;justify-content:center}
-.cta-radar-btn{padding:14px 32px;background:#f97316;border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px}
-.cta-radar-btn:hover{background:#ea580c;transform:translateY(-1px)}
+.cta-radar-btn{padding:14px 32px;background:#FF6B00;border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px}
+.cta-radar-btn:hover{background:#e05e00;transform:translateY(-1px)}
 
 /* Verdict */
 .vrd-hero{border-radius:16px;padding:28px 32px;display:flex;align-items:center;justify-content:space-between;gap:28px;flex-wrap:wrap}
@@ -883,7 +939,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .rpt-section-hd:hover{background:#18181b}
 .rpt-sec-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#52525b}
 .rpt-sec-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:auto}
-.rpt-sec-badge.p1{background:rgba(249,115,22,.1);color:#f97316;border:1px solid rgba(249,115,22,.2)}
+.rpt-sec-badge.p1{background:rgba(249,115,22,.1);color:#FF6B00;border:1px solid rgba(249,115,22,.2)}
 .rpt-sec-badge.p2{background:rgba(99,102,241,.1);color:#818cf8;border:1px solid rgba(99,102,241,.2)}
 .rpt-chevron{color:#3f3f46;font-size:10px;transition:transform .2s;margin-left:8px}
 .rpt-chevron.open{transform:rotate(180deg)}
@@ -900,13 +956,13 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .rpt-highlight-val{font-size:15px;font-weight:600;color:#e4e4e7;line-height:1.5}
 .chips-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .rpt-chip{font-size:11px;padding:3px 10px;border-radius:20px;background:#18181b;border:1px solid #27272a;color:#71717a}
-.rpt-chip.orange{background:rgba(249,115,22,.08);border-color:rgba(249,115,22,.2);color:#f97316}
+.rpt-chip.orange{background:rgba(249,115,22,.08);border-color:rgba(249,115,22,.2);color:#FF6B00}
 .rpt-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
 .rpt-list-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#71717a;line-height:1.5}
 .rpt-list-item .ic{flex-shrink:0;margin-top:2px;font-size:10px}
 .rpt-list-item.weak .ic{color:#ef4444}
 .rpt-list-item.strong .ic{color:#22c55e}
-.rpt-list-item.info .ic{color:#f97316}
+.rpt-list-item.info .ic{color:#FF6B00}
 .rpt-struct-list{display:flex;flex-direction:column;gap:5px;margin-top:4px}
 .rpt-struct-item{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:#09090b;border:1px solid #1a1a1e;border-radius:8px;font-size:12px}
 .rpt-struct-pos{width:20px;height:20px;border-radius:5px;background:#18181b;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#52525b;flex-shrink:0}
@@ -925,10 +981,10 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .rpt-asset-video-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#18181b}
 .rpt-asset-info{padding:5px 7px;display:flex;align-items:center;gap:4px}
 .rpt-asset-tipo{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#52525b;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rpt-asset-tipo-mockup{color:#f97316}
+.rpt-asset-tipo-mockup{color:#FF6B00}
 .rpt-asset-tipo-video{color:#818cf8}
 .rpt-asset-tipo-foto{color:#22c55e}
-.rpt-asset-prio{font-size:9px;font-weight:700;color:#f97316;flex-shrink:0}
+.rpt-asset-prio{font-size:9px;font-weight:700;color:#FF6B00;flex-shrink:0}
 .rpt-shots-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-top:8px;scrollbar-width:thin;scrollbar-color:#27272a transparent}
 .rpt-shot{flex-shrink:0;width:220px;border-radius:8px;overflow:hidden;border:1px solid #1a1a1e}
 .rpt-shot img{width:100%;height:auto;display:block}

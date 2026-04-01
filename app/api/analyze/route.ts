@@ -978,7 +978,7 @@ export async function POST(req: NextRequest) {
     const freeUsage = await dbGetFreeUsage(ip, sessionId)
     if ((freeUsage?.analises_usadas ?? 0) >= 1) {
       return NextResponse.json({
-        error: 'Você usou sua análise gratuita. Acesse o ClickClone completo com 10 análises por apenas R$XX.',
+        error: 'Você usou sua análise gratuita. Acesse o RatoAds completo com 10 análises por apenas R$XX.',
         upgrade: true,
       }, { status: 402 })
     }

@@ -22,7 +22,7 @@ function Sidebar() {
       display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0,
     }}>
       <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid #1a1a1a' }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: '#E8692A', letterSpacing: 1 }}>CLICKCLONE</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: '#E8692A', letterSpacing: 1 }}>RATOADS</div>
         <div style={{ fontSize: 11, color: '#444', marginTop: 2 }}>Painel Admin</div>
       </div>
 

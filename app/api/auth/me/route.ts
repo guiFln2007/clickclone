@@ -3,7 +3,7 @@ import { jwtVerify } from 'jose'
 import { dbGetUserById } from '@/lib/db'
 
 const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'clickclone-secret-change-in-prod'
+  process.env.JWT_SECRET || 'ratoads-secret-change-in-prod'
 )
 
 export async function GET(req: NextRequest) {

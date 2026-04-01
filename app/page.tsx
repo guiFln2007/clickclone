@@ -42,7 +42,7 @@ const TERMINAL_LINES = [
 function Logo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const h = size === 'sm' ? 36 : size === 'lg' ? 56 : 44
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src="/logo.png" alt="clickclone_" style={{ display: 'block', height: h, width: 'auto' }} />
+  return <img src="/logo.png" alt="ratoads_" style={{ display: 'block', height: h, width: 'auto' }} />
 }
 
 function Terminal() {
@@ -64,10 +64,10 @@ function Terminal() {
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f57' }} />
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#febc2e' }} />
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#28c840' }} />
-        <span style={{ fontFamily: "'Courier New',monospace", fontSize: 11, color: '#444', marginLeft: 8 }}>/clickclone — análise</span>
+        <span style={{ fontFamily: "'Courier New',monospace", fontSize: 11, color: '#444', marginLeft: 8 }}>/ratoads — análise</span>
       </div>
       <div style={{ padding: '20px', height: 290, overflow: 'hidden', fontFamily: "'Courier New',monospace", fontSize: 13, lineHeight: 1.9 }}>
-        <div style={{ color: '#333', marginBottom: 8 }}>$ clickclone analyze --url=&quot;facebook.com/ads/library...&quot;</div>
+        <div style={{ color: '#333', marginBottom: 8 }}>$ ratoads analyze --url=&quot;facebook.com/ads/library...&quot;</div>
         {lines.map((l, i) => (
           <div key={i} style={{ color: l.color, animation: 'fadein .3s ease' }}>{l.text}</div>
         ))}
@@ -496,7 +496,7 @@ export default function LandingPage() {
         <div className="wrap">
           <div className="sec-hd sr">
             <div className="sec-label"><span>Quem usa</span></div>
-            <h2 className="title">Produtores que já<br /><span className="acc">analisam com ClickClone</span></h2>
+            <h2 className="title">Produtores que já<br /><span className="acc">analisam com RatoAds</span></h2>
           </div>
           <div className="car-outer sr">
             <div className="car-clip">
