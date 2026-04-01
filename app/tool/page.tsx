@@ -675,7 +675,7 @@ export default function ToolPage() {
                       <div key={o.id} className={`rc${removingId === o.id ? ' rc-removing' : ''}`}>
                         <div className="rc-hd">
                           <div className="rc-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
-                          <div className="rc-hd-info"><div className="rc-name">{o.pagina_nome}</div><div className="rc-url">{o.ad_library_url.replace(/^https?:\/\//, '').slice(0, 38)}...</div></div>
+                          <div className="rc-hd-info"><div className="rc-name">{o.pagina_nome}</div><a href={o.ad_library_url} target="_blank" rel="noopener noreferrer" className="rc-url" onClick={e => e.stopPropagation()}>{o.ad_library_url.replace(/^https?:\/\//, '').slice(0, 38)}...</a></div>
                         </div>
                         <button className="rc-del" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(o.id) }} title="Remover">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
@@ -1044,7 +1044,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .rc-del:hover{color:#EF4444;background:rgba(239,68,68,.1)}
 .rc-hd-info{flex:1;min-width:0}
 .rc-name{font-size:14px;font-weight:700;color:#e4e4e7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rc-url{font-size:10px;color:#4B5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-url{font-size:10px;color:#4B5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none;display:block;transition:color .12s}
+.rc-url:hover{color:#FF6B00}
 .rc-st{font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;letter-spacing:.03em}
 .rc-st-estavel{background:#1A2A1A;color:#10B981;border:1px solid rgba(16,185,129,.2)}
 .rc-st-esc{background:#2A1F0A;color:#F59E0B;border:1px solid rgba(245,158,11,.2)}
