@@ -7,20 +7,35 @@ async function fetchPageText(url: string): Promise<string> {
   try {
     const res = await fetch(url, {
       signal: AbortSignal.timeout(15000),
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Cache-Control': 'no-cache',
+      },
     })
-    if (!res.ok) return ''
+    if (!res.ok) {
+      console.warn(`[Phase2] Landing page HTTP ${res.status}: ${url}`)
+      return 'ERRO_AO_ACESSAR_PAGINA'
+    }
     const html = await res.text()
-    // Strip scripts/styles, keep text
     const cleaned = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-    return cleaned.slice(0, 8000)
-  } catch {
-    return ''
+      .slice(0, 15000)
+
+    if (cleaned.length < 100) {
+      console.warn(`[Phase2] Landing page quase vazia (${cleaned.length} chars): ${url}`)
+      return 'PAGINA_VAZIA_OU_BLOQUEADA'
+    }
+    console.log(`[Phase2] Landing page OK: ${cleaned.length} chars extraídos`)
+    return cleaned
+  } catch (err) {
+    console.error('[Phase2] Erro ao buscar landing page:', (err as Error).message)
+    return 'ERRO_AO_ACESSAR_PAGINA'
   }
 }
 
@@ -56,11 +71,17 @@ Analise o texto da página de destino e retorne APENAS o JSON abaixo, sem texto 
 }
 
 REGRAS:
-- pontos_fortes_pagina: mínimo 3 itens, máximo 6
+- pontos_fortes_pagina: mínimo 3 itens, máximo 6 — seja específico sobre o que funciona
 - pontos_fracos_pagina: rankeados por impacto (alto primeiro), com descrição acionável
 - o_que_melhorar_pagina: sugestões concretas e específicas, não genéricas
 - promessa_central: extraia a promessa EXATA que a página faz ao visitante
-- Se o texto da página estiver vazio ou incompleto, analise com base no relatório da Fase 1`
+
+TRATAMENTO DE PÁGINA INACESSÍVEL:
+Se o conteúdo da página for "PAGINA_VAZIA_OU_BLOQUEADA" ou "ERRO_AO_ACESSAR_PAGINA":
+- Informe no campo promessa_central: "Página não pôde ser acessada diretamente"
+- Analise APENAS o que é possível inferir pela URL e pelo contexto dos anúncios da Fase 1
+- Não invente dados da página — baseie-se exclusivamente nos textos dos anúncios
+- Ainda assim preencha todos os campos com o que for possível inferir`
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()

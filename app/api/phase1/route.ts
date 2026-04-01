@@ -207,20 +207,49 @@ CRITÉRIO 3 — Ausência de expert (0 a 3 pontos):
 score = volume_pts + tempo_pts + expert_pts (máximo 10)
 
 IMPORTANTE: Formatos de criativos NÃO afetam a nota.
+Use o campo "TEMPO RODANDO" fornecido no prompt para preencher dias_rodando e tempo_pts.
 
-━━━ SCRIPTS CTV ━━━
-Gere EXATAMENTE 3 scripts de CTV (Criativo de Tráfego para Vendas) prontos pra gravar.
-Cada script deve ser em português BR, específico pro nicho, baseado nos copy patterns encontrados.
-O hook deve ser impactante nos primeiros 3 segundos.
-O corpo desenvolve o argumento em 10 segundos.
-O CTA é direto e urgente.
+━━━ ANÁLISE PROFUNDA DOS CRIATIVOS ━━━
+
+Você recebe o texto completo de todos os anúncios ativos.
+Analise cada um individualmente antes de identificar padrões.
+
+PONTOS FORTES (pontos_fortes_criativos) — identifique especificamente:
+- Quais hooks estão sendo usados e por que funcionam emocionalmente
+- Quais gatilhos mentais aparecem (escassez, prova social, autoridade, curiosidade, medo, transformação)
+- Padrões de abertura que se repetem em múltiplos anúncios (sinal de teste validado)
+- Tom de voz que domina (confessional, educativo, urgente, aspiracional)
+- Estruturas narrativas identificadas (história pessoal, lista de benefícios, pergunta + resposta, antes/depois)
+
+PONTOS FRACOS (pontos_fracos_criativos) — identifique especificamente:
+- Objeções que os anúncios NÃO estão quebrando
+- Ângulos emocionais que existem no nicho mas não estão sendo explorados
+- Problemas de copy: CTAs fracos, promessas genéricas, ausência de especificidade
+- Formatos ausentes que poderiam ampliar alcance
+- Inconsistências entre o que o anúncio promete e o que provavelmente entrega
+
+O QUE MODELAR (o_que_modelar):
+- manter: liste exatamente quais elementos valem replicar — seja específico
+  Não diga "bom copy", diga "a abertura 'você já sentiu que...' ativa empatia imediata e deve ser mantida"
+- corrigir: liste o que está fraco e deve ser melhorado antes de replicar
+
+━━━ 3 SCRIPTS DE CTV ━━━
+Baseado nos padrões validados, escreva 3 scripts completos em português BR coloquial,
+prontos pra gravar sem edição. Cada script com:
+- formato: tipo sugerido (UGC direto câmera, storytelling, educativo, prova social, carrossel)
+- hook (0-3s): frase de abertura que PARA O SCROLL — emocional, específica, inesperada
+- corpo (3-15s): desenvolvimento do argumento com o gatilho principal do nicho
+- cta (últimos 3s): chamada pra ação direta, urgente e específica
+
+Os scripts devem soar como uma pessoa real falando, não como copy de agência.
+Use gírias do nicho quando relevante. Máximo 150 palavras por script.
 
 ━━━ ANÁLISE GERAL ━━━
-- angulo_dominante: descreva em 2-3 frases o ângulo principal
-- o_que_usa_pra_vender: liste os gatilhos, objeções quebradas, promessas recorrentes
+- angulo_dominante: descreva em 2-3 frases detalhadas o ângulo emocional principal
+- o_que_usa_pra_vender: liste os gatilhos específicos, objeções quebradas, promessas recorrentes
+  Exemplo: "usa medo de traição como gatilho principal, promete acesso a mensagens deletadas, quebra objeção de legalidade"
 - angulos_nao_explorados: 3-5 ângulos que o concorrente NÃO está usando e podem ser testados
-- o_que_modelar.manter: o que funciona e deve ser copiado
-- o_que_modelar.corrigir: o que está fraco e deve ser melhorado`
+  Seja criativo e específico — ângulos reais do nicho, não genéricos`
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()
