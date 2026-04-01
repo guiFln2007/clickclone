@@ -95,9 +95,13 @@ function ReportView({ phase1, phase2, screenshots, onBack, onSaveToRadar }: {
   onBack: () => void; onSaveToRadar: () => void
 }) {
   const nota = phase1.nota_entrada || {}
-  const facilidade = nota.facilidade ?? 0
-  const escalabilidade = nota.escalabilidade ?? 0
   const score = nota.score ?? 0
+  const volumePts = nota.volume_pts ?? 0
+  const tempoPts = nota.tempo_pts ?? 0
+  const expertPts = nota.expert_pts ?? 0
+  const volumeDesc = nota.volume_desc ?? ''
+  const tempoDesc = nota.tempo_desc ?? ''
+  const expertDesc = nota.expert_desc ?? ''
   const copyPatterns: string[] = phase1.copy_patterns || []
   const formatos: string[] = phase1.formatos_validados || []
   const pontosFragosCriativos: string[] = phase1.pontos_fracos_criativos || []
@@ -140,9 +144,22 @@ function ReportView({ phase1, phase2, screenshots, onBack, onSaveToRadar }: {
               <text x="50" y="54" textAnchor="middle" fill="currentColor" fontSize="24" fontWeight="900">{score}</text>
               <text x="50" y="66" textAnchor="middle" fill="currentColor" fontSize="11" opacity=".5">/10</text>
             </svg>
-            <div className="vrd-bars">
-              <div className="vrd-bar-row"><span className="vrd-bar-lbl">Facilidade</span><div className="vrd-bar-track"><div className="vrd-bar-fill" style={{ width: `${(facilidade / 5) * 100}%` }} /></div><span className="vrd-bar-num">{facilidade}<span style={{ opacity: .4 }}>/5</span></span></div>
-              <div className="vrd-bar-row"><span className="vrd-bar-lbl">Escalabilidade</span><div className="vrd-bar-track"><div className="vrd-bar-fill" style={{ width: `${(escalabilidade / 5) * 100}%` }} /></div><span className="vrd-bar-num">{escalabilidade}<span style={{ opacity: .4 }}>/5</span></span></div>
+            <div className="vrd-breakdown">
+              <div className="vrd-crit">
+                <div className="vrd-crit-row"><span className="vrd-crit-lbl">Volume de anuncios</span><span className="vrd-crit-pts">{volumePts}<span style={{ opacity: .4 }}>/4</span></span></div>
+                <div className="vrd-bar-track"><div className="vrd-bar-fill" style={{ width: `${(volumePts / 4) * 100}%` }} /></div>
+                {volumeDesc && <div className="vrd-crit-desc">{volumeDesc}</div>}
+              </div>
+              <div className="vrd-crit">
+                <div className="vrd-crit-row"><span className="vrd-crit-lbl">Tempo rodando</span><span className="vrd-crit-pts">{tempoPts}<span style={{ opacity: .4 }}>/3</span></span></div>
+                <div className="vrd-bar-track"><div className="vrd-bar-fill" style={{ width: `${(tempoPts / 3) * 100}%` }} /></div>
+                {tempoDesc && <div className="vrd-crit-desc">{tempoDesc}</div>}
+              </div>
+              <div className="vrd-crit">
+                <div className="vrd-crit-row"><span className="vrd-crit-lbl">Expert identificavel</span><span className="vrd-crit-pts">{expertPts}<span style={{ opacity: .4 }}>/3</span></span></div>
+                <div className="vrd-bar-track"><div className="vrd-bar-fill" style={{ width: `${(expertPts / 3) * 100}%` }} /></div>
+                {expertDesc && <div className="vrd-crit-desc">{expertDesc}</div>}
+              </div>
               {nota.justificativa && <div className="vrd-just">{nota.justificativa}</div>}
             </div>
           </div>
@@ -1101,6 +1118,12 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .vrd-label{font-size:28px;font-weight:900;letter-spacing:-.02em;margin-bottom:6px}
 .vrd-desc{font-size:13px;opacity:.6;color:#a1a1aa;font-weight:400}
 .vrd-right{display:flex;align-items:center;gap:24px;flex-shrink:0}
+.vrd-breakdown{display:flex;flex-direction:column;gap:10px;min-width:220px}
+.vrd-crit{display:flex;flex-direction:column;gap:3px}
+.vrd-crit-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.vrd-crit-lbl{font-size:11px;color:#6B7280}
+.vrd-crit-pts{font-size:12px;font-weight:700;flex-shrink:0}
+.vrd-crit-desc{font-size:10px;color:#52525b}
 .vrd-bars{display:flex;flex-direction:column;gap:10px;min-width:200px}
 .vrd-bar-row{display:flex;align-items:center;gap:10px}
 .vrd-bar-lbl{font-size:11px;color:#52525b;width:90px;flex-shrink:0}

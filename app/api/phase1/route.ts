@@ -118,10 +118,15 @@ RETORNE APENAS O JSON ABAIXO, sem texto antes ou depois:
 {
   "landing_url": "URL extraída dos anúncios",
   "total_ads_analyzed": 0,
+  "dias_rodando": 0,
   "nota_entrada": {
-    "score": 0.0,
-    "facilidade": 0,
-    "escalabilidade": 0,
+    "score": 0,
+    "volume_pts": 0,
+    "volume_desc": "X anúncios ativos",
+    "tempo_pts": 0,
+    "tempo_desc": "X dias rodando",
+    "expert_pts": 0,
+    "expert_desc": "Sem expert identificável / Expert com seguidores / Marca sem persona",
     "justificativa": "explicação em 1-2 frases"
   },
   "angulo_dominante": "descrição do ângulo principal",
@@ -131,10 +136,34 @@ RETORNE APENAS O JSON ABAIXO, sem texto antes ou depois:
   "sugestoes_criativos": ["sugestão 1", "sugestão 2", "sugestão 3"]
 }
 
-REGRAS DE PONTUAÇÃO:
-- facilidade (0-5): variedade de formatos disponíveis + ausência de persona forte/expert real difícil de replicar
-- escalabilidade (0-5): 15+ dias rodando = +2pts | 20+ anúncios ativos = +2pts | formatos diversificados = +1pt
-- score = (facilidade + escalabilidade) / 2 arredondado para .5 mais próximo
+━━━ CÁLCULO DA NOTA DE ENTRADA (0-10) ━━━
+A nota é a SOMA EXATA de 3 critérios. Siga rigorosamente:
+
+CRITÉRIO 1 — Volume de anúncios ativos (0 a 4 pontos):
+- 0-9 anúncios → 0 pts
+- 10-19 anúncios → 2 pts
+- 20-49 anúncios → 3 pts
+- 50+ anúncios → 4 pts
+
+CRITÉRIO 2 — Tempo rodando (0 a 3 pontos):
+Use a data mais antiga de "ad_delivery_start_time" dos anúncios para calcular dias.
+- Menos de 10 dias → 0 pts
+- 10-20 dias → 1 pt
+- 21-40 dias → 2 pts
+- 41+ dias → 3 pts
+
+CRITÉRIO 3 — Ausência de expert (0 a 3 pontos):
+- Expert real identificável (pessoa física com nome, rosto recorrente, perfil com seguidores) → 0 pts
+- Marca/personagem sem persona forte → 2 pts
+- Sem expert nenhum, marca genérica ou produto direto → 3 pts
+
+score = volume_pts + tempo_pts + expert_pts (máximo 10)
+
+IMPORTANTE: Formatos de criativos (vídeo, foto, carrossel) NÃO afetam a nota. Ignore formato no cálculo.
+
+Preencha volume_pts, tempo_pts, expert_pts com os valores exatos calculados.
+Preencha volume_desc, tempo_desc, expert_desc com descrição curta do critério.
+Preencha dias_rodando com o número de dias desde o anúncio mais antigo.
 
 COPY PATTERNS: frases-gatilho reais extraídas dos anúncios (não genéricas)
 FORMATOS: "vídeo UGC feminino 15s", "carrossel com resultado", "estático com headline de dor"
