@@ -117,6 +117,8 @@ RETORNE APENAS O JSON ABAIXO, sem texto antes ou depois:
 
 {
   "landing_url": "URL extraída dos anúncios",
+  "pagina_nome": "nome da página anunciante",
+  "nicho_identificado": "nicho do produto",
   "total_ads_analyzed": 0,
   "dias_rodando": 0,
   "nota_entrada": {
@@ -126,14 +128,41 @@ RETORNE APENAS O JSON ABAIXO, sem texto antes ou depois:
     "tempo_pts": 0,
     "tempo_desc": "X dias rodando",
     "expert_pts": 0,
-    "expert_desc": "Sem expert identificável / Expert com seguidores / Marca sem persona",
-    "justificativa": "explicação em 1-2 frases"
+    "expert_desc": "descrição curta",
+    "justificativa": "explicação em 2-3 frases"
   },
-  "angulo_dominante": "descrição do ângulo principal",
-  "copy_patterns": ["padrão 1", "padrão 2", "padrão 3"],
-  "formatos_validados": ["formato 1", "formato 2"],
+  "angulo_dominante": "descrição detalhada do ângulo principal usado nos criativos",
+  "o_que_usa_pra_vender": ["gatilho/promessa 1", "gatilho/promessa 2", "gatilho/promessa 3"],
+  "angulos_nao_explorados": ["ângulo sugerido 1", "ângulo sugerido 2", "ângulo sugerido 3"],
+  "pontos_fortes_criativos": ["ponto forte 1", "ponto forte 2"],
   "pontos_fracos_criativos": ["fraqueza 1", "fraqueza 2"],
-  "sugestoes_criativos": ["sugestão 1", "sugestão 2", "sugestão 3"]
+  "o_que_modelar": {
+    "manter": ["o que copiar da estratégia", "o que funciona"],
+    "corrigir": ["o que melhorar antes de replicar"]
+  },
+  "scripts_ctv": [
+    {
+      "numero": 1,
+      "formato": "UGC Feminino 15s",
+      "hook": "texto do hook 0-3s pronto pra gravar",
+      "corpo": "texto do corpo 3-12s pronto pra gravar",
+      "cta": "texto do CTA 12-15s pronto pra gravar"
+    },
+    {
+      "numero": 2,
+      "formato": "Estático com headline de dor",
+      "hook": "texto do hook",
+      "corpo": "texto do corpo",
+      "cta": "texto do CTA"
+    },
+    {
+      "numero": 3,
+      "formato": "Vídeo carrossel 30s",
+      "hook": "texto do hook",
+      "corpo": "texto do corpo",
+      "cta": "texto do CTA"
+    }
+  ]
 }
 
 ━━━ CÁLCULO DA NOTA DE ENTRADA (0-10) ━━━
@@ -159,15 +188,21 @@ CRITÉRIO 3 — Ausência de expert (0 a 3 pontos):
 
 score = volume_pts + tempo_pts + expert_pts (máximo 10)
 
-IMPORTANTE: Formatos de criativos (vídeo, foto, carrossel) NÃO afetam a nota. Ignore formato no cálculo.
+IMPORTANTE: Formatos de criativos NÃO afetam a nota.
 
-Preencha volume_pts, tempo_pts, expert_pts com os valores exatos calculados.
-Preencha volume_desc, tempo_desc, expert_desc com descrição curta do critério.
-Preencha dias_rodando com o número de dias desde o anúncio mais antigo.
+━━━ SCRIPTS CTV ━━━
+Gere EXATAMENTE 3 scripts de CTV (Criativo de Tráfego para Vendas) prontos pra gravar.
+Cada script deve ser em português BR, específico pro nicho, baseado nos copy patterns encontrados.
+O hook deve ser impactante nos primeiros 3 segundos.
+O corpo desenvolve o argumento em 10 segundos.
+O CTA é direto e urgente.
 
-COPY PATTERNS: frases-gatilho reais extraídas dos anúncios (não genéricas)
-FORMATOS: "vídeo UGC feminino 15s", "carrossel com resultado", "estático com headline de dor"
-SUGESTÕES: hooks específicos e acionáveis para o nicho identificado`
+━━━ ANÁLISE GERAL ━━━
+- angulo_dominante: descreva em 2-3 frases o ângulo principal
+- o_que_usa_pra_vender: liste os gatilhos, objeções quebradas, promessas recorrentes
+- angulos_nao_explorados: 3-5 ângulos que o concorrente NÃO está usando e podem ser testados
+- o_que_modelar.manter: o que funciona e deve ser copiado
+- o_que_modelar.corrigir: o que está fraco e deve ser melhorado`
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()

@@ -97,34 +97,41 @@ function ReportSection({ label, badge, badgeCls, children }: { label: string; ba
 
 /* ─────────── REPORT VIEW ─────────── */
 
-function ReportView({ phase1, phase2, screenshots, onBack, onSaveToRadar }: {
+function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  phase1: Record<string, any>; phase2: Record<string, any>; screenshots: string[]
-  onBack: () => void; onSaveToRadar: () => void
+  phase1: Record<string, any>; phase2: Record<string, any>
+  onBack: () => void; onSaveToRadar: () => void; saving?: boolean
 }) {
   const nota = phase1.nota_entrada || {}
   const score = nota.score ?? 0
   const volumePts = nota.volume_pts ?? 0
   const tempoPts = nota.tempo_pts ?? 0
   const expertPts = nota.expert_pts ?? 0
-  const volumeDesc = nota.volume_desc ?? ''
-  const tempoDesc = nota.tempo_desc ?? ''
-  const expertDesc = nota.expert_desc ?? ''
-  const copyPatterns: string[] = phase1.copy_patterns || []
-  const formatos: string[] = phase1.formatos_validados || []
-  const pontosFragosCriativos: string[] = phase1.pontos_fracos_criativos || []
-  const analise = phase2.analise_de_copy || {}
-  const design = phase2.analise_de_design || {}
+  const volumeDesc = (nota.volume_desc as string) ?? ''
+  const tempoDesc = (nota.tempo_desc as string) ?? ''
+  const expertDesc = (nota.expert_desc as string) ?? ''
+
+  // Phase 1 data
+  const pontosFortes: string[] = phase1.pontos_fortes_criativos || []
+  const pontosFracos: string[] = phase1.pontos_fracos_criativos || []
+  const modelar = phase1.o_que_modelar || { manter: [], corrigir: [] }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const estrutura: Record<string, any>[] = phase2.estrutura || []
+  const scripts: { numero: number; formato: string; hook: string; corpo: string; cta: string }[] = phase1.scripts_ctv || []
+  const anguloD: string = phase1.angulo_dominante || ''
+  const usaPraVender: string[] = phase1.o_que_usa_pra_vender || []
+  const angulosNaoExplorados: string[] = phase1.angulos_nao_explorados || []
+
+  // Phase 2 data
+  const promessaCentral: string = phase2.promessa_central || phase2.analise_de_copy?.promessa_central || ''
+  const fortesPage: string[] = phase2.pontos_fortes_pagina || phase2.elementos_que_funcionam || []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pontosFracos: Record<string, any>[] = phase2.pontos_fracos || []
-  const elementosFuncionam: string[] = phase2.elementos_que_funcionam || []
-  const paleta: string[] = design.paleta_dominante || []
+  const fracosPage: { problema: string; impacto: string }[] = phase2.pontos_fracos_pagina || phase2.pontos_fracos || []
+  const melhorarPage: string[] = phase2.o_que_melhorar_pagina || []
   const r = 40, circ = 2 * Math.PI * r, dash = (score / 10) * circ
-  const verdict = score >= 7 ? { label: 'Vale Entrar', icon: '\u2713', cls: 'vrd-green', desc: 'Mercado validado com bom potencial' }
-    : score >= 5 ? { label: 'Com Cuidado', icon: '\u26A0', cls: 'vrd-yellow', desc: 'Mercado funciona mas tem barreiras' }
-    : { label: 'Evitar', icon: '\u2715', cls: 'vrd-red', desc: 'Risco elevado - mercado dificil' }
+  const verdict = score >= 9 ? { label: 'Oportunidade Excelente', cls: 'vrd-green' }
+    : score >= 7 ? { label: 'Vale Entrar', cls: 'vrd-green' }
+    : score >= 5 ? { label: 'Entrada com Cautela', cls: 'vrd-yellow' }
+    : { label: 'Evitar', cls: 'vrd-red' }
 
   return (
     <div className="report-wrap">
@@ -133,101 +140,83 @@ function ReportView({ phase1, phase2, screenshots, onBack, onSaveToRadar }: {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
           Voltar
         </button>
-        <span className="report-subtitle">{phase2.url_analisada || ''}</span>
+        <span className="report-subtitle">{phase1.pagina_nome || phase2.url_analisada || ''}</span>
       </div>
       <div className="report-body">
-        {/* VEREDICTO */}
-        <div className={`vrd-hero ${verdict.cls}`}>
-          <div className="vrd-left">
-            <div className="vrd-icon">{verdict.icon}</div>
-            <div>
-              <div className="vrd-label">{verdict.label}</div>
-              <div className="vrd-desc">{verdict.desc}</div>
-            </div>
-          </div>
-          <div className="vrd-right">
-            <svg width="100" height="100" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="6" />
-              <circle cx="50" cy="50" r={r} fill="none" stroke="currentColor" strokeWidth="6" strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" transform="rotate(-90 50 50)" style={{ transition: 'stroke-dasharray 1.2s cubic-bezier(.16,1,.3,1)' }} />
-              <text x="50" y="54" textAnchor="middle" fill="currentColor" fontSize="24" fontWeight="900">{score}</text>
-              <text x="50" y="66" textAnchor="middle" fill="currentColor" fontSize="11" opacity=".5">/10</text>
+
+        {/* ══ BLOCO 1 — NOTA DA OFERTA ══ */}
+        <div className={`nota-card ${verdict.cls}`}>
+          <div className="nota-badge">{verdict.label}</div>
+          <div className="nota-score-row">
+            <svg width="110" height="110" viewBox="0 0 110 110">
+              <circle cx="55" cy="55" r={r} fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="6" />
+              <circle cx="55" cy="55" r={r} fill="none" stroke="currentColor" strokeWidth="6" strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" transform="rotate(-90 55 55)" style={{ transition: 'stroke-dasharray 1.2s cubic-bezier(.16,1,.3,1)' }} />
+              <text x="55" y="60" textAnchor="middle" fill="currentColor" fontSize="28" fontWeight="900">{score}</text>
+              <text x="55" y="74" textAnchor="middle" fill="currentColor" fontSize="12" opacity=".5">/10</text>
             </svg>
-            <div className="vrd-breakdown">
-              <div className="vrd-crit">
-                <div className="vrd-crit-row"><span className="vrd-crit-lbl">Volume de anuncios</span><span className="vrd-crit-pts">{volumePts}<span style={{ opacity: .4 }}>/4</span></span></div>
-                <div className="vrd-bar-track"><div className="vrd-bar-fill" style={{ width: `${(volumePts / 4) * 100}%` }} /></div>
-                {volumeDesc && <div className="vrd-crit-desc">{volumeDesc}</div>}
-              </div>
-              <div className="vrd-crit">
-                <div className="vrd-crit-row"><span className="vrd-crit-lbl">Tempo rodando</span><span className="vrd-crit-pts">{tempoPts}<span style={{ opacity: .4 }}>/3</span></span></div>
-                <div className="vrd-bar-track"><div className="vrd-bar-fill" style={{ width: `${(tempoPts / 3) * 100}%` }} /></div>
-                {tempoDesc && <div className="vrd-crit-desc">{tempoDesc}</div>}
-              </div>
-              <div className="vrd-crit">
-                <div className="vrd-crit-row"><span className="vrd-crit-lbl">Expert identificavel</span><span className="vrd-crit-pts">{expertPts}<span style={{ opacity: .4 }}>/3</span></span></div>
-                <div className="vrd-bar-track"><div className="vrd-bar-fill" style={{ width: `${(expertPts / 3) * 100}%` }} /></div>
-                {expertDesc && <div className="vrd-crit-desc">{expertDesc}</div>}
-              </div>
-              {nota.justificativa && <div className="vrd-just">{nota.justificativa}</div>}
+            <div className="nota-breakdown">
+              <div className="nota-crit"><div className="nota-crit-top"><span>Volume de an{'\u00FA'}ncios</span><span className="nota-crit-pts">{volumePts}/4</span></div><div className="nota-bar"><div className="nota-bar-fill" style={{ width: `${(volumePts / 4) * 100}%` }} /></div><div className="nota-crit-desc">{volumeDesc}</div></div>
+              <div className="nota-crit"><div className="nota-crit-top"><span>Tempo rodando</span><span className="nota-crit-pts">{tempoPts}/3</span></div><div className="nota-bar"><div className="nota-bar-fill" style={{ width: `${(tempoPts / 3) * 100}%` }} /></div><div className="nota-crit-desc">{tempoDesc}</div></div>
+              <div className="nota-crit"><div className="nota-crit-top"><span>Expert identific{'\u00E1'}vel</span><span className="nota-crit-pts">{expertPts}/3</span></div><div className="nota-bar"><div className="nota-bar-fill" style={{ width: `${(expertPts / 3) * 100}%` }} /></div><div className="nota-crit-desc">{expertDesc}</div></div>
             </div>
           </div>
+          {nota.justificativa && <div className="nota-just">{nota.justificativa as string}</div>}
         </div>
 
-        {/* FASE 1 */}
-        <ReportSection label="Anuncios" badge="Meta Ad Library" badgeCls="p1">
-          {phase1.angulo_dominante && <div className="rpt-highlight-card"><div className="rpt-card-lbl">Angulo dominante</div><div className="rpt-highlight-val">{phase1.angulo_dominante}</div></div>}
-          <div className="rpt-grid" style={{ marginTop: 12 }}>
-            {formatos.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">Formatos validados</div><div className="chips-row">{formatos.map((f, i) => <span key={i} className="rpt-chip orange">{f}</span>)}</div></div>}
-            {copyPatterns.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">Copy patterns</div><div className="chips-row">{copyPatterns.map((p, i) => <span key={i} className="rpt-chip">{p}</span>)}</div></div>}
-            {pontosFragosCriativos.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">Fraquezas criativas</div><div className="rpt-list" style={{ marginTop: 0 }}>{pontosFragosCriativos.map((w, i) => <div key={i} className="rpt-list-item weak"><span className="ic">&times;</span><span>{w}</span></div>)}</div></div>}
-            {(phase1.sugestoes_criativos || []).length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">Sugestoes de criativos</div><div className="rpt-list" style={{ marginTop: 0 }}>{(phase1.sugestoes_criativos as string[]).map((s, i) => <div key={i} className="rpt-list-item info"><span className="ic">&rarr;</span><span>{s}</span></div>)}</div></div>}
-          </div>
-        </ReportSection>
+        {/* ══ BLOCO 2 — AN{'\u00C1'}LISE DOS CRIATIVOS ══ */}
+        <div className="rpt-divider" />
+        <div className="rpt-sec-title">AN{'\u00C1'}LISE DOS CRIATIVOS <span className="rpt-sec-count">{phase1.total_ads_analyzed || '?'} an{'\u00FA'}ncios analisados</span></div>
 
-        {/* FASE 2 */}
-        <ReportSection label="Pagina de destino" badge={phase2.tipo_de_funil || 'pagina'} badgeCls="p2">
-          {analise.promessa_central && <div className="rpt-highlight-card" style={{ marginBottom: 12 }}><div className="rpt-card-lbl">Promessa central</div><div className="rpt-highlight-val">{analise.promessa_central}</div></div>}
-          <div className="rpt-grid" style={{ marginBottom: 14 }}>
-            {analise.mecanismo_de_dor && <div className="rpt-card"><div className="rpt-card-lbl">Mecanismo de dor</div><div className="rpt-card-val">{analise.mecanismo_de_dor}</div></div>}
-            {analise.gap_anuncio_pagina && <div className="rpt-card"><div className="rpt-card-lbl">Gap anuncio &rarr; pagina</div><div className="rpt-card-val">{analise.gap_anuncio_pagina}</div></div>}
-            <div className="rpt-card"><div className="rpt-card-lbl">Linguagem / Tom</div><div className="chips-row" style={{ marginTop: 4 }}>{analise.linguagem && <span className="rpt-chip">{analise.linguagem}</span>}{design.tom_visual && <span className="rpt-chip orange">{design.tom_visual}</span>}</div></div>
-            {paleta.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">Paleta</div><div className="rpt-palette" style={{ marginTop: 6 }}>{paleta.map((c, i) => <div key={i} className="rpt-swatch" style={{ background: c }} title={c} />)}</div></div>}
-          </div>
-          {(analise.palavras_gatilho || []).length > 0 && <div style={{ marginBottom: 14 }}><div className="rpt-card-lbl" style={{ marginBottom: 6 }}>Palavras-gatilho</div><div className="chips-row">{(analise.palavras_gatilho as string[]).map((w, i) => <span key={i} className="rpt-chip orange">{w}</span>)}</div></div>}
-          {estrutura.length > 0 && <div><div className="rpt-card-lbl" style={{ marginBottom: 8 }}>Estrutura - {estrutura.length} secoes</div><div className="rpt-struct-list">{estrutura.map((sec, i) => <div key={i} className="rpt-struct-item"><div className="rpt-struct-pos">{sec.posicao as number}</div><div style={{ flex: 1, minWidth: 0 }}><div className="rpt-struct-name">{sec.nome as string}</div>{sec.copy_principal && <div className="rpt-struct-copy">&ldquo;{sec.copy_principal as string}&rdquo;</div>}</div><span className={`rpt-struct-qual ${(sec.qualidade as string) || ''}`}>{sec.qualidade as string}</span></div>)}</div></div>}
-        </ReportSection>
+        {pontosFortes.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">PONTOS FORTES</div><div className="rpt-list">{pontosFortes.map((p, i) => <div key={i} className="rpt-list-item strong"><span className="ic">{'\u2713'}</span><span>{p}</span></div>)}</div></div>}
+        {pontosFracos.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">PONTOS FRACOS</div><div className="rpt-list">{pontosFracos.map((p, i) => <div key={i} className="rpt-list-item weak"><span className="ic">{'\u2715'}</span><span>{p}</span></div>)}</div></div>}
 
-        {/* PONTOS FORTES / FRACOS */}
-        {(pontosFracos.length > 0 || elementosFuncionam.length > 0) && (
-          <div className="rpt-two-col">
-            {elementosFuncionam.length > 0 && <div className="rpt-section rpt-col-card"><div className="rpt-section-hd" style={{ cursor: 'default' }}><span className="rpt-sec-label">O que funciona</span><span className="rpt-sec-badge" style={{ background: 'rgba(34,197,94,.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,.2)' }}>{elementosFuncionam.length}</span></div><div className="rpt-section-body"><div className="rpt-list" style={{ marginTop: 0 }}>{elementosFuncionam.map((e, i) => <div key={i} className="rpt-list-item strong"><span className="ic">&check;</span><span>{e}</span></div>)}</div></div></div>}
-            {pontosFracos.length > 0 && <div className="rpt-section rpt-col-card"><div className="rpt-section-hd" style={{ cursor: 'default' }}><span className="rpt-sec-label">Pontos fracos</span><span className="rpt-sec-badge" style={{ background: 'rgba(239,68,68,.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,.2)' }}>{pontosFracos.length}</span></div><div className="rpt-section-body"><div className="rpt-pontos-fracos">{pontosFracos.map((pf, i) => <div key={i} className="rpt-pf-item"><div className="rpt-pf-header"><div className="rpt-pf-rank">#{(pf.rank as number) || i + 1}</div><div className="rpt-pf-prob">{pf.problema as string}</div><span className={`rpt-pf-impact ${(pf.impacto as string || '').toLowerCase()}`}>{pf.impacto as string}</span></div>{pf.como_corrigir && <div className="rpt-pf-fix">{pf.como_corrigir as string}</div>}</div>)}</div></div></div>}
+        {(modelar.manter?.length > 0 || modelar.corrigir?.length > 0) && (
+          <div className="rpt-card rpt-card-orange">
+            <div className="rpt-card-lbl">O QUE MODELAR</div>
+            {(modelar.manter as string[])?.length > 0 && <><div className="rpt-sub-lbl">Manter:</div><div className="rpt-list">{(modelar.manter as string[]).map((m, i) => <div key={i} className="rpt-list-item info"><span className="ic">{'\u2713'}</span><span>{m}</span></div>)}</div></>}
+            {(modelar.corrigir as string[])?.length > 0 && <><div className="rpt-sub-lbl" style={{ marginTop: 12 }}>Corrigir:</div><div className="rpt-list">{(modelar.corrigir as string[]).map((c, i) => <div key={i} className="rpt-list-item weak"><span className="ic">{'\u2715'}</span><span>{c}</span></div>)}</div></>}
           </div>
         )}
 
-        {/* ASSETS */}
-        {((phase2.assets_classificados as Record<string, unknown>[] | undefined) || []).filter(a => a.url && typeof a.url === 'string' && (a.url as string).startsWith('http')).length > 0 && (
-          <ReportSection label="Assets do Funil" badge={`${((phase2.assets_classificados as Record<string, unknown>[]) || []).filter(a => (a.url as string || '').startsWith('http')).length}`} badgeCls="p2">
-            <div className="rpt-assets-scroll">
-              {((phase2.assets_classificados as Record<string, unknown>[]) || []).filter(a => (a.url as string || '').startsWith('http')).map((a, i) => (
-                <div key={i} className="rpt-asset-card">
-                  <div className="rpt-asset-img-wrap">{(a.tipo as string || '').startsWith('video') ? <div className="rpt-asset-video-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><polygon points="5 3 19 12 5 21"/></svg></div> : <img src={a.url as string} alt="" onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />}</div>
-                  <div className="rpt-asset-info"><span className={`rpt-asset-tipo rpt-asset-tipo-${(a.tipo as string || '').split('_')[0]}`}>{(a.tipo as string || '').replace(/_/g, ' ')}</span>{(a.prioridade as string) === 'alta' && <span className="rpt-asset-prio">{'\u2605'}</span>}</div>
+        {scripts.length > 0 && (
+          <div>
+            <div className="rpt-card-lbl" style={{ marginBottom: 12 }}>3 SCRIPTS DE CTV PRONTOS</div>
+            <div className="scripts-grid">
+              {scripts.map((s, i) => (
+                <div key={i} className="script-card">
+                  <div className="script-hd">CTV #{s.numero || i + 1} &mdash; {s.formato}</div>
+                  <div className="script-section"><div className="script-label">HOOK (0-3s):</div><div className="script-text">&ldquo;{s.hook}&rdquo;</div></div>
+                  <div className="script-section"><div className="script-label">CORPO (3-12s):</div><div className="script-text">&ldquo;{s.corpo}&rdquo;</div></div>
+                  <div className="script-section"><div className="script-label">CTA (12-15s):</div><div className="script-text">&ldquo;{s.cta}&rdquo;</div></div>
                 </div>
               ))}
             </div>
-          </ReportSection>
+          </div>
         )}
 
-        {/* SCREENSHOTS */}
-        {screenshots.length > 0 && <ReportSection label={`Screenshots - ${screenshots.length}`}><div className="rpt-shots-grid">{screenshots.map((s, i) => <div key={i} className="rpt-shot"><img src={`data:image/jpeg;base64,${s}`} alt="" /><div className="rpt-shot-lbl">{i === screenshots.length - 1 ? 'Mobile' : `Se\u00e7\u00e3o ${i + 1}`}</div></div>)}</div></ReportSection>}
+        {/* ══ BLOCO 3 — P{'\u00C1'}GINA DE DESTINO ══ */}
+        <div className="rpt-divider" />
+        <div className="rpt-sec-title">AN{'\u00C1'}LISE DA P{'\u00C1'}GINA DE DESTINO <span className="rpt-sec-count">{phase2.tipo_de_funil || ''}</span></div>
+
+        {promessaCentral && <div className="rpt-card rpt-card-orange"><div className="rpt-card-lbl">PROMESSA CENTRAL</div><div className="rpt-highlight-val">{promessaCentral}</div></div>}
+        {fortesPage.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">PONTOS FORTES DA P{'\u00C1'}GINA</div><div className="rpt-list">{fortesPage.map((p, i) => <div key={i} className="rpt-list-item strong"><span className="ic">{'\u2713'}</span><span>{typeof p === 'string' ? p : ''}</span></div>)}</div></div>}
+        {fracosPage.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">PONTOS FRACOS DA P{'\u00C1'}GINA</div><div className="rpt-pontos-fracos">{fracosPage.map((pf, i) => <div key={i} className="rpt-pf-item"><div className="rpt-pf-header"><div className="rpt-pf-rank">#{i + 1}</div><div className="rpt-pf-prob">{typeof pf === 'string' ? pf : pf.problema}</div>{typeof pf !== 'string' && pf.impacto && <span className={`rpt-pf-impact ${pf.impacto.toLowerCase()}`}>{pf.impacto}</span>}</div></div>)}</div></div>}
+        {melhorarPage.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">O QUE MELHORAR</div><div className="rpt-list">{melhorarPage.map((m, i) => <div key={i} className="rpt-list-item info"><span className="ic">{'\u2192'}</span><span>{m}</span></div>)}</div></div>}
+
+        {/* ══ BLOCO 4 — AN{'\u00C1'}LISE GERAL ══ */}
+        <div className="rpt-divider" />
+        <div className="rpt-sec-title">AN{'\u00C1'}LISE GERAL DA OFERTA</div>
+
+        {anguloD && <div className="rpt-card rpt-card-orange"><div className="rpt-card-lbl">{'\u00C2'}NGULO DOMINANTE</div><div className="rpt-card-val">{anguloD}</div></div>}
+        {usaPraVender.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">O QUE O CONCORRENTE USA PRA VENDER</div><div className="rpt-list">{usaPraVender.map((u, i) => <div key={i} className="rpt-list-item"><span className="ic" style={{ color: '#FF6B00' }}>{'\u2022'}</span><span>{u}</span></div>)}</div></div>}
+        {angulosNaoExplorados.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">{'\u00C2'}NGULOS N{'\u00C3'}O EXPLORADOS</div><div className="rpt-list">{angulosNaoExplorados.map((a, i) => <div key={i} className="rpt-list-item info"><span className="ic">{'\u2192'}</span><span>{a}</span></div>)}</div></div>}
       </div>
 
-      {/* CTA — sticky bottom */}
+      {/* CTA STICKY */}
       <div className="report-cta-sticky">
-        <button className="cta-radar-btn" onClick={onSaveToRadar}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-          Salvar no Radar
+        <button className="cta-radar-btn" onClick={onSaveToRadar} disabled={saving}>
+          {saving ? <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Salvando...</>
+          : <><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg> Salvar no Radar</>}
         </button>
       </div>
     </div>
@@ -511,7 +500,7 @@ export default function ToolPage() {
     return (
       <>
         <style>{CSS}</style>
-        <ReportView phase1={phase1Report} phase2={phase2Report} screenshots={phase2Screenshots} onBack={() => setShowReport(false)} onSaveToRadar={saveToRadar} />
+        <ReportView phase1={phase1Report} phase2={phase2Report} onBack={() => setShowReport(false)} onSaveToRadar={saveToRadar} />
       </>
     )
   }
@@ -1204,30 +1193,41 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .cta-radar-btn{padding:16px 48px;background:#FF6B00;border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;width:100%;max-width:400px;justify-content:center}
 .cta-radar-btn:hover{background:#e05e00;transform:translateY(-1px)}
 
-/* Verdict */
-.vrd-hero{border-radius:16px;padding:28px 32px;display:flex;align-items:center;justify-content:space-between;gap:28px;flex-wrap:wrap}
-.vrd-green{background:linear-gradient(135deg,rgba(34,197,94,.06),rgba(22,163,74,.03));border:1px solid rgba(34,197,94,.15);color:#22c55e}
-.vrd-yellow{background:linear-gradient(135deg,rgba(234,179,8,.06),rgba(202,138,4,.03));border:1px solid rgba(234,179,8,.15);color:#eab308}
-.vrd-red{background:linear-gradient(135deg,rgba(239,68,68,.06),rgba(185,28,28,.03));border:1px solid rgba(239,68,68,.15);color:#ef4444}
-.vrd-left{display:flex;align-items:center;gap:20px;flex:1;min-width:0}
-.vrd-icon{font-size:36px;line-height:1;flex-shrink:0;filter:drop-shadow(0 0 12px currentColor)}
-.vrd-label{font-size:28px;font-weight:900;letter-spacing:-.02em;margin-bottom:6px}
-.vrd-desc{font-size:13px;opacity:.6;color:#a1a1aa;font-weight:400}
-.vrd-right{display:flex;align-items:center;gap:24px;flex-shrink:0}
-.vrd-breakdown{display:flex;flex-direction:column;gap:10px;min-width:220px}
-.vrd-crit{display:flex;flex-direction:column;gap:3px}
-.vrd-crit-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.vrd-crit-lbl{font-size:11px;color:#6B7280}
-.vrd-crit-pts{font-size:12px;font-weight:700;flex-shrink:0}
-.vrd-crit-desc{font-size:10px;color:#52525b}
-.vrd-bars{display:flex;flex-direction:column;gap:10px;min-width:200px}
-.vrd-bar-row{display:flex;align-items:center;gap:10px}
-.vrd-bar-lbl{font-size:11px;color:#52525b;width:90px;flex-shrink:0}
-.vrd-bar-track{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
-.vrd-bar-fill{height:100%;border-radius:4px;background:currentColor;transition:width .8s cubic-bezier(.16,1,.3,1);opacity:.8}
-.vrd-bar-num{font-size:12px;font-weight:700;width:28px;text-align:right;flex-shrink:0}
-.vrd-just{font-size:11px;color:#52525b;line-height:1.55;margin-top:6px;white-space:normal;word-wrap:break-word}
-@media(max-width:640px){.vrd-hero{padding:20px;gap:20px}.vrd-right{flex-direction:column;gap:16px}.vrd-bars{min-width:160px}.vrd-label{font-size:22px}}
+/* Nota card */
+.nota-card{border-radius:16px;padding:28px 32px;border:1px solid rgba(255,255,255,.06)}
+.nota-card.vrd-green{background:linear-gradient(135deg,rgba(34,197,94,.06),rgba(22,163,74,.02));border-color:rgba(34,197,94,.15);color:#22c55e}
+.nota-card.vrd-yellow{background:linear-gradient(135deg,rgba(234,179,8,.06),rgba(202,138,4,.02));border-color:rgba(234,179,8,.15);color:#eab308}
+.nota-card.vrd-red{background:linear-gradient(135deg,rgba(239,68,68,.06),rgba(185,28,28,.02));border-color:rgba(239,68,68,.15);color:#ef4444}
+.nota-badge{display:inline-block;font-size:14px;font-weight:800;padding:6px 18px;border-radius:24px;border:1px solid currentColor;opacity:.9;margin-bottom:20px}
+.nota-score-row{display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+.nota-breakdown{flex:1;display:flex;flex-direction:column;gap:12px;min-width:260px}
+.nota-crit{display:flex;flex-direction:column;gap:4px}
+.nota-crit-top{display:flex;justify-content:space-between;font-size:12px;color:#a1a1aa}
+.nota-crit-pts{font-weight:700;color:currentColor}
+.nota-bar{height:6px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.nota-bar-fill{height:100%;border-radius:4px;background:currentColor;transition:width .8s cubic-bezier(.16,1,.3,1);opacity:.7}
+.nota-crit-desc{font-size:11px;color:#52525b}
+.nota-just{font-size:12px;color:#71717a;line-height:1.6;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06);white-space:normal;word-wrap:break-word}
+@media(max-width:640px){.nota-card{padding:20px}.nota-score-row{gap:16px}}
+
+/* Report section dividers & titles */
+.rpt-divider{height:1px;background:#1F2937;margin:8px 0}
+.rpt-sec-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#6B7280;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.rpt-sec-count{font-size:10px;font-weight:500;color:#4B5563;text-transform:none;letter-spacing:0}
+.rpt-sub-lbl{font-size:11px;font-weight:700;color:#a1a1aa;margin-bottom:6px}
+
+/* Script cards */
+.scripts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:768px){.scripts-grid{grid-template-columns:1fr}}
+.script-card{background:#111;border:1px solid #1F2937;border-radius:12px;overflow:hidden}
+.script-hd{padding:12px 16px;background:#18181b;border-bottom:1px solid #1F2937;font-size:13px;font-weight:700;color:#e4e4e7}
+.script-section{padding:10px 16px}
+.script-section+.script-section{border-top:1px solid #111}
+.script-label{font-size:10px;font-weight:700;letter-spacing:.5px;color:#6B7280;margin-bottom:4px}
+.script-text{font-size:13px;color:#a1a1aa;line-height:1.5;font-style:italic;white-space:normal;word-wrap:break-word}
+
+/* Orange left border card */
+.rpt-card-orange{border-left:3px solid #FF6B00!important}
 
 /* Report sections */
 .rpt-section{background:#111113;border:1px solid #1a1a1e;border-radius:12px;overflow:hidden}
