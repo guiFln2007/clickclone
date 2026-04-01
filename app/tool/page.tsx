@@ -617,7 +617,7 @@ export default function ToolPage() {
 
           {/* ── ABA RASTREAMENTO ── */}
           {activeTab === 'rastreamento' && (
-            <div className="tab-content" style={{ maxWidth: 1400, padding: '24px' }}>
+            <div className="tab-content rdr-full">
               {/* Header */}
               <div className="rdr-header">
                 <div className="rdr-search-wrap">
@@ -969,9 +969,11 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .hc-name{font-size:14px;font-weight:600;color:#e4e4e7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hc-meta{font-size:12px;color:#52525b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* ═══ RADAR ═══ */
-.rdr-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap}
-.rdr-search-wrap{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #2D2D2D;border-radius:10px;padding:0 14px;flex:1;max-width:380px;transition:border-color .2s}
+/* ═══ RADAR — full width ═══ */
+.rdr-full{max-width:100%!important;padding:24px 32px 80px!important}
+@media(max-width:768px){.rdr-full{padding:16px 16px 60px!important}}
+.rdr-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.rdr-search-wrap{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #2D2D2D;border-radius:10px;padding:0 14px;flex:1;max-width:480px;transition:border-color .2s}
 .rdr-search-wrap:focus-within{border-color:#FF6B00}
 .rdr-search{flex:1;background:transparent;border:none;padding:11px 0;font-family:inherit;font-size:13px;color:#fafafa;outline:none}
 .rdr-search::placeholder{color:#4B5563}
