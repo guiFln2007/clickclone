@@ -101,21 +101,26 @@ function calcDiasRodando(ads: Record<string, unknown>[]): { dias: number | null;
   }
 
   for (const ad of ads) {
-    const snap = ad.snapshot as Record<string, unknown> | undefined
-    // Try every possible date field from Apify scrapers
-    const raw =
-      (ad.ad_delivery_start_time as string) ||
-      (ad.startDate as string) ||
-      (ad.startedRunningAt as string) ||
-      (ad.start_date as string) ||
-      (ad.deliveryStartTime as string) ||
-      (snap?.start_date as string) ||
-      (snap?.startDate as string) ||
-      (snap?.ad_delivery_start_time as string) ||
-      ''
-    if (!raw) continue
-    const d = new Date(raw)
-    if (!isNaN(d.getTime()) && d.getFullYear() > 2000) datas.push(d)
+    // start_date from Apify is a UNIX timestamp (seconds)
+    const tsRaw = ad.start_date as number | string | undefined
+    const formatted = ad.start_date_formatted as string | undefined
+    const legacy = (ad.ad_delivery_start_time as string) || (ad.startDate as string) || (ad.startedRunningAt as string) || ''
+
+    let d: Date | null = null
+
+    if (typeof tsRaw === 'number' && tsRaw > 1000000000) {
+      // Unix timestamp in seconds
+      d = new Date(tsRaw * 1000)
+    } else if (formatted) {
+      // "2026-02-25 08:00:00"
+      d = new Date(formatted)
+    } else if (typeof tsRaw === 'string' && tsRaw) {
+      d = new Date(tsRaw)
+    } else if (legacy) {
+      d = new Date(legacy)
+    }
+
+    if (d && !isNaN(d.getTime()) && d.getFullYear() > 2000) datas.push(d)
   }
 
   console.log(`[Phase1] Datas encontradas: ${datas.length}/${ads.length} anúncios`)
