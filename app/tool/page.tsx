@@ -636,6 +636,16 @@ export default function ToolPage() {
                 </div>
               </div>
 
+              {/* Dica Importante banner */}
+              <div className="rdr-banner">
+                <div className="rdr-banner-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></div>
+                <div>
+                  <p style={{ color: '#fff', fontWeight: 500, marginBottom: 4 }}>{'\uD83D\uDCA1'} Dica Importante</p>
+                  <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 4 }}>Para atualizar as m&eacute;tricas de cada oferta, clique no bot&atilde;o <span className="rdr-banner-tag">{'\uD83D\uDD04'} Atualizar M&eacute;tricas</span> para atualizar os dados em tempo real.</p>
+                  <p style={{ color: '#F59E0B', fontSize: 13 }}>Recomendamos que voc&ecirc; atualize as m&eacute;tricas pelo menos uma vez por dia para ter mais precis&atilde;o nos dados.</p>
+                </div>
+              </div>
+
               {/* 4 Metric cards */}
               <div className="rdr-metrics">
                 <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Total de Ofertas</span><div className="rdr-mc-ic" style={{ background: 'rgba(255,107,0,.1)' }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div></div><div className="rdr-mc-val">{countByStatus.total}</div></div>
@@ -653,14 +663,11 @@ export default function ToolPage() {
                     const diff = ads - initial
                     const pct = initial > 0 ? ((diff / initial) * 100).toFixed(1) : '0.0'
                     const pctNum = parseFloat(pct)
-                    const stCls = o.status === 'escalando' ? 'esc' : o.status === 'caindo' ? 'caindo' : o.status === 'morta' ? 'morta' : 'estavel'
-                    const stTxt = o.status === 'escalando' ? 'ESCALANDO' : o.status === 'caindo' ? 'CAINDO' : o.status === 'morta' ? 'MORTA' : 'EST\u00C1VEL'
                     return (
                       <div key={o.id} className="rc">
                         <div className="rc-hd">
                           <div className="rc-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
                           <div className="rc-hd-info"><div className="rc-name">{o.pagina_nome}</div><div className="rc-url">{o.ad_library_url.replace(/^https?:\/\//, '').slice(0, 38)}...</div></div>
-                          <span className={`rc-st rc-st-${stCls}`}>{stTxt}</span>
                         </div>
                         <div className="rc-mets">
                           <div className="rc-met"><div className="rc-met-lbl">Total Hoje:</div><div className="rc-met-num">{ads}</div><span className={`rc-met-badge ${pctNum > 0 ? 'up' : pctNum < 0 ? 'dn' : 'flat'}`}>{pctNum > 0 ? '+' : ''}{pct}% de varia&ccedil;&atilde;o</span></div>
@@ -973,6 +980,11 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .rdr-btn-outline:hover{border-color:#555;color:#fff}
 .rdr-btn-solid{display:flex;align-items:center;gap:7px;padding:10px 20px;border:none;border-radius:10px;background:#FF6B00;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
 .rdr-btn-solid:hover{background:#e05e00}
+
+/* Banner */
+.rdr-banner{background:#0F1929;border:1px solid #1E3A5F;border-radius:12px;padding:16px 20px;display:flex;align-items:flex-start;gap:12px;margin-bottom:24px}
+.rdr-banner-icon{background:#1E3A5F;border-radius:8px;padding:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.rdr-banner-tag{background:#1E3A5F;color:#60A5FA;padding:2px 8px;border-radius:4px;font-size:13px}
 
 /* Metric cards */
 .rdr-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
