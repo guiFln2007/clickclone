@@ -55,6 +55,41 @@ export async function initDb() {
       )`,
       args: [],
     },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS tracked_offers (
+        id                     TEXT PRIMARY KEY,
+        user_id                INTEGER NOT NULL,
+        pagina_nome            TEXT NOT NULL,
+        ad_library_url         TEXT NOT NULL,
+        landing_url            TEXT,
+        nicho                  TEXT,
+        primeiro_snapshot_ads  INTEGER,
+        ultimo_snapshot_ads    INTEGER,
+        primeiro_snapshot_data TEXT,
+        ultimo_snapshot_data   TEXT,
+        landing_hash           TEXT,
+        status                 TEXT NOT NULL DEFAULT 'ativa',
+        alertas_nao_lidos      INTEGER NOT NULL DEFAULT 0,
+        criado_em              TEXT NOT NULL DEFAULT (datetime('now')),
+        verificado_em          TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )`,
+      args: [],
+    },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS offer_alerts (
+        id                TEXT PRIMARY KEY,
+        tracked_offer_id  TEXT NOT NULL,
+        tipo              TEXT NOT NULL,
+        mensagem          TEXT NOT NULL,
+        dados_anteriores  TEXT,
+        dados_novos       TEXT,
+        lido              INTEGER NOT NULL DEFAULT 0,
+        criado_em         TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (tracked_offer_id) REFERENCES tracked_offers(id)
+      )`,
+      args: [],
+    },
   ])
   initialized = true
 }
@@ -356,6 +391,189 @@ export async function dbAdminSetAtivo(userId: number, ativo: number): Promise<vo
 export async function dbAdminDeleteUser(userId: number): Promise<void> {
   await initDb()
   await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [userId] })
+}
+
+// ── Tracked offers (Radar) ───────────────────────────────────────────────────
+
+export type TrackedOffer = {
+  id: string
+  user_id: number
+  pagina_nome: string
+  ad_library_url: string
+  landing_url: string | null
+  nicho: string | null
+  primeiro_snapshot_ads: number | null
+  ultimo_snapshot_ads: number | null
+  primeiro_snapshot_data: string | null
+  ultimo_snapshot_data: string | null
+  landing_hash: string | null
+  status: string
+  alertas_nao_lidos: number
+  criado_em: string
+  verificado_em: string | null
+}
+
+export type OfferAlert = {
+  id: string
+  tracked_offer_id: string
+  tipo: string
+  mensagem: string
+  dados_anteriores: string | null
+  dados_novos: string | null
+  lido: number
+  criado_em: string
+}
+
+export async function dbCreateTrackedOffer(data: {
+  id: string
+  user_id: number
+  pagina_nome: string
+  ad_library_url: string
+  landing_url?: string
+  nicho?: string
+  primeiro_snapshot_ads?: number
+  primeiro_snapshot_data?: string
+}): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: `INSERT INTO tracked_offers (id, user_id, pagina_nome, ad_library_url, landing_url, nicho, primeiro_snapshot_ads, ultimo_snapshot_ads, primeiro_snapshot_data, ultimo_snapshot_data)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO NOTHING`,
+    args: [
+      data.id, data.user_id, data.pagina_nome, data.ad_library_url,
+      data.landing_url ?? null, data.nicho ?? null,
+      data.primeiro_snapshot_ads ?? null, data.primeiro_snapshot_ads ?? null,
+      data.primeiro_snapshot_data ?? null, data.primeiro_snapshot_data ?? null,
+    ],
+  })
+}
+
+export async function dbGetTrackedOffers(userId: number): Promise<TrackedOffer[]> {
+  await initDb()
+  const res = await db.execute({
+    sql: 'SELECT * FROM tracked_offers WHERE user_id = ? ORDER BY criado_em DESC',
+    args: [userId],
+  })
+  return res.rows.map(r => {
+    const row = r as Record<string, unknown>
+    return {
+      id: row.id as string,
+      user_id: row.user_id as number,
+      pagina_nome: row.pagina_nome as string,
+      ad_library_url: row.ad_library_url as string,
+      landing_url: (row.landing_url as string) ?? null,
+      nicho: (row.nicho as string) ?? null,
+      primeiro_snapshot_ads: row.primeiro_snapshot_ads as number | null,
+      ultimo_snapshot_ads: row.ultimo_snapshot_ads as number | null,
+      primeiro_snapshot_data: (row.primeiro_snapshot_data as string) ?? null,
+      ultimo_snapshot_data: (row.ultimo_snapshot_data as string) ?? null,
+      landing_hash: (row.landing_hash as string) ?? null,
+      status: row.status as string,
+      alertas_nao_lidos: row.alertas_nao_lidos as number,
+      criado_em: row.criado_em as string,
+      verificado_em: (row.verificado_em as string) ?? null,
+    }
+  })
+}
+
+export async function dbDeleteTrackedOffer(offerId: string, userId: number): Promise<boolean> {
+  await initDb()
+  await db.execute({ sql: 'DELETE FROM offer_alerts WHERE tracked_offer_id = ?', args: [offerId] })
+  const res = await db.execute({ sql: 'DELETE FROM tracked_offers WHERE id = ? AND user_id = ?', args: [offerId, userId] })
+  return (res.rowsAffected ?? 0) > 0
+}
+
+export async function dbGetActiveTrackedOffers(): Promise<TrackedOffer[]> {
+  await initDb()
+  const res = await db.execute({
+    sql: "SELECT * FROM tracked_offers WHERE status != 'morta'",
+    args: [],
+  })
+  return res.rows.map(r => {
+    const row = r as Record<string, unknown>
+    return {
+      id: row.id as string,
+      user_id: row.user_id as number,
+      pagina_nome: row.pagina_nome as string,
+      ad_library_url: row.ad_library_url as string,
+      landing_url: (row.landing_url as string) ?? null,
+      nicho: (row.nicho as string) ?? null,
+      primeiro_snapshot_ads: row.primeiro_snapshot_ads as number | null,
+      ultimo_snapshot_ads: row.ultimo_snapshot_ads as number | null,
+      primeiro_snapshot_data: (row.primeiro_snapshot_data as string) ?? null,
+      ultimo_snapshot_data: (row.ultimo_snapshot_data as string) ?? null,
+      landing_hash: (row.landing_hash as string) ?? null,
+      status: row.status as string,
+      alertas_nao_lidos: row.alertas_nao_lidos as number,
+      criado_em: row.criado_em as string,
+      verificado_em: (row.verificado_em as string) ?? null,
+    }
+  })
+}
+
+export async function dbUpdateTrackedOffer(offerId: string, updates: {
+  ultimo_snapshot_ads?: number
+  ultimo_snapshot_data?: string
+  landing_hash?: string
+  status?: string
+  alertas_nao_lidos?: number
+}): Promise<void> {
+  await initDb()
+  const sets: string[] = ["verificado_em = datetime('now')"]
+  const args: (string | number | null)[] = []
+  if (updates.ultimo_snapshot_ads !== undefined) { sets.push('ultimo_snapshot_ads = ?'); args.push(updates.ultimo_snapshot_ads) }
+  if (updates.ultimo_snapshot_data !== undefined) { sets.push('ultimo_snapshot_data = ?'); args.push(updates.ultimo_snapshot_data) }
+  if (updates.landing_hash !== undefined) { sets.push('landing_hash = ?'); args.push(updates.landing_hash) }
+  if (updates.status !== undefined) { sets.push('status = ?'); args.push(updates.status) }
+  if (updates.alertas_nao_lidos !== undefined) { sets.push('alertas_nao_lidos = ?'); args.push(updates.alertas_nao_lidos) }
+  args.push(offerId)
+  await db.execute({ sql: `UPDATE tracked_offers SET ${sets.join(', ')} WHERE id = ?`, args })
+}
+
+export async function dbCreateOfferAlert(data: {
+  id: string
+  tracked_offer_id: string
+  tipo: string
+  mensagem: string
+  dados_anteriores?: string
+  dados_novos?: string
+}): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: 'INSERT INTO offer_alerts (id, tracked_offer_id, tipo, mensagem, dados_anteriores, dados_novos) VALUES (?, ?, ?, ?, ?, ?)',
+    args: [data.id, data.tracked_offer_id, data.tipo, data.mensagem, data.dados_anteriores ?? null, data.dados_novos ?? null],
+  })
+  await db.execute({
+    sql: 'UPDATE tracked_offers SET alertas_nao_lidos = alertas_nao_lidos + 1 WHERE id = ?',
+    args: [data.tracked_offer_id],
+  })
+}
+
+export async function dbGetOfferAlerts(offerId: string): Promise<OfferAlert[]> {
+  await initDb()
+  const res = await db.execute({
+    sql: 'SELECT * FROM offer_alerts WHERE tracked_offer_id = ? ORDER BY criado_em DESC LIMIT 50',
+    args: [offerId],
+  })
+  return res.rows.map(r => {
+    const row = r as Record<string, unknown>
+    return {
+      id: row.id as string,
+      tracked_offer_id: row.tracked_offer_id as string,
+      tipo: row.tipo as string,
+      mensagem: row.mensagem as string,
+      dados_anteriores: (row.dados_anteriores as string) ?? null,
+      dados_novos: (row.dados_novos as string) ?? null,
+      lido: row.lido as number,
+      criado_em: row.criado_em as string,
+    }
+  })
+}
+
+export async function dbMarkAlertsRead(offerId: string): Promise<void> {
+  await initDb()
+  await db.execute({ sql: 'UPDATE offer_alerts SET lido = 1 WHERE tracked_offer_id = ? AND lido = 0', args: [offerId] })
+  await db.execute({ sql: 'UPDATE tracked_offers SET alertas_nao_lidos = 0 WHERE id = ?', args: [offerId] })
 }
 
 export default db

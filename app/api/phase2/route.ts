@@ -67,58 +67,64 @@ async function capturePageScreenshots(url: string): Promise<string[]> {
     return []
   }
 
-  const baseUrl = 'https://api.screenshotone.com/take'
+  const base = 'https://api.screenshotone.com/take'
+  const common = `access_key=${accessKey}&block_ads=true&block_cookie_banners=true&format=jpg&image_quality=75`
 
-  // Step 1: full page to get total height (max_height=7000 to stay within Claude's limit)
-  const fullPageUrl = `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&full_page=true&viewport_width=1440&max_height=7000&format=jpg&image_quality=70&response_type=json`
+  // 2 API calls: full-page desktop + mobile hero
+  const [desktopResult, mobileResult] = await Promise.allSettled([
+    fetch(`${base}?url=${encodeURIComponent(url)}&${common}&full_page=true&viewport_width=1440`, { signal: AbortSignal.timeout(40000) })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer() })
+      .then(b => Buffer.from(b).toString('base64')),
+    fetch(`${base}?url=${encodeURIComponent(url)}&${common}&viewport_width=375&viewport_height=812`, { signal: AbortSignal.timeout(30000) })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer() })
+      .then(b => Buffer.from(b).toString('base64')),
+  ])
 
-  let pageHeight = 6000
-  try {
-    const metaRes = await fetch(fullPageUrl, { signal: AbortSignal.timeout(20000) })
-    if (metaRes.ok) {
-      const meta = await metaRes.json()
-      pageHeight = meta?.page_height ?? 6000
+  const sections: string[] = []
+
+  // Split full-page desktop into 900px sections with sharp (up to 6 sections)
+  if (desktopResult.status === 'fulfilled') {
+    try {
+      const fullBuf = Buffer.from(desktopResult.value, 'base64')
+      const meta = await sharp(fullBuf).metadata()
+      const W = meta.width ?? 1440
+      const H = meta.height ?? 0
+      if (H > 0) {
+        const secH = 900
+        const overlap = 100
+        let y = 0
+        let count = 0
+        while (y < H && count < 6) {
+          const h = Math.min(secH, H - y)
+          const sec = await sharp(fullBuf)
+            .extract({ left: 0, top: y, width: W, height: h })
+            .jpeg({ quality: 70 })
+            .toBuffer()
+          sections.push(sec.toString('base64'))
+          y += secH - overlap
+          count++
+        }
+        console.log(`[Phase2] Desktop ${W}x${H}px → ${count} seções`)
+      }
+    } catch (e) {
+      console.warn('[Phase2] Falhou split de seções, usando full resized:', (e as Error).message)
+      const resized = await resizeIfNeeded(desktopResult.value)
+      sections.push(resized)
     }
-  } catch (e) {
-    console.warn('[Phase2] Falhou ao obter page_height, usando 6000px fallback:', (e as Error).message)
+  } else {
+    console.warn('[Phase2] Desktop screenshot falhou:', (desktopResult as PromiseRejectedResult).reason)
   }
 
-  // Step 2: divide into 900px sections with 100px overlap
-  const sectionHeight = 900
-  const overlap = 100
-  const scrollPositions: number[] = []
-  let scrollY = 0
-  while (scrollY < pageHeight) {
-    scrollPositions.push(scrollY)
-    scrollY += sectionHeight - overlap
+  // Add mobile screenshot
+  if (mobileResult.status === 'fulfilled') {
+    const resized = await resizeIfNeeded(mobileResult.value)
+    sections.push(resized)
+  } else {
+    console.warn('[Phase2] Mobile screenshot falhou:', (mobileResult as PromiseRejectedResult).reason)
   }
 
-  // Step 3: clip each section from a full-page render using clip_x/clip_y/clip_width/clip_height
-  // scroll_position is not supported by ScreenshotOne — use clip params instead
-  const shotUrls: string[] = [
-    ...scrollPositions.map(sy =>
-      `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&full_page=true&viewport_width=1440&clip_x=0&clip_y=${sy}&clip_width=1440&clip_height=${sectionHeight}&format=jpg&image_quality=60&block_ads=true&block_cookie_banners=true`
-    ),
-    // Mobile hero — fixed viewport
-    `${baseUrl}?url=${encodeURIComponent(url)}&access_key=${accessKey}&viewport_width=375&viewport_height=812&format=jpg&image_quality=60&block_ads=true&block_cookie_banners=true`,
-  ]
-
-  // Step 4: fire all in parallel, discard failures
-  const results = await Promise.allSettled(
-    shotUrls.map(async (shotUrl) => {
-      const res = await fetch(shotUrl, { signal: AbortSignal.timeout(20000) })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const buffer = await res.arrayBuffer()
-      return Buffer.from(buffer).toString('base64')
-    })
-  )
-
-  const screenshots = results
-    .filter(r => r.status === 'fulfilled')
-    .map(r => (r as PromiseFulfilledResult<string>).value)
-
-  console.log(`[Phase2] Screenshots: ${screenshots.length}/${shotUrls.length} (${scrollPositions.length} seções + 1 mobile)`)
-  return screenshots
+  console.log(`[Phase2] Total seções para Claude: ${sections.length}`)
+  return sections
 }
 
 const SYSTEM_PROMPT_PHASE2 = `Você é um analista de funis de alta conversão especializado no mercado brasileiro de infoprodutos low ticket. Sua função é dissecar completamente a página de destino de uma campanha.
