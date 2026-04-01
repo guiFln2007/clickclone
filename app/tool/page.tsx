@@ -592,11 +592,11 @@ export default function ToolPage() {
 
           {/* ── ABA RASTREAMENTO ── */}
           {activeTab === 'rastreamento' && (
-            <div className="tab-content">
-              {/* Header: search + actions */}
+            <div className="tab-content" style={{ maxWidth: 1200 }}>
+              {/* Header */}
               <div className="rdr-header">
                 <div className="rdr-search-wrap">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                   <input className="rdr-search" placeholder="Buscar por nome ou URL..." value={radarSearch} onChange={e => setRadarSearch(e.target.value)} />
                 </div>
                 <div className="rdr-actions">
@@ -604,7 +604,7 @@ export default function ToolPage() {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
                     Atualizar Todas
                   </button>
-                  <button className="rdr-btn-orange" onClick={() => setAddOfferModal(true)}>
+                  <button className="rdr-btn-solid" onClick={() => setAddOfferModal(true)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     Adicionar Oferta
                   </button>
@@ -613,25 +613,13 @@ export default function ToolPage() {
 
               {/* 4 Metric cards */}
               <div className="rdr-metrics">
-                <div className="rdr-metric-card">
-                  <div className="rdr-mc-top"><span className="rdr-mc-label">Total de Ofertas</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-                  <div className="rdr-mc-num">{countByStatus.total}</div>
-                </div>
-                <div className="rdr-metric-card">
-                  <div className="rdr-mc-top"><span className="rdr-mc-label">Ofertas Escalando</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
-                  <div className="rdr-mc-num" style={{ color: '#22c55e' }}>{countByStatus.escalando}</div>
-                </div>
-                <div className="rdr-metric-card">
-                  <div className="rdr-mc-top"><span className="rdr-mc-label">Ofertas em Regressao</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></div>
-                  <div className="rdr-mc-num" style={{ color: '#ef4444' }}>{countByStatus.caindo}</div>
-                </div>
-                <div className="rdr-metric-card">
-                  <div className="rdr-mc-top"><span className="rdr-mc-label">Ultima Atualizacao</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></div>
-                  <div className="rdr-mc-num">{lastUpdate ? new Date(lastUpdate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '--/--'}</div>
-                </div>
+                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Total de Ofertas</span><svg className="rdr-mc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div className="rdr-mc-val">{countByStatus.total}</div></div>
+                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Ofertas em Progressao</span><svg className="rdr-mc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div><div className="rdr-mc-val" style={{ color: '#10B981' }}>{countByStatus.escalando}</div></div>
+                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Ofertas em Regressao</span><svg className="rdr-mc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></div><div className="rdr-mc-val" style={{ color: '#EF4444' }}>{countByStatus.caindo}</div></div>
+                <div className="rdr-mc"><div className="rdr-mc-row"><span className="rdr-mc-label">Ultima Atualizacao</span><svg className="rdr-mc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></div><div className="rdr-mc-val">{lastUpdate ? new Date(lastUpdate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '--/--'}</div></div>
               </div>
 
-              {/* Offer cards grid */}
+              {/* Offer cards */}
               {filteredOffers.length > 0 ? (
                 <div className="rdr-grid">
                   {filteredOffers.map(o => {
@@ -640,53 +628,34 @@ export default function ToolPage() {
                     const diff = ads - initial
                     const pct = initial > 0 ? ((diff / initial) * 100).toFixed(1) : '0.0'
                     const pctNum = parseFloat(pct)
-                    const statusCls = o.status === 'escalando' ? 'esc' : o.status === 'caindo' ? 'caindo' : o.status === 'morta' ? 'morta' : 'estavel'
-                    const statusTxt = o.status === 'escalando' ? 'Escalando' : o.status === 'caindo' ? 'Caindo' : o.status === 'morta' ? 'Morta' : 'Estavel'
+                    const stCls = o.status === 'escalando' ? 'esc' : o.status === 'caindo' ? 'caindo' : o.status === 'morta' ? 'morta' : 'estavel'
+                    const stTxt = o.status === 'escalando' ? 'ESCALANDO' : o.status === 'caindo' ? 'CAINDO' : o.status === 'morta' ? 'MORTA' : 'ESTAVEL'
                     return (
-                      <div key={o.id} className="rdr-card">
-                        <span className={`rdr-card-status rdr-st-${statusCls}`}>{statusTxt}</span>
-                        {/* Card header */}
-                        <div className="rdr-card-hd">
-                          <div className="rdr-fb-icon">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                          </div>
-                          <div className="rdr-card-info">
-                            <div className="rdr-card-name">{o.pagina_nome}</div>
-                            <div className="rdr-card-url">{o.ad_library_url.replace(/^https?:\/\//, '').slice(0, 35)}...</div>
-                          </div>
+                      <div key={o.id} className="rc">
+                        {/* Header */}
+                        <div className="rc-hd">
+                          <div className="rc-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
+                          <div className="rc-hd-info"><div className="rc-name">{o.pagina_nome}</div><div className="rc-url">{o.ad_library_url.replace(/^https?:\/\//, '').slice(0, 38)}...</div></div>
+                          <span className={`rc-st rc-st-${stCls}`}>{stTxt} &bull;</span>
                         </div>
-                        {/* Metrics row */}
-                        <div className="rdr-card-metrics">
-                          <div className="rdr-cm">
-                            <div className="rdr-cm-label">Total Hoje:</div>
-                            <div className="rdr-cm-num">{ads}</div>
-                            <span className={`rdr-cm-badge ${pctNum > 0 ? 'up' : pctNum < 0 ? 'down' : 'flat'}`}>{pctNum > 0 ? '+' : ''}{pct}% de variacao</span>
-                          </div>
-                          <div className="rdr-cm">
-                            <div className="rdr-cm-label">Primeiro registro:</div>
-                            <div className="rdr-cm-num">{initial}</div>
-                            <span className="rdr-cm-date">{new Date(o.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
-                          </div>
+                        {/* Metrics */}
+                        <div className="rc-mets">
+                          <div className="rc-met"><div className="rc-met-lbl">Total Hoje:</div><div className="rc-met-num">{ads}</div><span className={`rc-met-badge ${pctNum > 0 ? 'up' : pctNum < 0 ? 'dn' : 'flat'}`}>{pctNum > 0 ? '+' : ''}{pct}% de variacao</span></div>
+                          <div className="rc-met"><div className="rc-met-lbl">Primeiro registro:</div><div className="rc-met-num">{initial}</div><span className="rc-met-date">{new Date(o.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span></div>
                         </div>
-                        {/* Variation rows */}
-                        <div className="rdr-card-vars">
-                          <div className="rdr-var-row">
-                            <span className="rdr-var-label">Variacao diaria:</span>
-                            <span className={`rdr-var-val ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}`}>{diff > 0 ? '+' : ''}{diff} anuncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span>
-                          </div>
-                          <div className="rdr-var-row">
-                            <span className="rdr-var-label">Variacao semanal:</span>
-                            <span className={`rdr-var-val ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}`}>{diff > 0 ? '+' : ''}{diff} anuncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span>
-                          </div>
+                        {/* Variations */}
+                        <div className="rc-vars">
+                          <div className="rc-var"><span className="rc-var-l">Variacao diaria:</span><span className={`rc-var-v${diff > 0 ? ' up' : diff < 0 ? ' dn' : ''}`}>{diff !== 0 ? (diff > 0 ? '+' : '') + diff : '0'} anuncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span></div>
+                          <div className="rc-var"><span className="rc-var-l">Variacao semanal:</span><span className={`rc-var-v${diff > 0 ? ' up' : diff < 0 ? ' dn' : ''}`}>{diff !== 0 ? (diff > 0 ? '+' : '') + diff : '0'} anuncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span></div>
                         </div>
                         {/* Actions */}
-                        <div className="rdr-card-actions">
-                          <button className="rdr-history-btn" onClick={() => viewAlerts(o)}>
+                        <div className="rc-acts">
+                          <button className="rc-hist-btn" onClick={() => viewAlerts(o)}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                             Ver Historico
                           </button>
-                          <button className="rdr-refresh-btn" onClick={loadRadar} title="Atualizar">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                          <button className="rc-ref-btn" onClick={loadRadar} title="Atualizar">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
                           </button>
                         </div>
                       </div>
@@ -694,9 +663,7 @@ export default function ToolPage() {
                   })}
                 </div>
               ) : (
-                <div className="empty-state">
-                  {radarSearch ? 'Nenhuma oferta encontrada.' : 'Nenhuma oferta no radar. Analise uma oferta e clique em "Salvar no Radar".'}
-                </div>
+                <div className="empty-state">{radarSearch ? 'Nenhuma oferta encontrada.' : 'Nenhuma oferta no radar. Analise uma oferta e clique em &quot;Salvar no Radar&quot;.'}</div>
               )}
             </div>
           )}
@@ -757,54 +724,53 @@ export default function ToolPage() {
 
       {/* ── MODALS ── */}
 
-      {/* History/Alerts modal */}
+      {/* History drawer (right side) */}
       {alertsModal && (
-        <div className="modal-overlay" onClick={() => setAlertsModal(null)}>
-          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
-            <div className="modal-hd">
-              <h3>Historico - {alertsModal.offer.pagina_nome}</h3>
-              <button className="modal-close" onClick={() => setAlertsModal(null)}>&times;</button>
+        <>
+          <div className="drawer-overlay" onClick={() => setAlertsModal(null)} />
+          <div className="drawer">
+            <div className="drawer-hd">
+              <h3>{alertsModal.offer.pagina_nome}</h3>
+              <button className="drawer-close" onClick={() => setAlertsModal(null)}>&times;</button>
             </div>
-            <div className="modal-body">
-              {/* Mini chart */}
-              {alertsModal.alerts.length > 1 && (
-                <div className="history-chart">
-                  {(() => {
-                    const points = alertsModal.alerts.slice().reverse().map(a => {
-                      let val = 0
-                      try { const d = JSON.parse(a.dados_novos || '{}'); val = d.ads ?? 0 } catch { /* ok */ }
-                      return { date: new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), ads: val }
-                    }).filter(p => p.ads > 0)
-                    if (points.length < 2) return null
-                    const max = Math.max(...points.map(p => p.ads))
-                    const min = Math.min(...points.map(p => p.ads))
-                    const range = max - min || 1
-                    const w = 100 / (points.length - 1)
-                    const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${i * w},${100 - ((p.ads - min) / range) * 80 - 10}`).join(' ')
-                    return (
-                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="hc-svg">
-                        <path d={pathD} fill="none" stroke="#FF6B00" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                        {points.map((p, i) => <circle key={i} cx={i * w} cy={100 - ((p.ads - min) / range) * 80 - 10} r="1.5" fill="#FF6B00" />)}
-                      </svg>
-                    )
-                  })()}
-                </div>
-              )}
-              {/* Timeline */}
-              <div className="history-timeline">
-                {alertsModal.alerts.length > 0 ? alertsModal.alerts.map(a => (
-                  <div key={a.id} className={`ht-item ht-${a.tipo}`}>
-                    <div className="ht-dot" />
-                    <div className="ht-content">
-                      <div className="ht-time">{new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
-                      <div className="ht-msg">{a.mensagem}</div>
-                    </div>
-                  </div>
-                )) : <div className="empty-state" style={{ padding: 24 }}>Nenhum evento registrado ainda. O radar verifica diariamente.</div>}
+            {/* Chart */}
+            {alertsModal.alerts.length > 1 && (
+              <div className="drawer-chart">
+                {(() => {
+                  const points = alertsModal.alerts.slice().reverse().map(a => {
+                    let val = 0
+                    try { const d = JSON.parse(a.dados_novos || '{}'); val = d.ads ?? 0 } catch { /* ok */ }
+                    return { date: new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), ads: val }
+                  }).filter(p => p.ads > 0)
+                  if (points.length < 2) return null
+                  const max = Math.max(...points.map(p => p.ads))
+                  const min = Math.min(...points.map(p => p.ads))
+                  const range = max - min || 1
+                  const w = 100 / (points.length - 1)
+                  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${i * w},${100 - ((p.ads - min) / range) * 80 - 10}`).join(' ')
+                  const areaD = pathD + ` L${(points.length - 1) * w},100 L0,100 Z`
+                  return (
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="drawer-chart-svg">
+                      <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FF6B00" stopOpacity=".3"/><stop offset="100%" stopColor="#FF6B00" stopOpacity="0"/></linearGradient></defs>
+                      <path d={areaD} fill="url(#cg)" />
+                      <path d={pathD} fill="none" stroke="#FF6B00" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                      {points.map((p, i) => <circle key={i} cx={i * w} cy={100 - ((p.ads - min) / range) * 80 - 10} r="1.5" fill="#FF6B00" />)}
+                    </svg>
+                  )
+                })()}
               </div>
+            )}
+            {/* Timeline */}
+            <div className="drawer-timeline">
+              {alertsModal.alerts.length > 0 ? alertsModal.alerts.map(a => (
+                <div key={a.id} className={`dt-item dt-${a.tipo}`}>
+                  <div className="dt-dot" />
+                  <div><div className="dt-time">{new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div><div className="dt-msg">{a.mensagem}</div></div>
+                </div>
+              )) : <div className="empty-state" style={{ padding: 32 }}>Nenhum evento registrado. O radar verifica diariamente.</div>}
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Add offer modal */}
@@ -953,88 +919,94 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .hc-name{font-size:14px;font-weight:600;color:#e4e4e7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hc-meta{font-size:12px;color:#52525b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* RADAR — REDESIGN */
+/* ═══ RADAR ═══ */
 .rdr-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap}
-.rdr-search-wrap{display:flex;align-items:center;gap:10px;background:#0D0D0D;border:1px solid #1F2937;border-radius:10px;padding:0 14px;flex:1;max-width:360px;transition:border-color .2s}
+.rdr-search-wrap{display:flex;align-items:center;gap:10px;background:#111;border:1px solid #2D2D2D;border-radius:10px;padding:0 14px;flex:1;max-width:380px;transition:border-color .2s}
 .rdr-search-wrap:focus-within{border-color:#FF6B00}
 .rdr-search{flex:1;background:transparent;border:none;padding:11px 0;font-family:inherit;font-size:13px;color:#fafafa;outline:none}
 .rdr-search::placeholder{color:#4B5563}
 .rdr-actions{display:flex;gap:8px;flex-shrink:0}
-.rdr-btn-outline{display:flex;align-items:center;gap:7px;padding:10px 18px;border:1px solid #1F2937;border-radius:10px;background:transparent;color:#a1a1aa;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
-.rdr-btn-outline:hover{border-color:#3f3f46;color:#e4e4e7}
-.rdr-btn-orange{display:flex;align-items:center;gap:7px;padding:10px 18px;border:none;border-radius:10px;background:#FF6B00;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
-.rdr-btn-orange:hover{background:#e05e00}
+.rdr-btn-outline{display:flex;align-items:center;gap:7px;padding:10px 20px;border:1px solid #2D2D2D;border-radius:10px;background:transparent;color:#a1a1aa;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.rdr-btn-outline:hover{border-color:#555;color:#fff}
+.rdr-btn-solid{display:flex;align-items:center;gap:7px;padding:10px 20px;border:none;border-radius:10px;background:#FF6B00;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
+.rdr-btn-solid:hover{background:#e05e00}
 
 /* Metric cards */
-.rdr-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.rdr-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
 @media(max-width:768px){.rdr-metrics{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.rdr-metrics{grid-template-columns:1fr}}
-.rdr-metric-card{background:#111111;border:1px solid #1F2937;border-radius:12px;padding:18px 20px}
-.rdr-mc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.rdr-mc{background:#111;border:1px solid #1F2937;border-radius:12px;padding:20px 22px}
+.rdr-mc-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .rdr-mc-label{font-size:12px;color:#6B7280;font-weight:500}
-.rdr-mc-num{font-size:28px;font-weight:800;color:#fff}
+.rdr-mc-icon{flex-shrink:0;opacity:.8}
+.rdr-mc-val{font-size:40px;font-weight:800;color:#fff;line-height:1}
 
-/* Offer cards grid */
+/* Card grid */
 .rdr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 @media(max-width:1100px){.rdr-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:768px){.rdr-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:500px){.rdr-grid{grid-template-columns:1fr}}
-.rdr-card{background:#111111;border:1px solid #1F2937;border-radius:14px;padding:18px;position:relative;transition:all .15s}
-.rdr-card:hover{border-color:#374151;box-shadow:0 4px 24px rgba(0,0,0,.3)}
 
-/* Card status badge */
-.rdr-card-status{position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
-.rdr-st-esc{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
-.rdr-st-estavel{background:rgba(113,113,122,.08);color:#71717a;border:1px solid rgba(113,113,122,.15)}
-.rdr-st-caindo{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
-.rdr-st-morta{background:rgba(50,50,50,.5);color:#52525b;border:1px solid rgba(50,50,50,.5)}
+/* Offer card */
+.rc{background:#111;border:1px solid #1F2937;border-radius:12px;padding:16px;transition:border-color .15s}
+.rc:hover{border-color:#374151}
+.rc-hd{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
+.rc-fb{width:30px;height:30px;border-radius:8px;background:#1a2744;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rc-hd-info{flex:1;min-width:0}
+.rc-name{font-size:14px;font-weight:700;color:#e4e4e7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-url{font-size:10px;color:#4B5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-st{font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;letter-spacing:.03em}
+.rc-st-estavel{background:#1A2A1A;color:#10B981;border:1px solid rgba(16,185,129,.2)}
+.rc-st-esc{background:#2A1F0A;color:#F59E0B;border:1px solid rgba(245,158,11,.2)}
+.rc-st-caindo{background:#2A0A0A;color:#EF4444;border:1px solid rgba(239,68,68,.2)}
+.rc-st-morta{background:#1A1A1A;color:#6B7280;border:1px solid rgba(107,114,128,.2)}
 
-/* Card header */
-.rdr-card-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-right:70px}
-.rdr-fb-icon{width:28px;height:28px;border-radius:7px;background:#1a2744;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.rdr-card-info{min-width:0;flex:1}
-.rdr-card-name{font-size:14px;font-weight:700;color:#e4e4e7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rdr-card-url{font-size:10px;color:#4B5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* Card metrics */
-.rdr-card-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.rdr-cm{background:#0D0D0D;border:1px solid #1a2030;border-radius:10px;padding:10px 12px;text-align:center}
-.rdr-cm-label{font-size:10px;color:#6B7280;margin-bottom:4px}
-.rdr-cm-num{font-size:22px;font-weight:800;color:#fff;margin-bottom:4px}
-.rdr-cm-badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px}
-.rdr-cm-badge.up{background:rgba(34,197,94,.12);color:#22c55e}
-.rdr-cm-badge.down{background:rgba(239,68,68,.12);color:#ef4444}
-.rdr-cm-badge.flat{background:rgba(113,113,122,.1);color:#71717a}
-.rdr-cm-date{font-size:10px;color:#FF6B00}
+/* Metrics pair */
+.rc-mets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.rc-met{background:#1A1A1A;border:1px solid #2D2D2D;border-radius:8px;padding:10px;text-align:center}
+.rc-met-lbl{font-size:10px;color:#6B7280;margin-bottom:4px}
+.rc-met-num{font-size:24px;font-weight:800;color:#fff;margin-bottom:4px;line-height:1.1}
+.rc-met-badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px}
+.rc-met-badge.up{background:rgba(16,185,129,.15);color:#10B981}
+.rc-met-badge.dn{background:rgba(239,68,68,.15);color:#EF4444}
+.rc-met-badge.flat{background:rgba(107,114,128,.1);color:#6B7280}
+.rc-met-date{font-size:11px;color:#FF6B00}
 
 /* Variation rows */
-.rdr-card-vars{margin-bottom:14px}
-.rdr-var-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:12px}
-.rdr-var-label{color:#6B7280}
-.rdr-var-val{color:#71717a;display:flex;align-items:center;gap:3px}
-.rdr-var-val.up{color:#22c55e}
-.rdr-var-val.down{color:#ef4444}
+.rc-vars{margin-bottom:14px;border-top:1px solid #1F2937;padding-top:10px}
+.rc-var{display:flex;align-items:center;justify-content:space-between;padding:3px 0;font-size:12px}
+.rc-var-l{color:#6B7280}
+.rc-var-v{color:#FF6B00;display:flex;align-items:center;gap:3px}
+.rc-var-v.up{color:#10B981}
+.rc-var-v.dn{color:#EF4444}
 
-/* Card actions */
-.rdr-card-actions{display:flex;gap:8px;align-items:center}
-.rdr-history-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 0;background:transparent;border:1px solid #1F2937;border-radius:8px;color:#a1a1aa;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
-.rdr-history-btn:hover{border-color:#374151;color:#fff}
-.rdr-refresh-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid #1F2937;border-radius:8px;color:#FF6B00;cursor:pointer;transition:all .15s;flex-shrink:0}
-.rdr-refresh-btn:hover{border-color:#FF6B00;background:rgba(255,107,0,.06)}
+/* Actions */
+.rc-acts{display:flex;gap:8px;border-top:1px solid #1F2937;padding-top:12px}
+.rc-hist-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 0;background:transparent;border:1px solid #2D2D2D;border-radius:8px;color:#a1a1aa;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.rc-hist-btn:hover{border-color:#555;color:#fff;background:#1A1A1A}
+.rc-ref-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid #2D2D2D;border-radius:8px;color:#FF6B00;cursor:pointer;transition:all .15s;flex-shrink:0}
+.rc-ref-btn:hover{border-color:#FF6B00;background:rgba(255,107,0,.06)}
 
-/* History modal */
-.modal-lg{max-width:560px}
-.history-chart{height:120px;background:#0D0D0D;border:1px solid #1F2937;border-radius:10px;padding:12px;margin-bottom:16px;overflow:hidden}
-.hc-svg{width:100%;height:100%}
-.history-timeline{display:flex;flex-direction:column;gap:0;border-left:2px solid #1F2937;margin-left:8px;padding-left:20px}
-.ht-item{position:relative;padding:12px 0}
-.ht-item+.ht-item{border-top:1px solid #111}
-.ht-dot{position:absolute;left:-27px;top:16px;width:10px;height:10px;border-radius:50%;border:2px solid #27272a;background:#18181b}
-.ht-escalou .ht-dot{border-color:#22c55e;background:#22c55e}
-.ht-caiu .ht-dot,.ht-morreu .ht-dot{border-color:#ef4444;background:#ef4444}
-.ht-pagina_mudou .ht-dot{border-color:#eab308;background:#eab308}
-.ht-time{font-size:11px;color:#52525b;margin-bottom:3px}
-.ht-msg{font-size:13px;color:#a1a1aa;line-height:1.5}
+/* ═══ DRAWER ═══ */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;animation:drawerFadeIn .2s ease}
+@keyframes drawerFadeIn{from{opacity:0}to{opacity:1}}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:480px;max-width:90vw;background:#111;border-left:1px solid #1F2937;z-index:201;display:flex;flex-direction:column;animation:drawerSlide .25s ease;overflow-y:auto}
+@keyframes drawerSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}
+.drawer-hd{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #1F2937;flex-shrink:0}
+.drawer-hd h3{font-size:16px;font-weight:700;color:#e4e4e7}
+.drawer-close{background:transparent;border:none;color:#6B7280;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all .12s}
+.drawer-close:hover{color:#fff;background:#1F2937}
+.drawer-chart{height:160px;padding:16px 24px;border-bottom:1px solid #1F2937;overflow:hidden}
+.drawer-chart-svg{width:100%;height:100%}
+.drawer-timeline{padding:16px 24px;display:flex;flex-direction:column;border-left:2px solid #1F2937;margin-left:36px}
+.dt-item{position:relative;display:flex;gap:14px;padding:14px 0}
+.dt-item+.dt-item{border-top:1px solid #0D0D0D}
+.dt-dot{position:absolute;left:-22px;top:18px;width:10px;height:10px;border-radius:50%;border:2px solid #2D2D2D;background:#111;flex-shrink:0}
+.dt-escalou .dt-dot{border-color:#10B981;background:#10B981}
+.dt-caiu .dt-dot,.dt-morreu .dt-dot{border-color:#EF4444;background:#EF4444}
+.dt-pagina_mudou .dt-dot{border-color:#F59E0B;background:#F59E0B}
+.dt-time{font-size:11px;color:#4B5563;margin-bottom:3px}
+.dt-msg{font-size:13px;color:#a1a1aa;line-height:1.5}
 
 /* BUTTONS */
 .btn-sm{padding:6px 12px;border-radius:6px;border:1px solid #27272a;background:transparent;color:#a1a1aa;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;text-decoration:none;white-space:nowrap}
