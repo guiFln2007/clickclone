@@ -33,15 +33,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const runRes = await fetch(
-      `https://api.apify.com/v2/acts/apify~facebook-ads-scraper/runs?token=${APIFY_TOKEN}`,
+      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          searchQuery: keyword,
-          countryCode: 'BR',
-          adActiveStatus: 'active',
-          maxItems: 150,
+          urls: [{ url: searchUrl }],
+          maxAds: 150,
         }),
         signal: AbortSignal.timeout(15000),
       }
