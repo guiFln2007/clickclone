@@ -33,11 +33,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const runRes = await fetch(
-      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
+      `https://api.apify.com/v2/acts/apify~facebook-ads-scraper/runs?token=${APIFY_TOKEN}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [{ url: searchUrl }], maxAds: 150 }),
+        body: JSON.stringify({
+          searchQuery: keyword,
+          countryCode: 'BR',
+          adActiveStatus: 'active',
+          maxItems: 150,
+        }),
         signal: AbortSignal.timeout(15000),
       }
     )
@@ -85,23 +90,26 @@ export async function GET(req: NextRequest) {
 
     console.log(`[Mine] Got ${items.length} ads, grouping...`)
 
-    // Group by page
+    // Group by page — handle both scraper formats
     const pageMap: Record<string, { nome: string; pageId: string; count: number; datas: number[]; landingUrl: string | null }> = {}
     for (const ad of items) {
-      const pageId = (ad.page_id as string) || ''
-      const pageName = (ad.page_name as string) || 'Desconhecido'
+      // Try both scraper formats for page ID and name
+      const pageId = (ad.page_id as string) || (ad.pageId as string) || (ad.pageName as string) || ''
+      const pageName = (ad.page_name as string) || (ad.pageName as string) || 'Desconhecido'
       if (!pageId) continue
       if (!pageMap[pageId]) pageMap[pageId] = { nome: pageName, pageId, count: 0, datas: [], landingUrl: null }
       pageMap[pageId].count++
 
+      // Try all date formats
       const ts = ad.start_date as number | undefined
-      const formatted = ad.start_date_formatted as string | undefined
+      const formatted = (ad.start_date_formatted as string) || (ad.startDate as string) || (ad.startedRunningAt as string) || ''
       if (typeof ts === 'number' && ts > 1000000000) pageMap[pageId].datas.push(ts * 1000)
-      else if (formatted) { const d = new Date(formatted).getTime(); if (!isNaN(d)) pageMap[pageId].datas.push(d) }
+      else if (formatted) { const d = new Date(formatted).getTime(); if (!isNaN(d) && d > 0) pageMap[pageId].datas.push(d) }
 
+      // Try all landing URL formats
       if (!pageMap[pageId].landingUrl) {
         const snap = ad.snapshot as Record<string, unknown> | undefined
-        pageMap[pageId].landingUrl = (snap?.link_url as string) || null
+        pageMap[pageId].landingUrl = (snap?.link_url as string) || (ad.linkUrl as string) || (ad.link_url as string) || null
       }
     }
 
