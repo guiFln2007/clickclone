@@ -472,28 +472,37 @@ export default function ToolPage() {
   // ── MINE ──
   async function handleMine() {
     if (!mineNichos.length || mining) return
-    setMining(true); setMineError(''); setMineResults([]); setMineStatus('Conectando...')
+    setMining(true); setMineError(''); setMineResults([]); setMineStatus('Conectando ao Meta Ad Library...')
     try {
-      const res = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ nichos: mineNichos, minAnuncios: mineMinAds, minDias: mineMinDays }) })
-      if (!res.body) throw new Error('Sem resposta do servidor')
-      const reader = res.body.getReader(); const decoder = new TextDecoder(); let buffer = ''; let gotResults = false
-      while (true) {
-        const { done, value } = await reader.read()
-        if (value) buffer += decoder.decode(value, { stream: !done })
-        const parts = buffer.split('\n\n'); buffer = parts.pop() ?? ''
-        for (const part of parts) {
-          if (!part.startsWith('data: ')) continue
-          try {
-            const ev = JSON.parse(part.slice(6))
-            if (ev.type === 'progress') setMineStatus(ev.text?.replace(/^[\u{1F300}-\u{1F9FF}]\s?/u, '') || '')
-            if (ev.type === 'error') { setMineError(ev.message || 'Erro na mineração'); setMining(false); return }
-            if (ev.type === 'done') { setMineResults(ev.ofertas || []); gotResults = true }
-          } catch { /* skip bad JSON */ }
+      // 1. Start the Apify run
+      const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ nichos: mineNichos, minAnuncios: mineMinAds, minDias: mineMinDays }) })
+      if (!startRes.ok) { const e = await startRes.json().catch(() => ({})); throw new Error(e.error || 'Erro ao iniciar') }
+      const { runId, nichos: n } = await startRes.json()
+      if (!runId) throw new Error('Falha ao iniciar busca')
+
+      setMineStatus('Minerando an\u00FAncios no Meta Ad Library...')
+
+      // 2. Poll every 5s until done
+      const statusMsgs = ['Vasculhando bibliotecas de an\u00FAncios...', 'Analisando p\u00E1ginas encontradas...', 'Filtrando ofertas validadas...', 'Quase l\u00E1...']
+      let msgIdx = 0
+      for (let attempt = 0; attempt < 60; attempt++) { // max 5 min
+        await new Promise(r => setTimeout(r, 5000))
+        if (attempt % 3 === 2) { msgIdx = Math.min(msgIdx + 1, statusMsgs.length - 1); setMineStatus(statusMsgs[msgIdx]) }
+
+        const pollRes = await fetch(`/api/mine?runId=${runId}&minAnuncios=${mineMinAds}&minDias=${mineMinDays}&nicho=${(n as string[])[0] || ''}`, { headers: authHeaders() })
+        if (!pollRes.ok) continue
+        const data = await pollRes.json()
+
+        if (data.status === 'running') continue
+        if (data.status === 'failed') throw new Error(data.error || 'Minera\u00E7\u00E3o falhou')
+        if (data.status === 'done') {
+          setMineResults(data.ofertas || [])
+          if (!data.ofertas?.length) setMineError('Nenhuma oferta encontrada com esses filtros. Tente diminuir o m\u00EDnimo de an\u00FAncios.')
+          setMining(false); setMineStatus(''); return
         }
-        if (done) break
       }
-      if (!gotResults && !mineResults.length) setMineError('Nenhum resultado retornado. Tente outro nicho.')
-    } catch (err) { setMineError(err instanceof Error ? err.message : 'Erro de conexão') } finally { setMining(false); setMineStatus('') }
+      throw new Error('Tempo esgotado. Tente novamente.')
+    } catch (err) { setMineError(err instanceof Error ? err.message : 'Erro') } finally { setMining(false); setMineStatus('') }
   }
 
   function toggleNicho(n: string) {
