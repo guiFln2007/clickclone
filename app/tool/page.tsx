@@ -257,12 +257,13 @@ export default function ToolPage() {
   const [totalAlerts, setTotalAlerts] = useState(0)
 
   // Mine
-  const [mineNicho, setMineNicho] = useState('')
+  const [mineNichos, setMineNichos] = useState<string[]>([])
   const [mineMinAds, setMineMinAds] = useState(20)
   const [mineMinDays, setMineMinDays] = useState(15)
   const [mining, setMining] = useState(false)
   const [mineResults, setMineResults] = useState<MineResult[]>([])
   const [mineError, setMineError] = useState('')
+  const [mineStatus, setMineStatus] = useState('')
 
   // Toast
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
@@ -470,14 +471,42 @@ export default function ToolPage() {
 
   // ── MINE ──
   async function handleMine() {
-    if (!mineNicho || mining) return
-    setMining(true); setMineError(''); setMineResults([])
+    if (!mineNichos.length || mining) return
+    setMining(true); setMineError(''); setMineResults([]); setMineStatus('Conectando...')
     try {
-      const res = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ nicho: mineNicho, min_ads: mineMinAds, min_days: mineMinDays }) })
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Erro') }
-      const data = await res.json()
-      setMineResults(data.ofertas || [])
-    } catch (err) { setMineError(err instanceof Error ? err.message : 'Erro') } finally { setMining(false) }
+      const res = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ nichos: mineNichos, minAnuncios: mineMinAds, minDias: mineMinDays }) })
+      if (!res.body) throw new Error('No stream')
+      const reader = res.body.getReader(); const decoder = new TextDecoder(); let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (value) buffer += decoder.decode(value, { stream: !done })
+        const parts = buffer.split('\n\n'); buffer = parts.pop() ?? ''
+        for (const part of parts) {
+          if (!part.startsWith('data: ')) continue
+          try {
+            const ev = JSON.parse(part.slice(6))
+            if (ev.type === 'progress') setMineStatus(ev.text?.replace(/^[^\s]+ /, '') || '')
+            if (ev.type === 'error') throw new Error(ev.message)
+            if (ev.type === 'done') { setMineResults(ev.ofertas || []); setMineStatus('') }
+          } catch (e) { if ((e as Error).message !== 'No stream') throw e }
+        }
+        if (done) break
+      }
+    } catch (err) { setMineError(err instanceof Error ? err.message : 'Erro') } finally { setMining(false); setMineStatus('') }
+  }
+
+  function toggleNicho(n: string) {
+    setMineNichos(prev => prev.includes(n) ? prev.filter(x => x !== n) : [...prev, n])
+  }
+
+  async function saveMinedToRadar(o: MineResult) {
+    if (!userId) return
+    await fetch('/api/radar', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
+      pagina_nome: o.pagina_nome, ad_library_url: o.ad_library_url,
+      landing_url: o.landing_url, nicho: o.nicho, snapshot_ads: o.total_anuncios,
+    }) })
+    showToast('Oferta adicionada ao Radar!')
+    loadRadar().catch(() => {})
   }
 
   function openSavedAnalysis(a: SavedAnalysis) {
@@ -754,49 +783,67 @@ export default function ToolPage() {
           {/* ── ABA MINERADOR ── */}
           {activeTab === 'minerador' && (
             <div className="tab-content">
-              <h1 style={{ marginBottom: 24 }}>Minerador Autom&aacute;tico</h1>
+              <div className="mine-hero">
+                <h1 className="mine-title">Minerador <span className="acc">Autom{'\u00E1'}tico</span></h1>
+                <p className="mine-sub">Encontre ofertas validadas no seu nicho em segundos</p>
+              </div>
+
               <div className="mine-filters">
-                <div className="rpt-card-lbl" style={{ marginBottom: 10 }}>Nicho</div>
+                <div className="rpt-card-lbl" style={{ marginBottom: 10 }}>NICHO</div>
                 <div className="mine-nichos">
                   {nichos.map(n => (
-                    <button key={n} className={`nicho-btn${mineNicho === n.toLowerCase() ? ' active' : ''}`} onClick={() => setMineNicho(n.toLowerCase())}>{n}</button>
+                    <button key={n} className={`nicho-btn${mineNichos.includes(n.toLowerCase()) ? ' active' : ''}`} onClick={() => toggleNicho(n.toLowerCase())}>{n}</button>
                   ))}
                 </div>
                 <div className="mine-advanced">
                   <div>
-                    <div className="rpt-card-lbl" style={{ marginBottom: 6 }}>Min. anuncios</div>
+                    <div className="rpt-card-lbl" style={{ marginBottom: 6 }}>M{'\u00CD'}N. AN{'\u00DA'}NCIOS</div>
                     <div className="filter-row">{[10, 20, 50, 100].map(v => <button key={v} className={`filter-btn${mineMinAds === v ? ' active' : ''}`} onClick={() => setMineMinAds(v)}>{v}+</button>)}</div>
                   </div>
                   <div>
-                    <div className="rpt-card-lbl" style={{ marginBottom: 6 }}>Min. dias rodando</div>
+                    <div className="rpt-card-lbl" style={{ marginBottom: 6 }}>TEMPO RODANDO</div>
                     <div className="filter-row">{[7, 15, 30, 60].map(v => <button key={v} className={`filter-btn${mineMinDays === v ? ' active' : ''}`} onClick={() => setMineMinDays(v)}>{v}d+</button>)}</div>
                   </div>
                 </div>
-                <button className="mine-btn" onClick={handleMine} disabled={!mineNicho || mining}>
-                  {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : '\u26CF\uFE0F Minerar Agora'}
-                </button>
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+                  <button className="mine-btn" onClick={handleMine} disabled={!mineNichos.length || mining}>
+                    {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : <>{'\u26CF\uFE0F'} Minerar Agora</>}
+                  </button>
+                </div>
                 {mineError && <div className="err" style={{ marginTop: 12 }}>{mineError}</div>}
               </div>
 
+              {/* Rat mascot */}
+              <RatMascot isAnalyzing={mining} />
+              {mining && mineStatus && <div className="mine-status">{mineStatus}</div>}
+              {!mining && mineResults.length === 0 && !mineError && <div className="mine-hint">Selecione um nicho e clique em Minerar</div>}
+
+              {/* Results */}
               {mineResults.length > 0 && (
-                <div style={{ marginTop: 24 }}>
-                  <div className="sec-hd"><h2>Resultados</h2><span className="sec-count">{mineResults.length} ofertas</span></div>
+                <div className="mine-results-wrap">
+                  <div className="sec-hd"><h2>{mineResults.length} ofertas encontradas</h2></div>
                   <div className="mine-results">
-                    {mineResults.map((o, i) => (
-                      <div key={i} className="mine-card">
-                        <div className="mc-rank">#{i + 1}</div>
-                        <div className="mc-info">
-                          <div className="mc-name">{o.pagina_nome}</div>
-                          <div className="mc-meta">{o.nicho} &middot; {o.dias_rodando !== null ? `${o.dias_rodando}d` : '?'} &middot; {o.total_anuncios} anuncios</div>
-                          {o.resumo_angulo && <div className="mc-angle">{o.resumo_angulo}</div>}
+                    {mineResults.map((o, i) => {
+                      const sc = o.score_escalabilidade ?? (o as unknown as Record<string, number>).score ?? 0
+                      const cls = sc >= 7 ? 'green' : sc >= 5 ? 'yellow' : 'red'
+                      return (
+                        <div key={i} className="mrc">
+                          <div className="mrc-top">
+                            <div className={`mrc-score ${cls}`}>{sc}</div>
+                            <div className="mrc-info">
+                              <div className="mrc-name">{o.pagina_nome}</div>
+                              <div className="mrc-meta">{o.dias_rodando !== null ? `${o.dias_rodando} dias` : '?'} &middot; {o.total_anuncios} an{'\u00FA'}ncios</div>
+                            </div>
+                            {o.nicho && <span className="mrc-nicho">{o.nicho}</span>}
+                          </div>
+                          {o.resumo_angulo && <div className="mrc-angle">{o.resumo_angulo}</div>}
+                          <div className="mrc-acts">
+                            <button className="mrc-btn-orange" onClick={() => { setUrl(o.ad_library_url); setActiveTab('analise') }}>Analisar &mdash; 1 an{'\u00E1'}lise</button>
+                            <button className="mrc-btn-outline" onClick={() => saveMinedToRadar(o)}>+ Salvar no Radar</button>
+                          </div>
                         </div>
-                        <div className={`mc-score ${o.score_escalabilidade >= 7 ? 'green' : o.score_escalabilidade >= 4 ? 'yellow' : 'red'}`}>{o.score_escalabilidade}</div>
-                        <div className="mc-actions">
-                          <button className="btn-sm btn-orange" onClick={() => { setUrl(o.ad_library_url); setActiveTab('analise') }}>Analisar</button>
-                          <a href={o.ad_library_url} target="_blank" rel="noopener noreferrer" className="btn-sm">Ver Ads</a>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -1171,19 +1218,31 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .mine-btn{padding:12px 28px;background:#FF6B00;border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
 .mine-btn:hover:not(:disabled){background:#e05e00}
 .mine-btn:disabled{opacity:.4;cursor:not-allowed}
-.mine-results{display:flex;flex-direction:column;gap:8px}
-.mine-card{display:flex;align-items:center;gap:14px;padding:16px 18px;background:#18181b;border:1px solid #27272a;border-radius:12px;transition:all .15s}
-.mine-card:hover{border-color:#3f3f46}
-.mc-rank{font-size:12px;font-weight:800;color:#3f3f46;width:28px;flex-shrink:0;text-align:center}
-.mc-info{flex:1;min-width:0}
-.mc-name{font-size:14px;font-weight:700;color:#e4e4e7;margin-bottom:2px}
-.mc-meta{font-size:12px;color:#52525b}
-.mc-angle{font-size:12px;color:#71717a;margin-top:4px;line-height:1.4}
-.mc-score{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0}
-.mc-score.green{background:rgba(34,197,94,.12);color:#22c55e}
-.mc-score.yellow{background:rgba(234,179,8,.12);color:#eab308}
-.mc-score.red{background:rgba(239,68,68,.12);color:#ef4444}
-.mc-actions{display:flex;gap:6px;flex-shrink:0}
+/* Minerador */
+.mine-hero{text-align:center;margin-bottom:24px}
+.mine-title{font-size:clamp(24px,3vw,32px);font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+.mine-sub{font-size:14px;color:#6B7280}
+.mine-status{text-align:center;font-size:14px;color:#a1a1aa;margin-top:-16px;margin-bottom:16px;animation:fadein .3s ease}
+.mine-hint{text-align:center;font-size:13px;color:#4B5563;margin-top:-16px;margin-bottom:16px}
+.mine-results-wrap{margin-top:8px}
+.mine-results{display:flex;flex-direction:column;gap:12px}
+.mrc{background:#111;border:1px solid #1F2937;border-radius:12px;padding:20px;transition:border-color .15s}
+.mrc:hover{border-color:#374151}
+.mrc-top{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.mrc-score{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0}
+.mrc-score.green{background:rgba(16,185,129,.12);color:#10B981}
+.mrc-score.yellow{background:rgba(245,158,11,.12);color:#F59E0B}
+.mrc-score.red{background:rgba(107,114,128,.12);color:#6B7280}
+.mrc-info{flex:1;min-width:0}
+.mrc-name{font-size:16px;font-weight:600;color:#e4e4e7;margin-bottom:2px}
+.mrc-meta{font-size:13px;color:#9CA3AF}
+.mrc-nicho{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:#1A0F00;color:#FF6B00;border:1px solid rgba(255,107,0,.2);flex-shrink:0;white-space:nowrap}
+.mrc-angle{font-size:14px;color:rgba(255,255,255,.7);line-height:1.5;margin-bottom:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mrc-acts{display:flex;gap:8px}
+.mrc-btn-orange{padding:10px 20px;background:#FF6B00;border:none;border-radius:8px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
+.mrc-btn-orange:hover{background:#e05e00}
+.mrc-btn-outline{padding:10px 20px;background:transparent;border:1px solid #2D2D2D;border-radius:8px;color:#9CA3AF;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.mrc-btn-outline:hover{border-color:#FF6B00;color:#FF6B00}
 
 /* MODALS */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
