@@ -475,8 +475,8 @@ export default function ToolPage() {
     setMining(true); setMineError(''); setMineResults([]); setMineStatus('Conectando...')
     try {
       const res = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ nichos: mineNichos, minAnuncios: mineMinAds, minDias: mineMinDays }) })
-      if (!res.body) throw new Error('No stream')
-      const reader = res.body.getReader(); const decoder = new TextDecoder(); let buffer = ''
+      if (!res.body) throw new Error('Sem resposta do servidor')
+      const reader = res.body.getReader(); const decoder = new TextDecoder(); let buffer = ''; let gotResults = false
       while (true) {
         const { done, value } = await reader.read()
         if (value) buffer += decoder.decode(value, { stream: !done })
@@ -485,14 +485,15 @@ export default function ToolPage() {
           if (!part.startsWith('data: ')) continue
           try {
             const ev = JSON.parse(part.slice(6))
-            if (ev.type === 'progress') setMineStatus(ev.text?.replace(/^[^\s]+ /, '') || '')
-            if (ev.type === 'error') throw new Error(ev.message)
-            if (ev.type === 'done') { setMineResults(ev.ofertas || []); setMineStatus('') }
-          } catch (e) { if ((e as Error).message !== 'No stream') throw e }
+            if (ev.type === 'progress') setMineStatus(ev.text?.replace(/^[\u{1F300}-\u{1F9FF}]\s?/u, '') || '')
+            if (ev.type === 'error') { setMineError(ev.message || 'Erro na mineração'); setMining(false); return }
+            if (ev.type === 'done') { setMineResults(ev.ofertas || []); gotResults = true }
+          } catch { /* skip bad JSON */ }
         }
         if (done) break
       }
-    } catch (err) { setMineError(err instanceof Error ? err.message : 'Erro') } finally { setMining(false); setMineStatus('') }
+      if (!gotResults && !mineResults.length) setMineError('Nenhum resultado retornado. Tente outro nicho.')
+    } catch (err) { setMineError(err instanceof Error ? err.message : 'Erro de conexão') } finally { setMining(false); setMineStatus('') }
   }
 
   function toggleNicho(n: string) {

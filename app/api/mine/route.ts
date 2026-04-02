@@ -36,9 +36,12 @@ export async function POST(req: NextRequest) {
         if (!userId) { send({ type: 'error', message: 'Não autenticado' }); controller.close(); return }
         const user = await dbGetUserById(userId)
         if (!user?.ativo) { send({ type: 'error', message: 'Conta inativa' }); controller.close(); return }
+        if (!APIFY_TOKEN) { send({ type: 'error', message: 'APIFY_TOKEN não configurado' }); controller.close(); return }
 
         const { nichos, minAnuncios = 20, minDias = 15 } = await req.json()
         if (!nichos?.length) { send({ type: 'error', message: 'Selecione pelo menos um nicho' }); controller.close(); return }
+
+        console.log('[Mine] Starting:', { nichos, minAnuncios, minDias })
 
         // 1. Build keywords
         const keywords: string[] = []
@@ -84,10 +87,16 @@ export async function POST(req: NextRequest) {
             const items = await safeJson(itemsRes) as Record<string, unknown>[]
             if (Array.isArray(items)) allAds.push(...items)
           } catch (e) {
-            console.warn(`[Mine] Keyword "${kw}" failed:`, (e as Error).message)
+            console.error(`[Mine] Keyword "${kw}" failed:`, (e as Error).message)
+            send({ type: 'progress', text: `⚠️ Busca "${kw}" falhou, tentando próxima...` })
           }
         }
 
+        console.log(`[Mine] Total ads scraped: ${allAds.length}`)
+        if (allAds.length === 0) {
+          send({ type: 'done', ofertas: [], total: 0 })
+          controller.close(); return
+        }
         send({ type: 'progress', text: `📊 ${allAds.length} anúncios encontrados. Agrupando por página...` })
 
         // 3. Group by page
