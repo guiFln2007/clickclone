@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           urls: [{ url: searchUrl }],
-          maxAds: 150,
+          maxAds: 80,
         }),
         signal: AbortSignal.timeout(15000),
       }
