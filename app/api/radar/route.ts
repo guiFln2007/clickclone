@@ -26,6 +26,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'pagina_nome e ad_library_url sao obrigatorios' }, { status: 400 })
   }
 
+  // Check if offer already exists for this user + URL
+  const existing = await dbGetTrackedOffers(userId)
+  if (existing.some(o => o.ad_library_url === ad_library_url)) {
+    return NextResponse.json({ id: existing.find(o => o.ad_library_url === ad_library_url)!.id, message: 'Oferta ja existe no radar' })
+  }
+
   const id = crypto.randomUUID()
   await dbCreateTrackedOffer({
     id,
