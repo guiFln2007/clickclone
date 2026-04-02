@@ -406,9 +406,10 @@ export default function ToolPage() {
         snapshot_data: { phase1: phase1Report, phase2: phase2Report },
       }) })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      loadRadar().catch(() => {})
+      // Show modal IMMEDIATELY, reload radar in background
       setSavingRadar(false)
       setSavedModal(true)
+      loadRadar().catch(() => {})
     } catch (err) {
       setSavingRadar(false)
       showToast(`Erro ao salvar: ${(err as Error).message}`, 'err')
