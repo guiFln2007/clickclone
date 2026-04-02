@@ -499,8 +499,18 @@ export default function ToolPage() {
 
   const countByStatus = {
     total: trackedOffers.length,
-    escalando: trackedOffers.filter(o => o.status === 'escalando').length,
-    caindo: trackedOffers.filter(o => o.status === 'caindo' || o.status === 'morta').length,
+    escalando: trackedOffers.filter(o => {
+      if (o.status === 'escalando') return true
+      const ads = o.ultimo_snapshot_ads ?? 0
+      const initial = o.primeiro_snapshot_ads ?? 0
+      return initial > 0 && ads > initial
+    }).length,
+    caindo: trackedOffers.filter(o => {
+      if (o.status === 'caindo' || o.status === 'morta') return true
+      const ads = o.ultimo_snapshot_ads ?? 0
+      const initial = o.primeiro_snapshot_ads ?? 0
+      return initial > 0 && ads < initial
+    }).length,
   }
   const lastUpdate = trackedOffers.reduce((latest, o) => {
     if (o.verificado_em && (!latest || o.verificado_em > latest)) return o.verificado_em

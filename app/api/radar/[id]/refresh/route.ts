@@ -75,10 +75,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       variacao_percent: Math.round(variacaoPct * 100) / 100,
     })
 
-    // Update offer
+    // Update offer — any positive = escalando, any negative = caindo
     const newStatus = adsCount === 0 && prevCount > 0 ? 'morta'
-      : variacao >= 10 ? 'escalando'
-      : variacao <= -10 ? 'caindo'
+      : variacao > 0 ? 'escalando'
+      : variacao < 0 ? 'caindo'
       : 'ativa'
 
     await dbUpdateTrackedOffer(id, {
