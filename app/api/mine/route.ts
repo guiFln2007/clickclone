@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           urls: [{ url: searchUrl }],
-          maxAds: 80,
+          maxAds: 30,
+          maxConcurrency: 1,
         }),
         signal: AbortSignal.timeout(15000),
       }
