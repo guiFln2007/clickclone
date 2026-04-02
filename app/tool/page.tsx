@@ -457,8 +457,10 @@ export default function ToolPage() {
     setConfirmDeleteId(null)
     // Remove from local state INSTANTLY
     setTrackedOffers(prev => prev.filter(o => o.id !== id))
-    // Then delete from server in background
-    fetch('/api/radar', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) }).catch(() => {})
+    // Delete from server and WAIT for it to complete before any future loadRadar
+    try {
+      await fetch('/api/radar', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) })
+    } catch { /* ignore */ }
   }
 
   // ── MINE ──
