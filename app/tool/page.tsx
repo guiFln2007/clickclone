@@ -102,12 +102,7 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
   phase1: Record<string, any>; phase2: Record<string, any>
   onBack: () => void; onSaveToRadar: () => void; saving?: boolean
 }) {
-  const clickedRef = useRef(false)
-  const handleSave = () => {
-    if (clickedRef.current) return
-    clickedRef.current = true
-    onSaveToRadar()
-  }
+  const handleSave = () => { onSaveToRadar() }
   const nota = phase1.nota_entrada || {}
   const score = nota.score ?? 0
   const volumePts = nota.volume_pts ?? 0
@@ -220,7 +215,7 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
 
       {/* CTA STICKY */}
       <div className="report-cta-sticky">
-        <button className="cta-radar-btn" onClick={handleSave} disabled={saving || clickedRef.current}>
+        <button className="cta-radar-btn" onClick={handleSave} disabled={saving}>
           {saving ? <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Salvando...</>
           : <><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg> Salvar no Radar</>}
         </button>
