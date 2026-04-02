@@ -47,6 +47,11 @@ export async function POST(req: NextRequest) {
       }
     )
     const runData = await runRes.json() as Record<string, unknown>
+    if (!runRes.ok) {
+      const errMsg = (runData?.error as Record<string, string>)?.message || `Apify HTTP ${runRes.status}`
+      console.error('[Mine] Apify error:', errMsg)
+      return NextResponse.json({ error: errMsg }, { status: 500 })
+    }
     const runId = ((runData?.data as Record<string, unknown>)?.id as string)
     if (!runId) return NextResponse.json({ error: 'Apify não retornou runId' }, { status: 500 })
 
