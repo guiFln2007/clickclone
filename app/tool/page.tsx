@@ -644,13 +644,16 @@ export default function ToolPage() {
                     {savedAnalyses.slice(0, 8).map(a => {
                       const cls = a.score >= 7 ? 'green' : a.score >= 5 ? 'yellow' : 'red'
                       return (
-                        <div key={a.id} className="history-card" onClick={() => openSavedAnalysis(a)}>
-                          <div className={`hc-score ${cls}`}>{a.score || '?'}</div>
-                          <div className="hc-info">
+                        <div key={a.id} className="history-card">
+                          <div className={`hc-score ${cls}`} onClick={() => openSavedAnalysis(a)}>{a.score || '?'}</div>
+                          <div className="hc-info" onClick={() => openSavedAnalysis(a)} style={{ cursor: 'pointer' }}>
                             <div className="hc-name">{a.name}</div>
                             <div className="hc-meta">{timeAgo(a.createdAt)} &middot; {(a.phase1.angulo_dominante as string || '').slice(0, 40)}</div>
                           </div>
-                          <button className="hc-btn">Ver relatorio</button>
+                          <button className="hc-btn" onClick={() => openSavedAnalysis(a)}>Ver relatorio</button>
+                          <button className="hc-del" onClick={() => { const updated = savedAnalyses.filter(x => x.id !== a.id); setSavedAnalyses(updated); localStorage.setItem('cc_analyses', JSON.stringify(updated)) }} title="Excluir">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                          </button>
                         </div>
                       )
                     })}
@@ -1019,6 +1022,8 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 /* HISTORY BUTTON */
 .hc-btn{padding:5px 12px;border-radius:6px;border:1px solid #1F2937;background:transparent;color:#6B7280;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;flex-shrink:0;white-space:nowrap}
 .hc-btn:hover{border-color:#FF6B00;color:#FF6B00}
+.hc-del{background:transparent;border:none;color:#3f3f46;cursor:pointer;padding:6px;border-radius:6px;transition:all .15s;flex-shrink:0;display:flex;align-items:center}
+.hc-del:hover{color:#EF4444;background:rgba(239,68,68,.1)}
 
 /* ERROR */
 .err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#ef4444;padding:12px 16px;border-radius:8px;font-size:13px;line-height:1.5}
