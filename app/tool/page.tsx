@@ -397,7 +397,7 @@ export default function ToolPage() {
     setSavingRadar(true)
     try {
       const totalAds = phase1Report.total_ads_analyzed || phase1Report.ad_analysis?.total_ads || 0
-      await fetch('/api/radar', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
+      const res = await fetch('/api/radar', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
         pagina_nome: phase1Report.pagina_nome || phase2Report.url_analisada?.replace(/^https?:\/\//, '').split('/')[0] || phase1Report.angulo_dominante || 'Oferta',
         ad_library_url: url,
         landing_url: phase2Report.url_analisada || phase1Report.landing_url || null,
@@ -405,12 +405,13 @@ export default function ToolPage() {
         snapshot_ads: totalAds,
         snapshot_data: { phase1: phase1Report, phase2: phase2Report },
       }) })
-      await loadRadar()
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      loadRadar().catch(() => {})
       setSavingRadar(false)
       setSavedModal(true)
-    } catch {
+    } catch (err) {
       setSavingRadar(false)
-      showToast('Erro ao salvar no Radar', 'err')
+      showToast(`Erro ao salvar: ${(err as Error).message}`, 'err')
     }
   }
 
@@ -451,16 +452,13 @@ export default function ToolPage() {
   }
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-  const [removingId, setRemovingId] = useState<string | null>(null)
 
   async function removeFromRadar(id: string) {
     setConfirmDeleteId(null)
-    setRemovingId(id)
-    // Wait for fade-out animation
-    await new Promise(r => setTimeout(r, 300))
-    await fetch('/api/radar', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) })
-    await loadRadar()
-    setRemovingId(null)
+    // Remove from local state INSTANTLY
+    setTrackedOffers(prev => prev.filter(o => o.id !== id))
+    // Then delete from server in background
+    fetch('/api/radar', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) }).catch(() => {})
   }
 
   // ── MINE ──
@@ -677,7 +675,7 @@ export default function ToolPage() {
                     const pct = initial > 0 ? ((diff / initial) * 100).toFixed(1) : '0.0'
                     const pctNum = parseFloat(pct)
                     return (
-                      <div key={o.id} className={`rc${removingId === o.id ? ' rc-removing' : ''}`}>
+                      <div key={o.id} className="rc">
                         <div className="rc-hd">
                           <div className="rc-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
                           <div className="rc-hd-info"><div className="rc-name">{o.pagina_nome}</div><a href={o.ad_library_url} target="_blank" rel="noopener noreferrer" className="rc-url" onClick={e => e.stopPropagation()}>{o.ad_library_url.replace(/^https?:\/\//, '').slice(0, 38)}...</a></div>
@@ -1062,8 +1060,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 @media(max-width:500px){.rdr-grid{grid-template-columns:1fr}}
 
 /* Offer card */
-.rc{background:#111;border:1px solid #1F2937;border-radius:12px;padding:16px;transition:all .3s ease;position:relative;opacity:1;transform:scale(1)}
-.rc-removing{opacity:0;transform:scale(.95);pointer-events:none}
+.rc{background:#111;border:1px solid #1F2937;border-radius:12px;padding:16px;transition:border-color .15s;position:relative}
 .rc:hover{border-color:#374151}
 .rc-hd{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
 .rc-fb{width:30px;height:30px;border-radius:8px;background:#1a2744;display:flex;align-items:center;justify-content:center;flex-shrink:0}
