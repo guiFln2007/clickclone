@@ -390,11 +390,13 @@ export default function ToolPage() {
   // ── SAVE TO RADAR ──
   const [savedModal, setSavedModal] = useState(false)
   const [savingRadar, setSavingRadar] = useState(false)
+  const savingRef = useRef(false)
 
   async function saveToRadar() {
     if (!phase1Report || !phase2Report) return
     if (!userId) { showToast('Fa\u00e7a login para salvar no Radar', 'err'); return }
-    if (savingRadar || savedModal) return // prevent double click
+    if (savingRef.current || savedModal) return
+    savingRef.current = true
     setSavingRadar(true)
     try {
       const totalAds = phase1Report.total_ads_analyzed || phase1Report.ad_analysis?.total_ads || 0
@@ -407,12 +409,12 @@ export default function ToolPage() {
         snapshot_data: { phase1: phase1Report, phase2: phase2Report },
       }) })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      // Show modal IMMEDIATELY, reload radar in background
       setSavingRadar(false)
       setSavedModal(true)
       loadRadar().catch(() => {})
     } catch (err) {
       setSavingRadar(false)
+      savingRef.current = false
       showToast(`Erro ao salvar: ${(err as Error).message}`, 'err')
     }
   }
@@ -507,7 +509,7 @@ export default function ToolPage() {
     return (
       <>
         <style>{CSS}</style>
-        <ReportView phase1={phase1Report} phase2={phase2Report} onBack={() => { setShowReport(false); setSavedModal(false) }} onSaveToRadar={saveToRadar} saving={savingRadar} />
+        <ReportView phase1={phase1Report} phase2={phase2Report} onBack={() => { setShowReport(false); setSavedModal(false); savingRef.current = false }} onSaveToRadar={saveToRadar} saving={savingRadar} />
         {savedModal && (
           <div className="modal-overlay" onClick={() => setSavedModal(false)}>
             <div className="saved-modal" onClick={e => e.stopPropagation()}>
