@@ -26,10 +26,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'pagina_nome e ad_library_url sao obrigatorios' }, { status: 400 })
   }
 
-  // Check if offer already exists for this user + URL
+  // Check if offer already exists for this user — compare by page_id or full URL
   const existing = await dbGetTrackedOffers(userId)
-  if (existing.some(o => o.ad_library_url === ad_library_url)) {
-    return NextResponse.json({ id: existing.find(o => o.ad_library_url === ad_library_url)!.id, message: 'Oferta ja existe no radar' })
+  const getPageId = (url: string) => { try { return new URL(url).searchParams.get('view_all_page_id') || url } catch { return url } }
+  const newPageId = getPageId(ad_library_url)
+  const dup = existing.find(o => getPageId(o.ad_library_url) === newPageId || o.ad_library_url === ad_library_url || o.pagina_nome === pagina_nome)
+  if (dup) {
+    return NextResponse.json({ id: dup.id, message: 'Oferta ja existe no radar', duplicate: true })
   }
 
   const id = crypto.randomUUID()
