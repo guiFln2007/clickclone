@@ -394,6 +394,7 @@ export default function ToolPage() {
   async function saveToRadar() {
     if (!phase1Report || !phase2Report) return
     if (!userId) { showToast('Fa\u00e7a login para salvar no Radar', 'err'); return }
+    if (savingRadar || savedModal) return // prevent double click
     setSavingRadar(true)
     try {
       const totalAds = phase1Report.total_ads_analyzed || phase1Report.ad_analysis?.total_ads || 0
