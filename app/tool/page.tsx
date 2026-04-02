@@ -506,7 +506,7 @@ export default function ToolPage() {
     return (
       <>
         <style>{CSS}</style>
-        <ReportView phase1={phase1Report} phase2={phase2Report} onBack={() => setShowReport(false)} onSaveToRadar={saveToRadar} saving={savingRadar} />
+        <ReportView phase1={phase1Report} phase2={phase2Report} onBack={() => { setShowReport(false); setSavedModal(false) }} onSaveToRadar={saveToRadar} saving={savingRadar} />
         {savedModal && (
           <div className="modal-overlay" onClick={() => setSavedModal(false)}>
             <div className="saved-modal" onClick={e => e.stopPropagation()}>
@@ -856,28 +856,6 @@ export default function ToolPage() {
                   )) : <tr><td colSpan={4} style={{ textAlign: 'center', color: '#4B5563', padding: 32 }}>Nenhum snapshot registrado</td></tr>}
                 </tbody>
               </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Saved to radar modal */}
-      {savedModal && (
-        <div className="modal-overlay" onClick={() => setSavedModal(false)}>
-          <div className="saved-modal" onClick={e => e.stopPropagation()}>
-            <div className="saved-check">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-            </div>
-            <h3 className="saved-title">Oferta salva no Radar!</h3>
-            <p className="saved-desc">Voc&ecirc; ser&aacute; notificado quando houver mudan&ccedil;as nos an&uacute;ncios.</p>
-            <div className="saved-btns">
-              <button className="saved-btn-outline" onClick={() => { setSavedModal(false); setShowReport(false); setActiveTab('rastreamento') }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                Ir pro Rastreamento
-              </button>
-              <button className="saved-btn-solid" onClick={() => setSavedModal(false)}>
-                Voltar pra An&aacute;lise
-              </button>
             </div>
           </div>
         </div>
