@@ -676,8 +676,8 @@ export default function ToolPage() {
                         <div key={a.id} className="history-card">
                           <div className={`hc-score ${cls}`} onClick={() => openSavedAnalysis(a)}>{a.score || '?'}</div>
                           <div className="hc-info" onClick={() => openSavedAnalysis(a)} style={{ cursor: 'pointer' }}>
-                            <div className="hc-name">{a.name}</div>
-                            <div className="hc-meta">{timeAgo(a.createdAt)} &middot; {(a.phase1.angulo_dominante as string || '').slice(0, 40)}</div>
+                            <div className="hc-name">{(a.phase1.pagina_nome as string) || a.url?.replace(/^https?:\/\//, '').split('/')[0] || a.name}</div>
+                            <div className="hc-meta">{timeAgo(a.createdAt)} &middot; {new Date(a.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                           </div>
                           <button className="hc-btn" onClick={() => openSavedAnalysis(a)}>Ver relatorio</button>
                           <button className="hc-del" onClick={() => { const updated = savedAnalyses.filter(x => x.id !== a.id); setSavedAnalyses(updated); localStorage.setItem('cc_analyses', JSON.stringify(updated)) }} title="Excluir">
