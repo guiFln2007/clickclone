@@ -4,14 +4,62 @@ import { dbGetUserById } from '@/lib/db'
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
 const NICHO_KEYWORDS: Record<string, string[]> = {
-  relacionamento: ['relacionamento amoroso', 'traição parceiro', 'ex volta'],
-  financas: ['renda extra online', 'dinheiro rápido', 'ganhar dinheiro'],
-  emagrecimento: ['emagrecer rápido', 'perder peso', 'dieta'],
-  espiritualidade: ['tarot amor', 'simpatia funciona', 'cigana'],
-  maternidade: ['bebê dormir', 'amamentação dicas', 'maternidade'],
-  carreira: ['concurso público', 'home office', 'trabalho remoto'],
-  saude: ['pressão alta natural', 'diabetes controle', 'ansiedade'],
-  beleza: ['pele perfeita', 'cabelo crescer', 'skincare'],
+  emagrecimento: [
+    'emagrecer rápido', 'perder peso', 'dieta', 'secar barriga',
+    'truque pra emagrecer', 'perder barriga', 'queimar gordura',
+    'emagrecimento natural', 'seca gordura', 'derreter gordura',
+    'eliminar peso', 'emagrecer sem dieta', 'barriga chapada',
+    'detox emagrecedor', 'suplemento emagrecimento',
+  ],
+  relacionamento: [
+    'relacionamento amoroso', 'traição parceiro', 'ex volta',
+    'reconquistar ex', 'salvar casamento', 'crise no relacionamento',
+    'como conquistar homem', 'como conquistar mulher', 'término namoro',
+    'dependência emocional', 'autoestima relacionamento', 'amor próprio',
+    'mensagem pro crush', 'casal em crise', 'superar término',
+  ],
+  financas: [
+    'renda extra online', 'dinheiro rápido', 'ganhar dinheiro',
+    'renda extra em casa', 'trabalhar pela internet', 'negócio online',
+    'como investir', 'trader iniciante', 'mercado financeiro',
+    'liberdade financeira', 'empreender do zero', 'vender online',
+    'dropshipping brasil', 'afiliado digital', 'infoproduto',
+  ],
+  espiritualidade: [
+    'tarot amor', 'simpatia funciona', 'cigana',
+    'mapa astral', 'signo ascendente', 'oração poderosa',
+    'simpatia pra amor', 'proteção espiritual', 'limpeza energética',
+    'anjo da guarda', 'lei da atração', 'manifestação',
+    'espiritualidade', 'meditação guiada', 'despertar espiritual',
+  ],
+  maternidade: [
+    'bebê dormir', 'amamentação dicas', 'maternidade',
+    'sono do bebê', 'introdução alimentar', 'mãe de primeira viagem',
+    'enxoval bebê', 'gravidez semana a semana', 'parto normal',
+    'puerpério', 'rotina do bebê', 'desenvolvimento infantil',
+    'desfralde', 'birra criança', 'educação positiva filhos',
+  ],
+  carreira: [
+    'concurso público', 'home office', 'trabalho remoto',
+    'vaga de emprego', 'currículo perfeito', 'entrevista emprego',
+    'mudar de carreira', 'promoção no trabalho', 'freelancer brasil',
+    'primeira vaga TI', 'curso profissionalizante', 'linkedin dicas',
+    'produtividade trabalho', 'habilidades profissionais', 'salário maior',
+  ],
+  saude: [
+    'pressão alta natural', 'diabetes controle', 'ansiedade',
+    'dor nas costas', 'insônia tratamento', 'colesterol alto',
+    'remédio natural', 'saúde intestinal', 'imunidade baixa',
+    'dor no joelho', 'zumbido no ouvido', 'ácido úrico',
+    'menopausa sintomas', 'próstata aumentada', 'visão embaçada',
+  ],
+  beleza: [
+    'pele perfeita', 'cabelo crescer', 'skincare',
+    'manchas no rosto', 'rugas tratamento', 'queda de cabelo',
+    'unha decorada', 'sobrancelha perfeita', 'maquiagem natural',
+    'rejuvenescimento facial', 'ácido hialurônico', 'colágeno pele',
+    'celulite tratamento', 'clareamento dental', 'cuidados com a pele',
+  ],
 }
 
 // POST — Start mining (returns runId immediately)
@@ -41,7 +89,7 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           urls,
-          maxAds: 200,
+          maxAds: 500,
           maxConcurrency: 1,
         }),
         signal: AbortSignal.timeout(15000),
@@ -90,7 +138,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get results
-    const itemsRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=150`, { signal: AbortSignal.timeout(15000) })
+    const itemsRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=1000`, { signal: AbortSignal.timeout(30000) })
     const items = await itemsRes.json() as Record<string, unknown>[]
     if (!Array.isArray(items)) return NextResponse.json({ status: 'failed', error: 'Dados inválidos do Apify' })
 
