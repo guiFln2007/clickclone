@@ -103,13 +103,23 @@ export async function GET(req: NextRequest) {
 
     console.log(`[Mine] Found ${Object.keys(pageMap).length} unique pages`)
 
+    // Scale minAnuncios filter proportionally to sample size
+    // With 150 ads sampled, a page with 3+ hits is already significant
+    // Map user selection: 10+ → 2, 20+ → 3, 50+ → 5, 100+ → 8
+    const totalAds = items.length
+    const scaledMinAds = totalAds < 200
+      ? (minAnuncios >= 100 ? 8 : minAnuncios >= 50 ? 5 : minAnuncios >= 20 ? 3 : 2)
+      : minAnuncios // se por algum motivo vier muitos ads, usa o valor real
+
+    console.log(`[Mine] Filter: ${minAnuncios}+ ads scaled to ${scaledMinAds}+ (sample: ${totalAds})`)
+
     // Build results
     const ofertas = Object.values(pageMap)
       .map(p => {
         const maisAntiga = p.datas.length > 0 ? Math.min(...p.datas) : null
         const diasRodando = maisAntiga ? Math.floor((Date.now() - maisAntiga) / 86400000) : null
 
-        const volPts = p.count >= 50 ? 4 : p.count >= 20 ? 3 : p.count >= 10 ? 2 : 0
+        const volPts = p.count >= 50 ? 4 : p.count >= 20 ? 3 : p.count >= 10 ? 2 : p.count >= 5 ? 1 : 0
         const tempoPts = diasRodando === null ? 0 : diasRodando >= 41 ? 3 : diasRodando >= 21 ? 2 : diasRodando >= 10 ? 1 : 0
         const maxPts = diasRodando === null ? 7 : 10
         const score = Math.round(((volPts + tempoPts + 2) / maxPts) * 10)
@@ -125,7 +135,7 @@ export async function GET(req: NextRequest) {
           resumo_angulo: '',
         }
       })
-      .filter(p => p.total_anuncios >= minAnuncios && (p.dias_rodando === null || p.dias_rodando >= minDias))
+      .filter(p => p.total_anuncios >= scaledMinAds && (p.dias_rodando === null || p.dias_rodando >= minDias))
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
       .slice(0, 30)
 
