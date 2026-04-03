@@ -69,47 +69,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ status: 'failed', error: `Scraper status: ${status}` })
     }
 
-    // Process results — same grouping logic as before
-    const items = (data.ads || []) as Array<Record<string, unknown>>
-    console.log(`[Mine] Got ${items.length} ads, grouping by page...`)
+    // Results come pre-processed with real ad counts from scraper
+    const results = (data.results || []) as Array<{ pagina_nome: string; page_id: string; total_anuncios: number; dias_rodando: number | null; landing_url: string | null }>
+    console.log(`[Mine] Got ${results.length} pages with real counts`)
 
-    const pageMap: Record<string, { nome: string; pageId: string; count: number; datas: number[]; landingUrl: string | null }> = {}
-    for (const ad of items) {
-      const pageId = (ad.page_id as string) || ''
-      const pageName = (ad.page_name as string) || 'Desconhecido'
-      if (!pageId) continue
-      if (!pageMap[pageId]) pageMap[pageId] = { nome: pageName, pageId, count: 0, datas: [], landingUrl: null }
-      pageMap[pageId].count++
-
-      const ts = ad.start_date as number | undefined
-      const formatted = ad.start_date_formatted as string || ''
-      if (typeof ts === 'number' && ts > 0) pageMap[pageId].datas.push(ts * 1000)
-      else if (formatted) { const d = new Date(formatted).getTime(); if (!isNaN(d) && d > 0) pageMap[pageId].datas.push(d) }
-
-      if (!pageMap[pageId].landingUrl) {
-        const snap = ad.snapshot as Record<string, unknown> | undefined
-        pageMap[pageId].landingUrl = (snap?.link_url as string) || null
-      }
-    }
-
-    console.log(`[Mine] Found ${Object.keys(pageMap).length} unique pages`)
-
-    const ofertas = Object.values(pageMap)
+    const ofertas = results
       .map(p => {
-        const maisAntiga = p.datas.length > 0 ? Math.min(...p.datas) : null
-        const diasRodando = maisAntiga ? Math.floor((Date.now() - maisAntiga) / 86400000) : null
-
-        const volPts = p.count >= 50 ? 4 : p.count >= 20 ? 3 : p.count >= 10 ? 2 : 0
-        const tempoPts = diasRodando === null ? 0 : diasRodando >= 41 ? 3 : diasRodando >= 21 ? 2 : diasRodando >= 10 ? 1 : 0
-        const maxPts = diasRodando === null ? 7 : 10
+        const volPts = p.total_anuncios >= 50 ? 4 : p.total_anuncios >= 20 ? 3 : p.total_anuncios >= 10 ? 2 : 0
+        const tempoPts = p.dias_rodando === null ? 0 : p.dias_rodando >= 41 ? 3 : p.dias_rodando >= 21 ? 2 : p.dias_rodando >= 10 ? 1 : 0
+        const maxPts = p.dias_rodando === null ? 7 : 10
         const score = Math.round(((volPts + tempoPts + 2) / maxPts) * 10)
 
         return {
-          pagina_nome: p.nome,
-          ad_library_url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.pageId}`,
-          landing_url: p.landingUrl,
-          total_anuncios: p.count,
-          dias_rodando: diasRodando,
+          pagina_nome: p.pagina_nome,
+          ad_library_url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`,
+          landing_url: p.landing_url,
+          total_anuncios: p.total_anuncios,
+          dias_rodando: p.dias_rodando,
           score_escalabilidade: Math.min(10, score),
           nicho,
           resumo_angulo: '',
@@ -119,7 +95,7 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
       .slice(0, 30)
 
-    console.log(`[Mine] Returning ${ofertas.length} offers`)
+    console.log(`[Mine] Returning ${ofertas.length} offers (filtered ${minAnuncios}+ ads, ${minDias}+ days)`)
     return NextResponse.json({ status: 'done', ofertas })
   } catch (e) {
     return NextResponse.json({ status: 'failed', error: (e as Error).message })
