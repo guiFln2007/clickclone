@@ -4,48 +4,21 @@ import crypto from 'crypto'
 
 export const maxDuration = 300
 
-async function getAdsCount(adLibraryUrl: string): Promise<number> {
-  const token = process.env.APIFY_TOKEN
-  if (!token) return -1
+const SCRAPER_URL = process.env.SCRAPER_URL || ''
+const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
 
-  // Extract page_id from URL
-  const match = adLibraryUrl.match(/view_all_page_id=(\d+)/)
-  if (!match) return -1
-
+async function getAdsCount(pageName: string): Promise<number> {
+  if (!SCRAPER_URL) return -1
   try {
-    const runUrl = `https://api.apify.com/v2/acts/apify~facebook-ads-scraper/runs?token=${token}`
-    const res = await fetch(runUrl, {
+    const res = await fetch(`${SCRAPER_URL}/count-ads`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        startUrls: [{ url: adLibraryUrl }],
-        maxItems: 1,
-        activeStatus: 'active',
-      }),
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+      body: JSON.stringify({ pageName }),
       signal: AbortSignal.timeout(60000),
     })
     if (!res.ok) return -1
-    const run = await res.json()
-    const datasetId = run?.data?.defaultDatasetId
-    if (!datasetId) return -1
-
-    // Wait for run to finish (poll)
-    let attempts = 0
-    while (attempts < 30) {
-      await new Promise(r => setTimeout(r, 2000))
-      const statusRes = await fetch(`https://api.apify.com/v2/actor-runs/${run.data.id}?token=${token}`)
-      const statusData = await statusRes.json()
-      if (statusData?.data?.status === 'SUCCEEDED') break
-      if (statusData?.data?.status === 'FAILED') return -1
-      attempts++
-    }
-
-    const countRes = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}&limit=1`)
-    const items = await countRes.json()
-    // The scraper returns total in the dataset stats
-    const statsRes = await fetch(`https://api.apify.com/v2/datasets/${datasetId}?token=${token}`)
-    const stats = await statsRes.json()
-    return stats?.data?.itemCount ?? items.length
+    const data = await res.json() as { count: number }
+    return data.count
   } catch {
     return -1
   }
@@ -59,7 +32,6 @@ async function getPageHash(url: string): Promise<string | null> {
     })
     if (!res.ok) return null
     let html = await res.text()
-    // Remove dynamic timestamps/scripts to reduce false positives
     html = html.replace(/<script[\s\S]*?<\/script>/gi, '')
     html = html.replace(/\d{10,13}/g, '')
     return crypto.createHash('sha256').update(html).digest('hex')
@@ -80,7 +52,7 @@ export async function GET(req: NextRequest) {
 
   for (const oferta of ofertas) {
     try {
-      const adsCount = await getAdsCount(oferta.ad_library_url)
+      const adsCount = await getAdsCount(oferta.pagina_nome)
       const landingHash = oferta.landing_url ? await getPageHash(oferta.landing_url) : null
 
       const anterior = oferta.ultimo_snapshot_ads ?? oferta.primeiro_snapshot_ads ?? 0
@@ -101,7 +73,6 @@ export async function GET(req: NextRequest) {
         alertas.push({ tipo: 'pagina_mudou', mensagem: `${oferta.pagina_nome} alterou a pagina de destino` })
       }
 
-      // Save alerts
       for (const alerta of alertas) {
         await dbCreateOfferAlert({
           id: crypto.randomUUID(),
@@ -114,7 +85,6 @@ export async function GET(req: NextRequest) {
         alertasCriados++
       }
 
-      // Update offer
       const newStatus = adsCount === 0 && anterior > 0 ? 'morta'
         : adsCount >= 0 && adsCount - anterior >= 10 ? 'escalando'
         : adsCount >= 0 && anterior - adsCount >= 10 ? 'caindo'
