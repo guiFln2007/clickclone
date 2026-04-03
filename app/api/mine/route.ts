@@ -51,8 +51,11 @@ export async function POST(req: NextRequest) {
   const { nichos, minAnuncios = 20, minDias = 15 } = await req.json()
   if (!nichos?.length) return NextResponse.json({ error: 'Selecione pelo menos um nicho' }, { status: 400 })
 
-  // Build URLs — 5 keywords per niche
-  const keywords = (nichos as string[]).flatMap(n => NICHO_KEYWORDS[n] || [n])
+  // Build URLs — pick 2 random keywords per niche to save cost
+  const allKws = (nichos as string[]).flatMap(n => NICHO_KEYWORDS[n] || [n])
+  // Shuffle and pick 2 keywords per niche to keep costs low
+  const shuffled = allKws.sort(() => Math.random() - 0.5)
+  const keywords = shuffled.slice(0, Math.min(2 * (nichos as string[]).length, 3))
   const urls = keywords.map(kw => ({
     url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(kw)}&search_type=keyword_unordered`
   }))
@@ -67,8 +70,8 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           urls,
-          maxAds: 100,       // 100 ads per keyword × 5 keywords = ~500 ads total
-          maxConcurrency: 2,  // 2 parallel = faster without overload
+          maxAds: 50,         // 50 ads per keyword × 3 keywords max = ~150 ads total
+          maxConcurrency: 1,  // 1 at a time = cheaper compute
         }),
         signal: AbortSignal.timeout(15000),
       }
@@ -116,7 +119,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get results — fetch up to 2000 items
-    const itemsRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=2000`, { signal: AbortSignal.timeout(30000) })
+    const itemsRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=500`, { signal: AbortSignal.timeout(30000) })
     const items = await itemsRes.json() as Record<string, unknown>[]
     if (!Array.isArray(items)) return NextResponse.json({ status: 'failed', error: 'Dados inválidos do Apify' })
 
@@ -169,7 +172,14 @@ export async function GET(req: NextRequest) {
           resumo_angulo: '',
         }
       })
-      .filter(p => p.total_anuncios >= minAnuncios && (p.dias_rodando === null || p.dias_rodando >= minDias))
+      // minAnuncios filter: scale down since we only sample ~150 ads
+      // 10+ → 2+, 20+ → 3+, 50+ → 5+, 100+ → 8+
+      .filter(p => {
+        const scaledMin = minAnuncios >= 100 ? 8 : minAnuncios >= 50 ? 5 : minAnuncios >= 20 ? 3 : 2
+        const passAds = p.total_anuncios >= scaledMin
+        const passDays = p.dias_rodando === null || p.dias_rodando >= minDias
+        return passAds && passDays
+      })
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
       .slice(0, 30)
 
