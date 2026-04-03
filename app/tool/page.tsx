@@ -851,8 +851,9 @@ export default function ToolPage() {
                           </div>
                           {o.resumo_angulo && <div className="mrc-angle">{o.resumo_angulo}</div>}
                           <div className="mrc-acts">
-                            <button className="mrc-btn-orange" onClick={() => { setUrl(o.ad_library_url); setActiveTab('analise') }}>Analisar &mdash; 1 an{'\u00E1'}lise</button>
-                            <button className="mrc-btn-outline" onClick={() => saveMinedToRadar(o)}>+ Salvar no Radar</button>
+                            <a className="mrc-btn-orange" href={o.ad_library_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', textAlign: 'center' }}>Ver Biblioteca</a>
+                            <button className="mrc-btn-outline" onClick={() => { setUrl(o.ad_library_url); setActiveTab('analise') }}>Analisar</button>
+                            <button className="mrc-btn-outline" onClick={() => saveMinedToRadar(o)}>+ Radar</button>
                           </div>
                         </div>
                       )
