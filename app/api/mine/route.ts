@@ -25,11 +25,13 @@ export async function POST(req: NextRequest) {
   const { nichos, minAnuncios = 20, minDias = 15 } = await req.json()
   if (!nichos?.length) return NextResponse.json({ error: 'Selecione pelo menos um nicho' }, { status: 400 })
 
-  // Build keyword
-  const keyword = (nichos as string[]).flatMap(n => NICHO_KEYWORDS[n] || [n]).slice(0, 1)[0]
-  const searchUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered`
+  // Build keywords — use ALL keywords from selected niches
+  const keywords = (nichos as string[]).flatMap(n => NICHO_KEYWORDS[n] || [n])
+  const urls = keywords.map(kw => ({
+    url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(kw)}&search_type=keyword_unordered`
+  }))
 
-  console.log('[Mine] Starting Apify for:', keyword)
+  console.log('[Mine] Starting Apify for:', keywords.join(', '))
 
   try {
     const runRes = await fetch(
@@ -38,8 +40,8 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          urls: [{ url: searchUrl }],
-          maxAds: 30,
+          urls,
+          maxAds: 200,
           maxConcurrency: 1,
         }),
         signal: AbortSignal.timeout(15000),
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
     if (!runId) return NextResponse.json({ error: 'Apify não retornou runId' }, { status: 500 })
 
     console.log('[Mine] Apify run started:', runId)
-    return NextResponse.json({ runId, keyword, minAnuncios, minDias, nichos })
+    return NextResponse.json({ runId, keyword: keywords[0], minAnuncios, minDias, nichos })
   } catch (e) {
     return NextResponse.json({ error: `Erro ao iniciar Apify: ${(e as Error).message}` }, { status: 500 })
   }
