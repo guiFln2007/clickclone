@@ -92,12 +92,14 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(p => {
-        // Filter by min ads and min days
-        if (p.total_anuncios < minAnuncios) return false
+        // Filter by days running
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
+        // Minimum ads: sample count (200 ads total, so scale threshold)
+        const scaledMin = minAnuncios >= 100 ? 8 : minAnuncios >= 50 ? 5 : minAnuncios >= 20 ? 3 : 2
+        if (p.total_anuncios < scaledMin) return false
         // Filter out offers that point to social media instead of a real site
         const url = (p.landing_url || '').toLowerCase()
-        if (!url) return false // no landing = probably expert/influencer
+        if (!url) return false
         const blocked = ['instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com', 'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com', 't.me', 'telegram']
         if (blocked.some(domain => url.includes(domain))) return false
         return true
