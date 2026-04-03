@@ -20,12 +20,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const runRes = await fetch(
-      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
+      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}&timeout=120&maxItems=150`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           urls: [{ url: searchUrl }],
+          count: 150,           // limita total de resultados do actor
           maxConcurrency: 1,
         }),
         signal: AbortSignal.timeout(15000),
