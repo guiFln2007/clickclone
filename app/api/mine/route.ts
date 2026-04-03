@@ -3,44 +3,7 @@ import { dbGetUserById } from '@/lib/db'
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
-// 5 keywords por nicho — termos mais usados em ads BR
-// O scraper busca cada keyword como URL separada
-const NICHO_KEYWORDS: Record<string, string[]> = {
-  emagrecimento: [
-    'emagrecer rápido', 'secar barriga', 'perder peso',
-    'truque pra emagrecer', 'queimar gordura',
-  ],
-  relacionamento: [
-    'reconquistar ex', 'traição parceiro', 'salvar casamento',
-    'crise no relacionamento', 'como conquistar',
-  ],
-  financas: [
-    'renda extra online', 'ganhar dinheiro', 'negócio online',
-    'afiliado digital', 'trabalhar pela internet',
-  ],
-  espiritualidade: [
-    'tarot amor', 'simpatia funciona', 'oração poderosa',
-    'mapa astral', 'lei da atração',
-  ],
-  maternidade: [
-    'sono do bebê', 'amamentação dicas', 'mãe de primeira viagem',
-    'introdução alimentar', 'gravidez semana a semana',
-  ],
-  carreira: [
-    'concurso público', 'home office', 'trabalho remoto',
-    'vaga de emprego', 'freelancer brasil',
-  ],
-  saude: [
-    'pressão alta natural', 'diabetes controle', 'ansiedade tratamento',
-    'dor nas costas', 'insônia tratamento',
-  ],
-  beleza: [
-    'manchas no rosto', 'queda de cabelo', 'skincare rotina',
-    'rejuvenescimento facial', 'rugas tratamento',
-  ],
-}
-
-// POST — Start mining (returns runId immediately)
+// POST — Start mining with a single keyword
 export async function POST(req: NextRequest) {
   const userId = Number(req.headers.get('x-user-id'))
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
@@ -48,19 +11,12 @@ export async function POST(req: NextRequest) {
   if (!user?.ativo) return NextResponse.json({ error: 'Conta inativa' }, { status: 403 })
   if (!APIFY_TOKEN) return NextResponse.json({ error: 'APIFY_TOKEN não configurado' }, { status: 500 })
 
-  const { nichos, minAnuncios = 20, minDias = 15 } = await req.json()
-  if (!nichos?.length) return NextResponse.json({ error: 'Selecione pelo menos um nicho' }, { status: 400 })
+  const { keyword, minAnuncios = 20, minDias = 15 } = await req.json()
+  if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
-  // Build URLs — pick 2 random keywords per niche to save cost
-  const allKws = (nichos as string[]).flatMap(n => NICHO_KEYWORDS[n] || [n])
-  // Shuffle and pick 2 keywords per niche to keep costs low
-  const shuffled = allKws.sort(() => Math.random() - 0.5)
-  const keywords = shuffled.slice(0, Math.min(2 * (nichos as string[]).length, 3))
-  const urls = keywords.map(kw => ({
-    url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(kw)}&search_type=keyword_unordered`
-  }))
+  const searchUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(keyword.trim())}&search_type=keyword_unordered`
 
-  console.log(`[Mine] Starting Apify — ${urls.length} keywords: ${keywords.join(', ')}`)
+  console.log(`[Mine] Starting Apify for keyword: "${keyword.trim()}"`)
 
   try {
     const runRes = await fetch(
@@ -69,9 +25,8 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          urls,
-          maxAds: 50,         // 50 ads per keyword × 3 keywords max = ~150 ads total
-          maxConcurrency: 1,  // 1 at a time = cheaper compute
+          urls: [{ url: searchUrl }],
+          maxConcurrency: 1,
         }),
         signal: AbortSignal.timeout(15000),
       }
@@ -86,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (!runId) return NextResponse.json({ error: 'Apify não retornou runId' }, { status: 500 })
 
     console.log('[Mine] Apify run started:', runId)
-    return NextResponse.json({ runId, keyword: keywords[0], minAnuncios, minDias, nichos })
+    return NextResponse.json({ runId, keyword: keyword.trim(), minAnuncios, minDias })
   } catch (e) {
     return NextResponse.json({ error: `Erro ao iniciar Apify: ${(e as Error).message}` }, { status: 500 })
   }
@@ -118,14 +73,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ status: 'failed', error: `Apify status: ${status}` })
     }
 
-    // Get results — fetch up to 2000 items
+    // Get results
     const itemsRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=500`, { signal: AbortSignal.timeout(30000) })
     const items = await itemsRes.json() as Record<string, unknown>[]
     if (!Array.isArray(items)) return NextResponse.json({ status: 'failed', error: 'Dados inválidos do Apify' })
 
     console.log(`[Mine] Got ${items.length} ads, grouping by page...`)
 
-    // Group by page — handle both scraper formats
+    // Group by page
     const pageMap: Record<string, { nome: string; pageId: string; count: number; datas: number[]; landingUrl: string | null }> = {}
     for (const ad of items) {
       const pageId = (ad.page_id as string) || (ad.pageId as string) || (ad.pageName as string) || ''
@@ -134,13 +89,11 @@ export async function GET(req: NextRequest) {
       if (!pageMap[pageId]) pageMap[pageId] = { nome: pageName, pageId, count: 0, datas: [], landingUrl: null }
       pageMap[pageId].count++
 
-      // Try all date formats
       const ts = ad.start_date as number | undefined
       const formatted = (ad.start_date_formatted as string) || (ad.startDate as string) || (ad.startedRunningAt as string) || ''
       if (typeof ts === 'number' && ts > 1000000000) pageMap[pageId].datas.push(ts * 1000)
       else if (formatted) { const d = new Date(formatted).getTime(); if (!isNaN(d) && d > 0) pageMap[pageId].datas.push(d) }
 
-      // Try all landing URL formats
       if (!pageMap[pageId].landingUrl) {
         const snap = ad.snapshot as Record<string, unknown> | undefined
         pageMap[pageId].landingUrl = (snap?.link_url as string) || (ad.linkUrl as string) || (ad.link_url as string) || null
@@ -155,7 +108,6 @@ export async function GET(req: NextRequest) {
         const maisAntiga = p.datas.length > 0 ? Math.min(...p.datas) : null
         const diasRodando = maisAntiga ? Math.floor((Date.now() - maisAntiga) / 86400000) : null
 
-        // Score calculation
         const volPts = p.count >= 50 ? 4 : p.count >= 20 ? 3 : p.count >= 10 ? 2 : 0
         const tempoPts = diasRodando === null ? 0 : diasRodando >= 41 ? 3 : diasRodando >= 21 ? 2 : diasRodando >= 10 ? 1 : 0
         const maxPts = diasRodando === null ? 7 : 10
@@ -172,14 +124,7 @@ export async function GET(req: NextRequest) {
           resumo_angulo: '',
         }
       })
-      // minAnuncios filter: scale down since we only sample ~150 ads
-      // 10+ → 2+, 20+ → 3+, 50+ → 5+, 100+ → 8+
-      .filter(p => {
-        const scaledMin = minAnuncios >= 100 ? 8 : minAnuncios >= 50 ? 5 : minAnuncios >= 20 ? 3 : 2
-        const passAds = p.total_anuncios >= scaledMin
-        const passDays = p.dias_rodando === null || p.dias_rodando >= minDias
-        return passAds && passDays
-      })
+      .filter(p => p.total_anuncios >= minAnuncios && (p.dias_rodando === null || p.dias_rodando >= minDias))
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
       .slice(0, 30)
 

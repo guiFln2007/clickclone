@@ -257,7 +257,7 @@ export default function ToolPage() {
   const [totalAlerts, setTotalAlerts] = useState(0)
 
   // Mine
-  const [mineNichos, setMineNichos] = useState<string[]>([])
+  const [mineKeyword, setMineKeyword] = useState('')
   const [mineMinAds, setMineMinAds] = useState(20)
   const [mineMinDays, setMineMinDays] = useState(15)
   const [mining, setMining] = useState(false)
@@ -281,7 +281,7 @@ export default function ToolPage() {
   const profileRef = useRef<HTMLDivElement>(null)
   const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const nichos = ['Relacionamento', 'Financas', 'Emagrecimento', 'Espiritualidade', 'Maternidade', 'Carreira', 'Saude', 'Beleza']
+  const nichos = ['Relacionamento', 'Financas', 'Emagrecimento', 'Espiritualidade', 'Maternidade', 'Carreira', 'Saude', 'Beleza'] // usado no modal de adicionar oferta
 
   // Auth init
   useEffect(() => {
@@ -471,13 +471,13 @@ export default function ToolPage() {
 
   // ── MINE ──
   async function handleMine() {
-    if (!mineNichos.length || mining) return
+    if (!mineKeyword.trim() || mining) return
     setMining(true); setMineError(''); setMineResults([]); setMineStatus('Conectando ao Meta Ad Library...')
     try {
       // 1. Start the Apify run
-      const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ nichos: mineNichos, minAnuncios: mineMinAds, minDias: mineMinDays }) })
+      const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ keyword: mineKeyword.trim(), minAnuncios: mineMinAds, minDias: mineMinDays }) })
       if (!startRes.ok) { const e = await startRes.json().catch(() => ({})); throw new Error(e.error || 'Erro ao iniciar') }
-      const { runId, nichos: n } = await startRes.json()
+      const { runId } = await startRes.json()
       if (!runId) throw new Error('Falha ao iniciar busca')
 
       setMineStatus('Minerando an\u00FAncios no Meta Ad Library...')
@@ -489,7 +489,7 @@ export default function ToolPage() {
         await new Promise(r => setTimeout(r, 5000))
         if (attempt % 6 === 5) { msgIdx = Math.min(msgIdx + 1, statusMsgs.length - 1); setMineStatus(statusMsgs[msgIdx]) }
 
-        const pollRes = await fetch(`/api/mine?runId=${runId}&minAnuncios=${mineMinAds}&minDias=${mineMinDays}&nicho=${(n as string[])[0] || ''}`, { headers: authHeaders() })
+        const pollRes = await fetch(`/api/mine?runId=${runId}&minAnuncios=${mineMinAds}&minDias=${mineMinDays}&nicho=${encodeURIComponent(mineKeyword.trim())}`, { headers: authHeaders() })
         if (!pollRes.ok) continue
         const data = await pollRes.json()
 
@@ -505,9 +505,7 @@ export default function ToolPage() {
     } catch (err) { setMineError(err instanceof Error ? err.message : 'Erro') } finally { setMining(false); setMineStatus('') }
   }
 
-  function toggleNicho(n: string) {
-    setMineNichos(prev => prev.includes(n) ? prev.filter(x => x !== n) : [...prev, n])
-  }
+  // toggleNicho removido — agora usa input de keyword
 
   async function saveMinedToRadar(o: MineResult) {
     if (!userId) return
@@ -799,12 +797,17 @@ export default function ToolPage() {
               </div>
 
               <div className="mine-filters">
-                <div className="rpt-card-lbl" style={{ marginBottom: 10 }}>NICHO</div>
-                <div className="mine-nichos">
-                  {nichos.map(n => (
-                    <button key={n} className={`nicho-btn${mineNichos.includes(n.toLowerCase()) ? ' active' : ''}`} onClick={() => toggleNicho(n.toLowerCase())}>{n}</button>
-                  ))}
-                </div>
+                <div className="rpt-card-lbl" style={{ marginBottom: 10 }}>PALAVRA-CHAVE</div>
+                <input
+                  type="text"
+                  className="mine-keyword-input"
+                  placeholder="Ex: emagrecer r&#225;pido, renda extra, tarot..."
+                  value={mineKeyword}
+                  onChange={e => setMineKeyword(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && mineKeyword.trim() && !mining) handleMine() }}
+                  disabled={mining}
+                  style={{ width: '100%', padding: '12px 16px', fontSize: 15, borderRadius: 8, border: '1px solid #444', background: '#1a1a1a', color: '#fff', marginBottom: 20, outline: 'none' }}
+                />
                 <div className="mine-advanced">
                   <div>
                     <div className="rpt-card-lbl" style={{ marginBottom: 6 }}>M{'\u00CD'}N. AN{'\u00DA'}NCIOS</div>
@@ -816,7 +819,7 @@ export default function ToolPage() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-                  <button className="mine-btn" onClick={handleMine} disabled={!mineNichos.length || mining}>
+                  <button className="mine-btn" onClick={handleMine} disabled={!mineKeyword.trim() || mining}>
                     {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : <>{'\u26CF\uFE0F'} Minerar Agora</>}
                   </button>
                 </div>
@@ -826,7 +829,7 @@ export default function ToolPage() {
               {/* Rat mascot */}
               <RatMascot isAnalyzing={mining} />
               {mining && mineStatus && <div className="mine-status">{mineStatus}</div>}
-              {!mining && mineResults.length === 0 && !mineError && <div className="mine-hint">Selecione um nicho e clique em Minerar</div>}
+              {!mining && mineResults.length === 0 && !mineError && <div className="mine-hint">Digite uma palavra-chave e clique em Minerar</div>}
 
               {/* Results */}
               {mineResults.length > 0 && (
