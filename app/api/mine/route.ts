@@ -92,12 +92,10 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(p => {
-        // Filter by days running
+        // Real ad count from scraper — filter directly
+        if (p.total_anuncios < minAnuncios) return false
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
-        // Minimum ads: sample count (200 ads total, so scale threshold)
-        const scaledMin = minAnuncios >= 100 ? 8 : minAnuncios >= 50 ? 5 : minAnuncios >= 20 ? 3 : 2
-        if (p.total_anuncios < scaledMin) return false
-        // Filter out offers that point to social media instead of a real site
+        // Social media already filtered by scraper, but double check
         const url = (p.landing_url || '').toLowerCase()
         if (!url) return false
         const blocked = ['instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com', 'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com', 't.me', 'telegram']
