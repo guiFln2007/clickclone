@@ -483,11 +483,11 @@ export default function ToolPage() {
       setMineStatus('Minerando an\u00FAncios no Meta Ad Library...')
 
       // 2. Poll every 5s until done
-      const statusMsgs = ['Vasculhando bibliotecas de an\u00FAncios...', 'Analisando p\u00E1ginas encontradas...', 'Filtrando ofertas validadas...', 'Isso pode levar alguns minutos...', 'Quase l\u00E1...']
+      const statusMsgs = ['Vasculhando bibliotecas de an\u00FAncios...', 'Analisando p\u00E1ginas encontradas...', 'Filtrando ofertas validadas...', 'Isso pode levar alguns minutos...', 'Processando resultados...', 'Quase l\u00E1...']
       let msgIdx = 0
-      for (let attempt = 0; attempt < 120; attempt++) { // max 10 min
+      for (let attempt = 0; attempt < 240; attempt++) { // max 20 min
         await new Promise(r => setTimeout(r, 5000))
-        if (attempt % 4 === 3) { msgIdx = Math.min(msgIdx + 1, statusMsgs.length - 1); setMineStatus(statusMsgs[msgIdx]) }
+        if (attempt % 6 === 5) { msgIdx = Math.min(msgIdx + 1, statusMsgs.length - 1); setMineStatus(statusMsgs[msgIdx]) }
 
         const pollRes = await fetch(`/api/mine?runId=${runId}&minAnuncios=${mineMinAds}&minDias=${mineMinDays}&nicho=${(n as string[])[0] || ''}`, { headers: authHeaders() })
         if (!pollRes.ok) continue

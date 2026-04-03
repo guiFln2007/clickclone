@@ -3,62 +3,40 @@ import { dbGetUserById } from '@/lib/db'
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
 
+// 5 keywords por nicho — termos mais usados em ads BR
+// O scraper busca cada keyword como URL separada
 const NICHO_KEYWORDS: Record<string, string[]> = {
   emagrecimento: [
-    'emagrecer rápido', 'perder peso', 'dieta', 'secar barriga',
-    'truque pra emagrecer', 'perder barriga', 'queimar gordura',
-    'emagrecimento natural', 'seca gordura', 'derreter gordura',
-    'eliminar peso', 'emagrecer sem dieta', 'barriga chapada',
-    'detox emagrecedor', 'suplemento emagrecimento',
+    'emagrecer rápido', 'secar barriga', 'perder peso',
+    'truque pra emagrecer', 'queimar gordura',
   ],
   relacionamento: [
-    'relacionamento amoroso', 'traição parceiro', 'ex volta',
-    'reconquistar ex', 'salvar casamento', 'crise no relacionamento',
-    'como conquistar homem', 'como conquistar mulher', 'término namoro',
-    'dependência emocional', 'autoestima relacionamento', 'amor próprio',
-    'mensagem pro crush', 'casal em crise', 'superar término',
+    'reconquistar ex', 'traição parceiro', 'salvar casamento',
+    'crise no relacionamento', 'como conquistar',
   ],
   financas: [
-    'renda extra online', 'dinheiro rápido', 'ganhar dinheiro',
-    'renda extra em casa', 'trabalhar pela internet', 'negócio online',
-    'como investir', 'trader iniciante', 'mercado financeiro',
-    'liberdade financeira', 'empreender do zero', 'vender online',
-    'dropshipping brasil', 'afiliado digital', 'infoproduto',
+    'renda extra online', 'ganhar dinheiro', 'negócio online',
+    'afiliado digital', 'trabalhar pela internet',
   ],
   espiritualidade: [
-    'tarot amor', 'simpatia funciona', 'cigana',
-    'mapa astral', 'signo ascendente', 'oração poderosa',
-    'simpatia pra amor', 'proteção espiritual', 'limpeza energética',
-    'anjo da guarda', 'lei da atração', 'manifestação',
-    'espiritualidade', 'meditação guiada', 'despertar espiritual',
+    'tarot amor', 'simpatia funciona', 'oração poderosa',
+    'mapa astral', 'lei da atração',
   ],
   maternidade: [
-    'bebê dormir', 'amamentação dicas', 'maternidade',
-    'sono do bebê', 'introdução alimentar', 'mãe de primeira viagem',
-    'enxoval bebê', 'gravidez semana a semana', 'parto normal',
-    'puerpério', 'rotina do bebê', 'desenvolvimento infantil',
-    'desfralde', 'birra criança', 'educação positiva filhos',
+    'sono do bebê', 'amamentação dicas', 'mãe de primeira viagem',
+    'introdução alimentar', 'gravidez semana a semana',
   ],
   carreira: [
     'concurso público', 'home office', 'trabalho remoto',
-    'vaga de emprego', 'currículo perfeito', 'entrevista emprego',
-    'mudar de carreira', 'promoção no trabalho', 'freelancer brasil',
-    'primeira vaga TI', 'curso profissionalizante', 'linkedin dicas',
-    'produtividade trabalho', 'habilidades profissionais', 'salário maior',
+    'vaga de emprego', 'freelancer brasil',
   ],
   saude: [
-    'pressão alta natural', 'diabetes controle', 'ansiedade',
-    'dor nas costas', 'insônia tratamento', 'colesterol alto',
-    'remédio natural', 'saúde intestinal', 'imunidade baixa',
-    'dor no joelho', 'zumbido no ouvido', 'ácido úrico',
-    'menopausa sintomas', 'próstata aumentada', 'visão embaçada',
+    'pressão alta natural', 'diabetes controle', 'ansiedade tratamento',
+    'dor nas costas', 'insônia tratamento',
   ],
   beleza: [
-    'pele perfeita', 'cabelo crescer', 'skincare',
-    'manchas no rosto', 'rugas tratamento', 'queda de cabelo',
-    'unha decorada', 'sobrancelha perfeita', 'maquiagem natural',
-    'rejuvenescimento facial', 'ácido hialurônico', 'colágeno pele',
-    'celulite tratamento', 'clareamento dental', 'cuidados com a pele',
+    'manchas no rosto', 'queda de cabelo', 'skincare rotina',
+    'rejuvenescimento facial', 'rugas tratamento',
   ],
 }
 
@@ -73,13 +51,13 @@ export async function POST(req: NextRequest) {
   const { nichos, minAnuncios = 20, minDias = 15 } = await req.json()
   if (!nichos?.length) return NextResponse.json({ error: 'Selecione pelo menos um nicho' }, { status: 400 })
 
-  // Build keywords — use ALL keywords from selected niches
+  // Build URLs — 5 keywords per niche
   const keywords = (nichos as string[]).flatMap(n => NICHO_KEYWORDS[n] || [n])
   const urls = keywords.map(kw => ({
     url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(kw)}&search_type=keyword_unordered`
   }))
 
-  console.log('[Mine] Starting Apify for:', keywords.join(', '))
+  console.log(`[Mine] Starting Apify — ${urls.length} keywords: ${keywords.join(', ')}`)
 
   try {
     const runRes = await fetch(
@@ -89,8 +67,8 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           urls,
-          maxAds: 500,
-          maxConcurrency: 1,
+          maxAds: 100,       // 100 ads per keyword × 5 keywords = ~500 ads total
+          maxConcurrency: 2,  // 2 parallel = faster without overload
         }),
         signal: AbortSignal.timeout(15000),
       }
@@ -137,17 +115,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ status: 'failed', error: `Apify status: ${status}` })
     }
 
-    // Get results
-    const itemsRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=1000`, { signal: AbortSignal.timeout(30000) })
+    // Get results — fetch up to 2000 items
+    const itemsRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=2000`, { signal: AbortSignal.timeout(30000) })
     const items = await itemsRes.json() as Record<string, unknown>[]
     if (!Array.isArray(items)) return NextResponse.json({ status: 'failed', error: 'Dados inválidos do Apify' })
 
-    console.log(`[Mine] Got ${items.length} ads, grouping...`)
+    console.log(`[Mine] Got ${items.length} ads, grouping by page...`)
 
     // Group by page — handle both scraper formats
     const pageMap: Record<string, { nome: string; pageId: string; count: number; datas: number[]; landingUrl: string | null }> = {}
     for (const ad of items) {
-      // Try both scraper formats for page ID and name
       const pageId = (ad.page_id as string) || (ad.pageId as string) || (ad.pageName as string) || ''
       const pageName = (ad.page_name as string) || (ad.pageName as string) || 'Desconhecido'
       if (!pageId) continue
@@ -167,6 +144,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    console.log(`[Mine] Found ${Object.keys(pageMap).length} unique pages`)
+
     // Build results
     const ofertas = Object.values(pageMap)
       .map(p => {
@@ -177,7 +156,7 @@ export async function GET(req: NextRequest) {
         const volPts = p.count >= 50 ? 4 : p.count >= 20 ? 3 : p.count >= 10 ? 2 : 0
         const tempoPts = diasRodando === null ? 0 : diasRodando >= 41 ? 3 : diasRodando >= 21 ? 2 : diasRodando >= 10 ? 1 : 0
         const maxPts = diasRodando === null ? 7 : 10
-        const score = Math.round(((volPts + tempoPts + 2) / maxPts) * 10) // +2 assume no expert
+        const score = Math.round(((volPts + tempoPts + 2) / maxPts) * 10)
 
         return {
           pagina_nome: p.nome,
@@ -194,7 +173,7 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
       .slice(0, 30)
 
-    console.log(`[Mine] Returning ${ofertas.length} offers`)
+    console.log(`[Mine] Returning ${ofertas.length} offers (filtered ${minAnuncios}+ ads, ${minDias}+ days)`)
     return NextResponse.json({ status: 'done', ofertas })
   } catch (e) {
     return NextResponse.json({ status: 'failed', error: (e as Error).message })
