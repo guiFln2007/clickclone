@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const res = await fetch(`${SCRAPER_URL}/mine`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-      body: JSON.stringify({ keyword: keyword.trim(), count: 500 }),
+      body: JSON.stringify({ keyword: keyword.trim(), count: 100 }),
       signal: AbortSignal.timeout(15000),
     })
     const data = await res.json() as Record<string, unknown>
@@ -91,7 +91,17 @@ export async function GET(req: NextRequest) {
           resumo_angulo: '',
         }
       })
-      .filter(p => p.total_anuncios >= minAnuncios && (p.dias_rodando === null || p.dias_rodando >= minDias))
+      .filter(p => {
+        // Filter by min ads and min days
+        if (p.total_anuncios < minAnuncios) return false
+        if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
+        // Filter out offers that point to social media instead of a real site
+        const url = (p.landing_url || '').toLowerCase()
+        if (!url) return false // no landing = probably expert/influencer
+        const blocked = ['instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com', 'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com', 't.me', 'telegram']
+        if (blocked.some(domain => url.includes(domain))) return false
+        return true
+      })
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
       .slice(0, 30)
 
