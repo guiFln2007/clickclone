@@ -957,15 +957,19 @@ export default function ToolPage() {
       {/* Add offer modal */}
       {addOfferModal && (
         <div className="modal-overlay" onClick={() => setAddOfferModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
             <div className="modal-hd"><h3>Adicionar Oferta ao Radar</h3><button className="modal-close" onClick={() => setAddOfferModal(false)}>&times;</button></div>
-            <div className="modal-body">
-              <label className="modal-label">Nome da p{'\u00E1'}gina do anunciante</label>
-              <input className="modal-input" value={newOfferName} onChange={e => setNewOfferName(e.target.value)} placeholder="Ex: Velas Lucrativas" style={{ marginBottom: 12 }} />
-              <label className="modal-label">URL da Biblioteca de An{'\u00FA'}ncios</label>
-              <input className="modal-input" value={newOfferUrl} onChange={e => setNewOfferUrl(e.target.value)} placeholder="Cole a URL da p{'\u00E1'}gina na Biblioteca de An{'\u00FA'}ncios" style={{ marginBottom: 4 }} />
-              <p style={{ color: '#666', fontSize: 12, marginBottom: 16 }}>Abra a Biblioteca de An{'\u00FA'}ncios do Meta, busque a p{'\u00E1'}gina e copie a URL.</p>
-              <button className="rdr-btn-orange" style={{ marginTop: 4, width: '100%', justifyContent: 'center', padding: '14px 0', fontSize: 15, fontWeight: 700, borderRadius: 8 }} onClick={addOfferManual} disabled={!newOfferName || !newOfferUrl}>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label className="modal-label" style={{ marginBottom: 6, display: 'block' }}>Nome da pagina do anunciante</label>
+                <input className="modal-input" value={newOfferName} onChange={e => setNewOfferName(e.target.value)} placeholder="Ex: Velas Lucrativas" />
+              </div>
+              <div>
+                <label className="modal-label" style={{ marginBottom: 6, display: 'block' }}>URL da Biblioteca de Anuncios</label>
+                <input className="modal-input" value={newOfferUrl} onChange={e => setNewOfferUrl(e.target.value)} placeholder="https://www.facebook.com/ads/library/..." />
+                <p style={{ color: '#666', fontSize: 12, marginTop: 6 }}>Abra a Biblioteca de Anuncios do Meta, busque a pagina e copie a URL.</p>
+              </div>
+              <button className="mine-btn" style={{ width: '100%', marginTop: 4 }} onClick={addOfferManual} disabled={!newOfferName || !newOfferUrl}>
                 Salvar no Radar
               </button>
             </div>
