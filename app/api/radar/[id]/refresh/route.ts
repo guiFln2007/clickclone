@@ -4,13 +4,16 @@ import { dbGetUserById, dbUpdateTrackedOffer, dbCreateSnapshot, dbGetLastSnapsho
 const SCRAPER_URL = process.env.SCRAPER_URL || ''
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
 
-async function countAdsFromScraper(pageName: string): Promise<number> {
+async function countAdsFromScraper(pageName: string, adLibraryUrl: string): Promise<number> {
   if (!SCRAPER_URL) throw new Error('SCRAPER_URL não configurado')
+  // Extract page ID from ad_library_url if available
+  const pageIdMatch = adLibraryUrl.match(/view_all_page_id=(\d+)/)
+  const pageId = pageIdMatch?.[1] || undefined
   const res = await fetch(`${SCRAPER_URL}/count-ads`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-    body: JSON.stringify({ pageName }),
-    signal: AbortSignal.timeout(60000),
+    body: JSON.stringify({ pageName, pageId }),
+    signal: AbortSignal.timeout(120000),
   })
   if (!res.ok) throw new Error('Scraper error')
   const data = await res.json() as { count: number }
@@ -31,7 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!offer) return NextResponse.json({ error: 'Oferta não encontrada' }, { status: 404 })
 
   try {
-    const adsCount = await countAdsFromScraper(offer.pagina_nome)
+    const adsCount = await countAdsFromScraper(offer.pagina_nome, offer.ad_library_url)
 
     const lastSnap = await dbGetLastSnapshot(id)
     const prevCount = lastSnap?.ads_count ?? offer.primeiro_snapshot_ads ?? 0

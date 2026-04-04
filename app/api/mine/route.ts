@@ -84,7 +84,9 @@ export async function GET(req: NextRequest) {
 
         return {
           pagina_nome: p.pagina_nome,
-          ad_library_url: `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(p.pagina_nome)}&search_type=keyword_unordered`,
+          ad_library_url: /^\d+$/.test(p.page_id)
+            ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
+            : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(p.pagina_nome)}&search_type=keyword_unordered`,
           landing_url: p.landing_url,
           total_anuncios: p.total_anuncios,
           dias_rodando: p.dias_rodando,
