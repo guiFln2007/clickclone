@@ -507,14 +507,21 @@ export default function ToolPage() {
 
   // toggleNicho removido — agora usa input de keyword
 
+  const [savedToRadar, setSavedToRadar] = useState<Set<string>>(new Set())
   async function saveMinedToRadar(o: MineResult) {
-    if (!userId) return
-    await fetch('/api/radar', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
-      pagina_nome: o.pagina_nome, ad_library_url: o.ad_library_url,
-      landing_url: o.landing_url, nicho: o.nicho, snapshot_ads: o.total_anuncios,
-    }) })
-    showToast('Oferta adicionada ao Radar!')
-    loadRadar().catch(() => {})
+    if (!userId || savedToRadar.has(o.pagina_nome)) return
+    setSavedToRadar(prev => new Set(prev).add(o.pagina_nome))
+    try {
+      await fetch('/api/radar', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
+        pagina_nome: o.pagina_nome, ad_library_url: o.ad_library_url,
+        landing_url: o.landing_url, nicho: o.nicho, snapshot_ads: o.total_anuncios,
+      }) })
+      showToast('Oferta adicionada ao Radar!')
+      loadRadar().catch(() => {})
+    } catch {
+      setSavedToRadar(prev => { const n = new Set(prev); n.delete(o.pagina_nome); return n })
+      showToast('Erro ao salvar', 'err')
+    }
   }
 
   function openSavedAnalysis(a: SavedAnalysis) {
@@ -844,7 +851,7 @@ export default function ToolPage() {
                           <div className="mrc-acts">
                             <a className="mrc-btn-orange" href={o.ad_library_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', textAlign: 'center' }}>Ver Biblioteca</a>
                             <button className="mrc-btn-outline" onClick={() => { setUrl(o.ad_library_url); setActiveTab('analise') }}>Analisar</button>
-                            <button className="mrc-btn-outline" onClick={() => saveMinedToRadar(o)}>+ Radar</button>
+                            <button className="mrc-btn-outline" onClick={() => saveMinedToRadar(o)} disabled={savedToRadar.has(o.pagina_nome)} style={savedToRadar.has(o.pagina_nome) ? { opacity: 0.5, cursor: 'default' } : {}}>{savedToRadar.has(o.pagina_nome) ? 'Salvo' : '+ Radar'}</button>
                           </div>
                         </div>
                       )
@@ -951,19 +958,14 @@ export default function ToolPage() {
       {addOfferModal && (
         <div className="modal-overlay" onClick={() => setAddOfferModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-hd"><h3>Adicionar Oferta</h3><button className="modal-close" onClick={() => setAddOfferModal(false)}>&times;</button></div>
+            <div className="modal-hd"><h3>Adicionar Oferta ao Radar</h3><button className="modal-close" onClick={() => setAddOfferModal(false)}>&times;</button></div>
             <div className="modal-body">
-              <label className="modal-label">Nome da pagina</label>
-              <input className="modal-input" value={newOfferName} onChange={e => setNewOfferName(e.target.value)} placeholder="Ex: Velas Lucrativas" />
-              <label className="modal-label">URL da Ad Library</label>
-              <input className="modal-input" value={newOfferUrl} onChange={e => setNewOfferUrl(e.target.value)} placeholder="https://www.facebook.com/ads/library/?active_status=..." />
-              <label className="modal-label">Nicho</label>
-              <select className="modal-input" value={newOfferNicho} onChange={e => setNewOfferNicho(e.target.value)}>
-                <option value="">Selecione...</option>
-                {nichos.map(n => <option key={n} value={n.toLowerCase()}>{n}</option>)}
-              </select>
-              <button className="rdr-btn-orange" style={{ marginTop: 16, width: '100%', justifyContent: 'center', padding: '12px 0' }} onClick={addOfferManual} disabled={!newOfferName || !newOfferUrl}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <label className="modal-label">Nome da p{'\u00E1'}gina do anunciante</label>
+              <input className="modal-input" value={newOfferName} onChange={e => setNewOfferName(e.target.value)} placeholder="Ex: Velas Lucrativas" style={{ marginBottom: 12 }} />
+              <label className="modal-label">URL da Biblioteca de An{'\u00FA'}ncios</label>
+              <input className="modal-input" value={newOfferUrl} onChange={e => setNewOfferUrl(e.target.value)} placeholder="Cole a URL da p{'\u00E1'}gina na Biblioteca de An{'\u00FA'}ncios" style={{ marginBottom: 4 }} />
+              <p style={{ color: '#666', fontSize: 12, marginBottom: 16 }}>Abra a Biblioteca de An{'\u00FA'}ncios do Meta, busque a p{'\u00E1'}gina e copie a URL.</p>
+              <button className="rdr-btn-orange" style={{ marginTop: 4, width: '100%', justifyContent: 'center', padding: '14px 0', fontSize: 15, fontWeight: 700, borderRadius: 8 }} onClick={addOfferManual} disabled={!newOfferName || !newOfferUrl}>
                 Salvar no Radar
               </button>
             </div>
