@@ -475,7 +475,7 @@ export default function ToolPage() {
     setMining(true); setMineError(''); setMineResults([]); setMineStatus('Conectando ao Meta Ad Library...')
     try {
       // 1. Start the Apify run
-      const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ keyword: mineKeyword.trim(), minAnuncios: mineMinAds, minDias: mineMinDays }) })
+      const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ keyword: mineKeyword.trim() }) })
       if (!startRes.ok) { const e = await startRes.json().catch(() => ({})); throw new Error(e.error || 'Erro ao iniciar') }
       const { runId } = await startRes.json()
       if (!runId) throw new Error('Falha ao iniciar busca')
@@ -489,7 +489,7 @@ export default function ToolPage() {
         await new Promise(r => setTimeout(r, 5000))
         if (attempt % 6 === 5) { msgIdx = Math.min(msgIdx + 1, statusMsgs.length - 1); setMineStatus(statusMsgs[msgIdx]) }
 
-        const pollRes = await fetch(`/api/mine?runId=${runId}&minAnuncios=${mineMinAds}&minDias=${mineMinDays}&nicho=${encodeURIComponent(mineKeyword.trim())}`, { headers: authHeaders() })
+        const pollRes = await fetch(`/api/mine?runId=${runId}&nicho=${encodeURIComponent(mineKeyword.trim())}`, { headers: authHeaders() })
         if (!pollRes.ok) continue
         const data = await pollRes.json()
 
@@ -808,16 +808,7 @@ export default function ToolPage() {
                   disabled={mining}
                   style={{ width: '100%', padding: '12px 16px', fontSize: 15, borderRadius: 8, border: '1px solid #444', background: '#1a1a1a', color: '#fff', marginBottom: 20, outline: 'none' }}
                 />
-                <div className="mine-advanced">
-                  <div>
-                    <div className="rpt-card-lbl" style={{ marginBottom: 6 }}>M{'\u00CD'}N. AN{'\u00DA'}NCIOS</div>
-                    <div className="filter-row">{[10, 20, 50, 100].map(v => <button key={v} className={`filter-btn${mineMinAds === v ? ' active' : ''}`} onClick={() => setMineMinAds(v)}>{v}+</button>)}</div>
-                  </div>
-                  <div>
-                    <div className="rpt-card-lbl" style={{ marginBottom: 6 }}>TEMPO RODANDO</div>
-                    <div className="filter-row">{[7, 15, 30, 60].map(v => <button key={v} className={`filter-btn${mineMinDays === v ? ' active' : ''}`} onClick={() => setMineMinDays(v)}>{v}d+</button>)}</div>
-                  </div>
-                </div>
+                <p style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>Mostra ofertas com 10+ an{'\u00FA'}ncios ativos e 10+ dias rodando, sem redes sociais.</p>
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
                   <button className="mine-btn" onClick={handleMine} disabled={!mineKeyword.trim() || mining}>
                     {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : <>{'\u26CF\uFE0F'} Minerar Agora</>}

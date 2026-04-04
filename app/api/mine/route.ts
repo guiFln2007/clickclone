@@ -12,7 +12,9 @@ export async function POST(req: NextRequest) {
   if (!user?.ativo) return NextResponse.json({ error: 'Conta inativa' }, { status: 403 })
   if (!SCRAPER_URL) return NextResponse.json({ error: 'SCRAPER_URL não configurado' }, { status: 500 })
 
-  const { keyword, minAnuncios = 20, minDias = 15 } = await req.json()
+  const { keyword } = await req.json()
+  const minAnuncios = 10
+  const minDias = 10
   if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
   console.log(`[Mine] Starting scraper for keyword: "${keyword.trim()}"`)
@@ -43,8 +45,8 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const runId = req.nextUrl.searchParams.get('runId')
-  const minAnuncios = Number(req.nextUrl.searchParams.get('minAnuncios')) || 20
-  const minDias = Number(req.nextUrl.searchParams.get('minDias')) || 15
+  const minAnuncios = 10
+  const minDias = 10
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
 
   if (!runId) return NextResponse.json({ error: 'runId obrigatório' }, { status: 400 })
