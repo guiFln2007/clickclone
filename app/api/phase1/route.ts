@@ -11,21 +11,8 @@ import {
 
 export const maxDuration = 300
 
-const APIFY_TOKEN = process.env.APIFY_TOKEN!
-
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-async function safeJson(res: Response): Promise<unknown> {
-  const text = await res.text()
-  if (text.trimStart().startsWith('<')) {
-    throw new Error(`Apify retornou HTML. Status: ${res.status}`)
-  }
-  try { return JSON.parse(text) } catch {
-    throw new Error(`Apify resposta inválida. Status: ${res.status}`)
-  }
-}
+const SCRAPER_URL = process.env.SCRAPER_URL || ''
+const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
 
 function cleanAdLibraryUrl(url: string): string {
   try {
@@ -40,34 +27,55 @@ function cleanAdLibraryUrl(url: string): string {
   } catch { return url }
 }
 
-async function scrapeAds(url: string) {
+// Calls local scraper to scrape ads from a Facebook Ad Library URL
+async function scrapeAds(url: string): Promise<Record<string, unknown>[]> {
+  if (!SCRAPER_URL) throw new Error('SCRAPER_URL não configurado')
   const cleanUrl = cleanAdLibraryUrl(url)
-  const runRes = await fetch(
-    `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 100 }),
-    }
-  )
-  const runData = await safeJson(runRes) as Record<string, unknown>
-  const runId = (runData?.data as Record<string, unknown>)?.id
-  if (!runId) throw new Error('Apify não retornou runId')
 
-  let status = 'RUNNING'
-  let attempts = 0
-  while (['RUNNING', 'READY'].includes(status) && attempts < 30) {
-    await sleep(2000)
-    const s = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`)
-    const sd = await safeJson(s) as Record<string, unknown>
-    status = (sd?.data as Record<string, unknown>)?.status as string ?? 'FAILED'
-    attempts++
+  const res = await fetch(`${SCRAPER_URL}/scrape-ads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+    body: JSON.stringify({ url: cleanUrl, maxAds: 100 }),
+    signal: AbortSignal.timeout(240000),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as Record<string, string>
+    throw new Error(err.error || `Scraper HTTP ${res.status}`)
   }
+  const data = await res.json() as { ads?: Record<string, unknown>[]; results?: Record<string, unknown>[] }
+  const rawAds = (data.ads || data.results || []) as Record<string, unknown>[]
 
-  const itemsRes = await fetch(
-    `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=999`
-  )
-  return await safeJson(itemsRes) as Record<string, unknown>[]
+  // Normalize to Apify-like shape so the rest of the code works unchanged
+  return rawAds.map(ad => {
+    // If already has Apify-like shape, keep as-is
+    if (ad.snapshot || ad.start_date) return ad
+
+    // Otherwise, normalize from scraper format
+    const text = (ad.text as string) || (ad.body as string) || (ad.copy as string) || ''
+    const title = (ad.title as string) || (ad.headline as string) || ''
+    const cta = (ad.cta as string) || (ad.cta_text as string) || ''
+    const linkUrl = (ad.linkUrl as string) || (ad.link_url as string) || (ad.landingUrl as string) || (ad.landing_url as string) || ''
+
+    // Date handling — try various field names
+    const startTs = (ad.startDate as number) || (ad.start_date as number) || (ad.startedAt as number) || 0
+    const startStr = (ad.startDateFormatted as string) || (ad.start_date_formatted as string) || ''
+
+    return {
+      ...ad,
+      snapshot: {
+        body: { text },
+        title,
+        cta_text: cta,
+        link_url: linkUrl,
+        videos: ad.format === 'video' ? [{}] : [],
+        images: ad.format === 'image' ? [{}] : [],
+      },
+      start_date: typeof startTs === 'number' && startTs > 0 ? startTs : undefined,
+      start_date_formatted: startStr || undefined,
+      ad_creative_link_url: linkUrl,
+    }
+  })
 }
 
 function extractLandingUrl(ads: Record<string, unknown>[]): string | null {

@@ -20,17 +20,27 @@ export async function POST(req: NextRequest) {
   if (!user || !user.ativo) return NextResponse.json({ error: 'Conta inativa' }, { status: 403 })
 
   const body = await req.json()
-  const { pagina_nome, ad_library_url, landing_url, nicho, snapshot_ads, snapshot_data } = body
+  const { pagina_nome, ad_library_url, landing_url, nicho, snapshot_ads, snapshot_data, page_id: bodyPageId } = body
 
   if (!pagina_nome || !ad_library_url) {
     return NextResponse.json({ error: 'pagina_nome e ad_library_url sao obrigatorios' }, { status: 400 })
   }
 
-  // Check if offer already exists for this user — compare by page_id or full URL
+  // Extract numeric page_id from URL (only count numeric IDs as real page_ids for matching)
+  const extractRealPageId = (url: string): string | null => {
+    try { const v = new URL(url).searchParams.get('view_all_page_id'); return v && /^\d+$/.test(v) ? v : null } catch { return null }
+  }
+  const realPageId = (bodyPageId && /^\d+$/.test(bodyPageId)) ? bodyPageId : extractRealPageId(ad_library_url)
+
+  // Check duplicate: page_id (if real) OR exact URL OR exact page name
   const existing = await dbGetTrackedOffers(userId)
-  const getPageId = (url: string) => { try { return new URL(url).searchParams.get('view_all_page_id') || url } catch { return url } }
-  const newPageId = getPageId(ad_library_url)
-  const dup = existing.find(o => getPageId(o.ad_library_url) === newPageId || o.ad_library_url === ad_library_url || o.pagina_nome === pagina_nome)
+  const dup = existing.find(o => {
+    if (realPageId && o.page_id === realPageId) return true
+    if (realPageId && extractRealPageId(o.ad_library_url) === realPageId) return true
+    if (o.ad_library_url === ad_library_url) return true
+    if (o.pagina_nome === pagina_nome) return true
+    return false
+  })
   if (dup) {
     return NextResponse.json({ id: dup.id, message: 'Oferta ja existe no radar', duplicate: true })
   }
@@ -40,6 +50,7 @@ export async function POST(req: NextRequest) {
     id,
     user_id: userId,
     pagina_nome,
+    page_id: realPageId ?? undefined,
     ad_library_url,
     landing_url,
     nicho,

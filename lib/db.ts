@@ -60,6 +60,7 @@ export async function initDb() {
         id                     TEXT PRIMARY KEY,
         user_id                INTEGER NOT NULL,
         pagina_nome            TEXT NOT NULL,
+        page_id                TEXT,
         ad_library_url         TEXT NOT NULL,
         landing_url            TEXT,
         nicho                  TEXT,
@@ -103,6 +104,12 @@ export async function initDb() {
       args: [],
     },
   ])
+
+  // Migration: add page_id column to existing tracked_offers table
+  try {
+    await db.execute('ALTER TABLE tracked_offers ADD COLUMN page_id TEXT')
+  } catch { /* column already exists */ }
+
   initialized = true
 }
 
@@ -411,6 +418,7 @@ export type TrackedOffer = {
   id: string
   user_id: number
   pagina_nome: string
+  page_id: string | null
   ad_library_url: string
   landing_url: string | null
   nicho: string | null
@@ -440,6 +448,7 @@ export async function dbCreateTrackedOffer(data: {
   id: string
   user_id: number
   pagina_nome: string
+  page_id?: string
   ad_library_url: string
   landing_url?: string
   nicho?: string
@@ -448,11 +457,11 @@ export async function dbCreateTrackedOffer(data: {
 }): Promise<void> {
   await initDb()
   await db.execute({
-    sql: `INSERT INTO tracked_offers (id, user_id, pagina_nome, ad_library_url, landing_url, nicho, primeiro_snapshot_ads, ultimo_snapshot_ads, primeiro_snapshot_data, ultimo_snapshot_data)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO tracked_offers (id, user_id, pagina_nome, page_id, ad_library_url, landing_url, nicho, primeiro_snapshot_ads, ultimo_snapshot_ads, primeiro_snapshot_data, ultimo_snapshot_data)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO NOTHING`,
     args: [
-      data.id, data.user_id, data.pagina_nome, data.ad_library_url,
+      data.id, data.user_id, data.pagina_nome, data.page_id ?? null, data.ad_library_url,
       data.landing_url ?? null, data.nicho ?? null,
       data.primeiro_snapshot_ads ?? null, data.primeiro_snapshot_ads ?? null,
       data.primeiro_snapshot_data ?? null, data.primeiro_snapshot_data ?? null,
@@ -472,6 +481,7 @@ export async function dbGetTrackedOffers(userId: number): Promise<TrackedOffer[]
       id: row.id as string,
       user_id: row.user_id as number,
       pagina_nome: row.pagina_nome as string,
+      page_id: (row.page_id as string) ?? null,
       ad_library_url: row.ad_library_url as string,
       landing_url: (row.landing_url as string) ?? null,
       nicho: (row.nicho as string) ?? null,
@@ -507,6 +517,7 @@ export async function dbGetActiveTrackedOffers(): Promise<TrackedOffer[]> {
       id: row.id as string,
       user_id: row.user_id as number,
       pagina_nome: row.pagina_nome as string,
+      page_id: (row.page_id as string) ?? null,
       ad_library_url: row.ad_library_url as string,
       landing_url: (row.landing_url as string) ?? null,
       nicho: (row.nicho as string) ?? null,
@@ -529,6 +540,7 @@ export async function dbUpdateTrackedOffer(offerId: string, updates: {
   landing_hash?: string
   status?: string
   alertas_nao_lidos?: number
+  page_id?: string
 }): Promise<void> {
   await initDb()
   const sets: string[] = ["verificado_em = datetime('now')"]
@@ -537,6 +549,7 @@ export async function dbUpdateTrackedOffer(offerId: string, updates: {
   if (updates.ultimo_snapshot_data !== undefined) { sets.push('ultimo_snapshot_data = ?'); args.push(updates.ultimo_snapshot_data) }
   if (updates.landing_hash !== undefined) { sets.push('landing_hash = ?'); args.push(updates.landing_hash) }
   if (updates.status !== undefined) { sets.push('status = ?'); args.push(updates.status) }
+  if (updates.page_id !== undefined) { sets.push('page_id = ?'); args.push(updates.page_id) }
   if (updates.alertas_nao_lidos !== undefined) { sets.push('alertas_nao_lidos = ?'); args.push(updates.alertas_nao_lidos) }
   args.push(offerId)
   await db.execute({ sql: `UPDATE tracked_offers SET ${sets.join(', ')} WHERE id = ?`, args })

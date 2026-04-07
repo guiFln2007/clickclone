@@ -512,9 +512,13 @@ export default function ToolPage() {
     if (!userId || savedToRadar.has(o.pagina_nome)) return
     setSavedToRadar(prev => new Set(prev).add(o.pagina_nome))
     try {
+      // Extract numeric page_id from ad_library_url if present
+      const pageIdMatch = o.ad_library_url.match(/view_all_page_id=(\d+)/)
+      const pageId = pageIdMatch?.[1]
       await fetch('/api/radar', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
         pagina_nome: o.pagina_nome, ad_library_url: o.ad_library_url,
         landing_url: o.landing_url, nicho: o.nicho, snapshot_ads: o.total_anuncios,
+        page_id: pageId,
       }) })
       showToast('Oferta adicionada ao Radar!')
       loadRadar().catch(() => {})

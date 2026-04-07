@@ -7,20 +7,26 @@ export const maxDuration = 300
 const SCRAPER_URL = process.env.SCRAPER_URL || ''
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
 
-async function getAdsCount(pageName: string): Promise<number> {
-  if (!SCRAPER_URL) return -1
+async function getAdsCount(pageName: string, pageId: string | null, adLibraryUrl: string): Promise<{ count: number; resolvedPageId?: string }> {
+  if (!SCRAPER_URL) return { count: -1 }
   try {
+    // Prefer saved page_id, fallback to extracting from URL
+    let resolvedPageId = pageId || undefined
+    if (!resolvedPageId) {
+      const m = adLibraryUrl.match(/view_all_page_id=(\d+)/)
+      if (m) resolvedPageId = m[1]
+    }
     const res = await fetch(`${SCRAPER_URL}/count-ads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-      body: JSON.stringify({ pageName }),
+      body: JSON.stringify({ pageName, pageId: resolvedPageId }),
       signal: AbortSignal.timeout(60000),
     })
-    if (!res.ok) return -1
-    const data = await res.json() as { count: number }
-    return data.count
+    if (!res.ok) return { count: -1 }
+    const data = await res.json() as { count: number; pageId?: string }
+    return { count: data.count, resolvedPageId: data.pageId || resolvedPageId }
   } catch {
-    return -1
+    return { count: -1 }
   }
 }
 
@@ -52,7 +58,7 @@ export async function GET(req: NextRequest) {
 
   for (const oferta of ofertas) {
     try {
-      const adsCount = await getAdsCount(oferta.pagina_nome)
+      const { count: adsCount, resolvedPageId } = await getAdsCount(oferta.pagina_nome, oferta.page_id, oferta.ad_library_url)
       const landingHash = oferta.landing_url ? await getPageHash(oferta.landing_url) : null
 
       const anterior = oferta.ultimo_snapshot_ads ?? oferta.primeiro_snapshot_ads ?? 0
@@ -90,12 +96,17 @@ export async function GET(req: NextRequest) {
         : adsCount >= 0 && anterior - adsCount >= 10 ? 'caindo'
         : oferta.status
 
-      await dbUpdateTrackedOffer(oferta.id, {
+      const updates: Parameters<typeof dbUpdateTrackedOffer>[1] = {
         ultimo_snapshot_ads: adsCount >= 0 ? adsCount : undefined,
         landing_hash: landingHash ?? undefined,
         status: newStatus,
         alertas_nao_lidos: oferta.alertas_nao_lidos + alertas.length,
-      })
+      }
+      // Backfill page_id if scraper resolved a new one
+      if (resolvedPageId && resolvedPageId !== oferta.page_id) {
+        updates.page_id = resolvedPageId
+      }
+      await dbUpdateTrackedOffer(oferta.id, updates)
 
       verificadas++
     } catch (err) {
