@@ -248,8 +248,6 @@ export default function ToolPage() {
   const [trackedOffers, setTrackedOffers] = useState<TrackedOffer[]>([])
   const [radarSearch, setRadarSearch] = useState('')
   const [historyView, setHistoryView] = useState<{ offer: TrackedOffer; snapshots: Snapshot[] } | null>(null)
-  const [refreshingId, setRefreshingId] = useState<string | null>(null)
-  const [refreshingAll, setRefreshingAll] = useState(false)
   const [addOfferModal, setAddOfferModal] = useState(false)
   const [newOfferName, setNewOfferName] = useState('')
   const [newOfferUrl, setNewOfferUrl] = useState('')
@@ -441,46 +439,15 @@ export default function ToolPage() {
     } catch { setHistoryView({ offer, snapshots: [] }) }
   }
 
-  // Helper: returns true if offer was refreshed in the last 4 hours (frontend throttle)
-  function wasRefreshedRecently(o: TrackedOffer): boolean {
-    if (!o.verificado_em) return false
-    const hoursSince = (Date.now() - new Date(o.verificado_em).getTime()) / 3600000
-    return hoursSince < 4
-  }
-
-  async function refreshOffer(offerId: string) {
-    const offer = trackedOffers.find(o => o.id === offerId)
-    if (offer && wasRefreshedRecently(offer)) {
-      const hoursSince = (Date.now() - new Date(offer.verificado_em!).getTime()) / 3600000
-      const minLeft = Math.ceil((4 - hoursSince) * 60)
-      showToast(`Aguarde ${minLeft}min para atualizar (limite 1x a cada 4h)`, 'err')
-      return
-    }
-    setRefreshingId(offerId)
-    try {
-      const res = await fetch(`/api/radar/${offerId}/refresh`, { method: 'PATCH', headers: authHeaders() })
-      if (res.status === 429) {
-        const data = await res.json().catch(() => ({}))
-        showToast(data.error || 'Aguarde para atualizar novamente', 'err')
-      }
-      await loadRadar()
-    } catch { /* ok */ }
-    setRefreshingId(null)
-  }
-
-  async function refreshAll() {
-    setRefreshingAll(true)
-    // Skip offers refreshed recently to save Apify
-    const eligible = trackedOffers.filter(o => !wasRefreshedRecently(o))
-    if (eligible.length === 0) {
-      showToast('Todas as ofertas foram atualizadas nas últimas 4h', 'err')
-      setRefreshingAll(false)
-      return
-    }
-    await Promise.allSettled(eligible.map(o => fetch(`/api/radar/${o.id}/refresh`, { method: 'PATCH', headers: authHeaders() })))
-    await loadRadar()
-    showToast(`${eligible.length} ofertas atualizadas`)
-    setRefreshingAll(false)
+  // Returns a string like "amanhã às 07:00" or "hoje às 07:00" — all offers update together at 7am BRT
+  function nextUpdateLabel(): string {
+    const now = new Date()
+    // Brasil UTC-3 → 07:00 BRT = 10:00 UTC
+    const next = new Date()
+    next.setUTCHours(10, 0, 0, 0)
+    if (next.getTime() <= now.getTime()) next.setUTCDate(next.getUTCDate() + 1)
+    const sameDay = next.toDateString() === now.toDateString()
+    return sameDay ? 'hoje às 07:00' : 'amanhã às 07:00'
   }
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -755,10 +722,6 @@ export default function ToolPage() {
                   <input className="rdr-search" placeholder="Buscar por nome ou URL..." value={radarSearch} onChange={e => setRadarSearch(e.target.value)} />
                 </div>
                 <div className="rdr-actions">
-                  <button className="rdr-btn-outline" onClick={refreshAll} disabled={refreshingAll}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-                    {refreshingAll ? 'Atualizando...' : 'Atualizar Todas'}
-                  </button>
                   <button className="rdr-btn-solid" onClick={() => setAddOfferModal(true)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     Adicionar Oferta
@@ -770,9 +733,9 @@ export default function ToolPage() {
               <div className="rdr-banner">
                 <div className="rdr-banner-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></div>
                 <div>
-                  <p style={{ color: '#fff', fontWeight: 500, marginBottom: 4 }}>{'\uD83D\uDCA1'} Dica Importante</p>
-                  <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 4 }}>Para atualizar as m&eacute;tricas de cada oferta, clique no bot&atilde;o <span className="rdr-banner-tag">{'\uD83D\uDD04'} Atualizar M&eacute;tricas</span> para atualizar os dados em tempo real.</p>
-                  <p style={{ color: '#F59E0B', fontSize: 13 }}>Recomendamos que voc&ecirc; atualize as m&eacute;tricas pelo menos uma vez por dia para ter mais precis&atilde;o nos dados.</p>
+                  <p style={{ color: '#fff', fontWeight: 500, marginBottom: 4 }}>{'\uD83D\uDD52'} Atualiza&ccedil;&atilde;o autom&aacute;tica di&aacute;ria</p>
+                  <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 4 }}>Todas as ofertas s&atilde;o atualizadas automaticamente todos os dias &agrave;s <strong style={{ color: '#fff' }}>07:00</strong> (hor&aacute;rio de Bras&iacute;lia).</p>
+                  <p style={{ color: '#F59E0B', fontSize: 13 }}>Pr&oacute;xima atualiza&ccedil;&atilde;o: {nextUpdateLabel()}</p>
                 </div>
               </div>
 
@@ -811,13 +774,14 @@ export default function ToolPage() {
                           <div className="rc-var"><span className="rc-var-l">Varia&ccedil;&atilde;o semanal:</span><span className={`rc-var-v${diff > 0 ? ' up' : diff < 0 ? ' dn' : ''}`}>{diff !== 0 ? (diff > 0 ? '+' : '') + diff : '0'} an&uacute;ncios <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={diff >= 0 ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'}/></svg></span></div>
                         </div>
                         <div className="rc-acts">
-                          <button className="rc-hist-btn" onClick={() => viewHistory(o)}>
+                          <button className="rc-hist-btn" onClick={() => viewHistory(o)} style={{ flex: 1 }}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                             Ver Hist&oacute;rico
                           </button>
-                          <button className="rc-ref-btn" onClick={() => refreshOffer(o.id)} disabled={refreshingId === o.id || wasRefreshedRecently(o)} title={wasRefreshedRecently(o) ? 'Atualizado recentemente (espere 4h)' : 'Atualizar'} style={refreshingId === o.id ? { animation: 'spin 1s linear infinite' } : wasRefreshedRecently(o) ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-                          </button>
+                        </div>
+                        <div className="rc-next-update" style={{ marginTop: 10, fontSize: 11, color: '#6B7280', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          Pr&oacute;xima atualiza&ccedil;&atilde;o: {nextUpdateLabel()}
                         </div>
                       </div>
                     )
