@@ -248,10 +248,6 @@ export default function ToolPage() {
   const [trackedOffers, setTrackedOffers] = useState<TrackedOffer[]>([])
   const [radarSearch, setRadarSearch] = useState('')
   const [historyView, setHistoryView] = useState<{ offer: TrackedOffer; snapshots: Snapshot[] } | null>(null)
-  const [addOfferModal, setAddOfferModal] = useState(false)
-  const [newOfferName, setNewOfferName] = useState('')
-  const [newOfferUrl, setNewOfferUrl] = useState('')
-  const [newOfferNicho, setNewOfferNicho] = useState('')
   const [totalAlerts, setTotalAlerts] = useState(0)
 
   // Mine
@@ -420,13 +416,6 @@ export default function ToolPage() {
   }
 
   // ── RADAR ACTIONS ──
-  async function addOfferManual() {
-    if (!newOfferName || !newOfferUrl || !userId) return
-    await fetch('/api/radar', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ pagina_nome: newOfferName, ad_library_url: newOfferUrl, nicho: newOfferNicho || null }) })
-    setAddOfferModal(false); setNewOfferName(''); setNewOfferUrl(''); setNewOfferNicho('')
-    await loadRadar()
-  }
-
   async function viewHistory(offer: TrackedOffer) {
     try {
       const res = await fetch(`/api/radar/${offer.id}/snapshots`, { headers: { 'x-user-id': String(userId) } })
@@ -721,12 +710,6 @@ export default function ToolPage() {
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                   <input className="rdr-search" placeholder="Buscar por nome ou URL..." value={radarSearch} onChange={e => setRadarSearch(e.target.value)} />
                 </div>
-                <div className="rdr-actions">
-                  <button className="rdr-btn-solid" onClick={() => setAddOfferModal(true)}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Adicionar Oferta
-                  </button>
-                </div>
               </div>
 
               {/* Dica Importante banner */}
@@ -947,65 +930,6 @@ export default function ToolPage() {
             <div className="confirm-btns">
               <button className="confirm-cancel" onClick={() => setConfirmDeleteId(null)}>Cancelar</button>
               <button className="confirm-delete" onClick={() => removeFromRadar(confirmDeleteId)}>Excluir</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add offer modal */}
-      {addOfferModal && (
-        <div className="modal-overlay" onClick={() => setAddOfferModal(false)}>
-          <div className="add-offer-modal" onClick={e => e.stopPropagation()}>
-            <div className="aom-hd">
-              <div className="aom-hd-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-              </div>
-              <div style={{ flex: 1 }}>
-                <h3 className="aom-title">Adicionar oferta ao Radar</h3>
-                <p className="aom-sub">Monitore an{'\u00fa'}ncios de qualquer p{'\u00e1'}gina automaticamente</p>
-              </div>
-              <button className="aom-close" onClick={() => setAddOfferModal(false)} aria-label="Fechar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-
-            <div className="aom-body">
-              <div className="aom-field">
-                <label className="aom-label">Nome do anunciante</label>
-                <input
-                  className="aom-input"
-                  value={newOfferName}
-                  onChange={e => setNewOfferName(e.target.value)}
-                  placeholder="Ex: Velas Lucrativas"
-                  autoFocus
-                />
-              </div>
-
-              <div className="aom-field">
-                <label className="aom-label">URL da Biblioteca de An{'\u00fa'}ncios</label>
-                <input
-                  className="aom-input"
-                  value={newOfferUrl}
-                  onChange={e => setNewOfferUrl(e.target.value)}
-                  placeholder="https://www.facebook.com/ads/library/?active_status=..."
-                />
-                <p className="aom-hint">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                  Abra o Meta Ads Library, busque a p{'\u00e1'}gina e copie a URL completa
-                </p>
-              </div>
-            </div>
-
-            <div className="aom-footer">
-              <button className="aom-btn-cancel" onClick={() => setAddOfferModal(false)}>Cancelar</button>
-              <button
-                className="aom-btn-save"
-                onClick={addOfferManual}
-                disabled={!newOfferName || !newOfferUrl}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                Salvar no Radar
-              </button>
             </div>
           </div>
         </div>
