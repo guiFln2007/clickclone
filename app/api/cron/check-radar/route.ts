@@ -25,9 +25,10 @@ async function countAdsFromApify(adLibraryUrl: string): Promise<number> {
       } catch { return adLibraryUrl }
     })()
 
+    // maxAds: 100 — economia Apify, suficiente pra detectar variação
     const runRes = await fetch(
       `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 200 }) }
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 100 }) }
     )
     const runData = await runRes.json() as Record<string, unknown>
     const runId = (runData?.data as Record<string, unknown>)?.id as string
@@ -105,9 +106,19 @@ export async function GET(req: NextRequest) {
   const ofertas = await dbGetActiveTrackedOffers()
   let verificadas = 0
   let alertasCriados = 0
+  let puladas = 0
 
   for (const oferta of ofertas) {
     try {
+      // Skip se foi verificada nas últimas 18h (economia massiva de Apify)
+      if (oferta.verificado_em) {
+        const hoursSince = (Date.now() - new Date(oferta.verificado_em).getTime()) / 3600000
+        if (hoursSince < 18) {
+          puladas++
+          continue
+        }
+      }
+
       const { count: adsCount, resolvedPageId } = await getAdsCount(oferta.pagina_nome, oferta.page_id, oferta.ad_library_url)
       const landingHash = oferta.landing_url ? await getPageHash(oferta.landing_url) : null
 
@@ -165,5 +176,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ verificadas, alertasCriados, total: ofertas.length })
+  return NextResponse.json({ verificadas, alertasCriados, puladas, total: ofertas.length })
 }

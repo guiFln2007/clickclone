@@ -441,10 +441,28 @@ export default function ToolPage() {
     } catch { setHistoryView({ offer, snapshots: [] }) }
   }
 
+  // Helper: returns true if offer was refreshed in the last 4 hours (frontend throttle)
+  function wasRefreshedRecently(o: TrackedOffer): boolean {
+    if (!o.verificado_em) return false
+    const hoursSince = (Date.now() - new Date(o.verificado_em).getTime()) / 3600000
+    return hoursSince < 4
+  }
+
   async function refreshOffer(offerId: string) {
+    const offer = trackedOffers.find(o => o.id === offerId)
+    if (offer && wasRefreshedRecently(offer)) {
+      const hoursSince = (Date.now() - new Date(offer.verificado_em!).getTime()) / 3600000
+      const minLeft = Math.ceil((4 - hoursSince) * 60)
+      showToast(`Aguarde ${minLeft}min para atualizar (limite 1x a cada 4h)`, 'err')
+      return
+    }
     setRefreshingId(offerId)
     try {
-      await fetch(`/api/radar/${offerId}/refresh`, { method: 'PATCH', headers: authHeaders() })
+      const res = await fetch(`/api/radar/${offerId}/refresh`, { method: 'PATCH', headers: authHeaders() })
+      if (res.status === 429) {
+        const data = await res.json().catch(() => ({}))
+        showToast(data.error || 'Aguarde para atualizar novamente', 'err')
+      }
       await loadRadar()
     } catch { /* ok */ }
     setRefreshingId(null)
@@ -452,8 +470,16 @@ export default function ToolPage() {
 
   async function refreshAll() {
     setRefreshingAll(true)
-    await Promise.allSettled(trackedOffers.map(o => fetch(`/api/radar/${o.id}/refresh`, { method: 'PATCH', headers: authHeaders() })))
+    // Skip offers refreshed recently to save Apify
+    const eligible = trackedOffers.filter(o => !wasRefreshedRecently(o))
+    if (eligible.length === 0) {
+      showToast('Todas as ofertas foram atualizadas nas últimas 4h', 'err')
+      setRefreshingAll(false)
+      return
+    }
+    await Promise.allSettled(eligible.map(o => fetch(`/api/radar/${o.id}/refresh`, { method: 'PATCH', headers: authHeaders() })))
     await loadRadar()
+    showToast(`${eligible.length} ofertas atualizadas`)
     setRefreshingAll(false)
   }
 
@@ -785,7 +811,7 @@ export default function ToolPage() {
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                             Ver Hist&oacute;rico
                           </button>
-                          <button className="rc-ref-btn" onClick={() => refreshOffer(o.id)} disabled={refreshingId === o.id} title="Atualizar" style={refreshingId === o.id ? { animation: 'spin 1s linear infinite' } : undefined}>
+                          <button className="rc-ref-btn" onClick={() => refreshOffer(o.id)} disabled={refreshingId === o.id || wasRefreshedRecently(o)} title={wasRefreshedRecently(o) ? 'Atualizado recentemente (espere 4h)' : 'Atualizar'} style={refreshingId === o.id ? { animation: 'spin 1s linear infinite' } : wasRefreshedRecently(o) ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
                           </button>
                         </div>

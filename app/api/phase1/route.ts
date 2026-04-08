@@ -39,9 +39,10 @@ function cleanAdLibraryUrl(url: string): string {
 // Apify fallback (used when local scraper is unavailable)
 async function scrapeAdsFromApify(cleanUrl: string): Promise<Record<string, unknown>[]> {
   if (!APIFY_TOKEN) throw new Error('Nem scraper local nem APIFY_TOKEN disponíveis')
+  // maxAds: 60 — buildAdsDigest só usa 50 mesmo, então 60 dá margem sem desperdício
   const runRes = await fetch(
     `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 100 }) }
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 60 }) }
   )
   const runData = await safeJson(runRes) as Record<string, unknown>
   const runId = (runData?.data as Record<string, unknown>)?.id
@@ -71,7 +72,7 @@ async function scrapeAds(url: string): Promise<Record<string, unknown>[]> {
       const res = await fetch(`${SCRAPER_URL}/scrape-ads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-        body: JSON.stringify({ url: cleanUrl, maxAds: 100 }),
+        body: JSON.stringify({ url: cleanUrl, maxAds: 60 }),
         signal: AbortSignal.timeout(240000),
       })
 

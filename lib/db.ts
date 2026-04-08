@@ -292,7 +292,7 @@ export async function dbIncrementFreeCreditos(ip: string, sessionId: string): Pr
 export async function dbGetCachedAnalysis(pageId: string): Promise<{ analysis: string; html: string } | null> {
   await initDb()
   const res = await db.execute({
-    sql: "SELECT analysis, html FROM analysis_cache WHERE page_id = ? AND created_at >= datetime('now', '-24 hours')",
+    sql: "SELECT analysis, html FROM analysis_cache WHERE page_id = ? AND created_at >= datetime('now', '-72 hours')",
     args: [pageId],
   })
   if (!res.rows[0]) return null

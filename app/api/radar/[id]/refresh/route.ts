@@ -22,9 +22,10 @@ async function countAdsFromApify(adLibraryUrl: string): Promise<number> {
     } catch { return adLibraryUrl }
   })()
 
+  // maxAds: 100 — suficiente pra contar a maioria dos concorrentes (>100 ads é raríssimo no low ticket BR)
   const runRes = await fetch(
     `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 200 }) }
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 100 }) }
   )
   const runData = await runRes.json() as Record<string, unknown>
   const runId = (runData?.data as Record<string, unknown>)?.id as string
@@ -90,6 +91,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const offers = await dbGetTrackedOffers(userId)
   const offer = offers.find(o => o.id === id)
   if (!offer) return NextResponse.json({ error: 'Oferta não encontrada' }, { status: 404 })
+
+  // Throttle: bloqueia refresh se foi feito nas últimas 4h (economiza Apify)
+  if (offer.verificado_em) {
+    const lastCheck = new Date(offer.verificado_em).getTime()
+    const hoursSince = (Date.now() - lastCheck) / 3600000
+    if (hoursSince < 4) {
+      const minutesLeft = Math.ceil((4 - hoursSince) * 60)
+      return NextResponse.json({
+        error: `Aguarde ${minutesLeft}min para atualizar novamente (limite de 1 atualização a cada 4h)`,
+        throttled: true,
+        minutesLeft,
+      }, { status: 429 })
+    }
+  }
 
   try {
     const { count: adsCount, resolvedPageId } = await countAdsFromScraper(offer.pagina_nome, offer.page_id, offer.ad_library_url)
