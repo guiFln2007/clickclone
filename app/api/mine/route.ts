@@ -3,43 +3,152 @@ import { dbGetUserById } from '@/lib/db'
 
 const SCRAPER_URL = process.env.SCRAPER_URL || ''
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
+const APIFY_TOKEN = process.env.APIFY_TOKEN || ''
 
-// POST — Start mining with local scraper
+type MineResult = {
+  pagina_nome: string
+  page_id: string
+  total_anuncios: number
+  dias_rodando: number | null
+  landing_url: string | null
+}
+
+// ── APIFY FALLBACK ──
+// Quando o scraper local (Mac) tá offline, usa o curious_coder via search URL
+// Cost: ~$0.05-0.10 per mining call
+
+async function startApifyMine(keyword: string): Promise<string | null> {
+  if (!APIFY_TOKEN) return null
+  const searchUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered`
+  try {
+    const res = await fetch(
+      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: [{ url: searchUrl }], maxAds: 200 }),
+      }
+    )
+    const data = await res.json() as Record<string, unknown>
+    const runId = (data?.data as Record<string, unknown>)?.id as string
+    return runId || null
+  } catch {
+    return null
+  }
+}
+
+type ApifyAd = {
+  snapshot?: {
+    page_id?: string | number
+    page_name?: string
+    link_url?: string
+    cta_link?: string
+  }
+  start_date?: number
+  start_date_string?: string
+}
+
+async function getApifyMineStatus(runId: string): Promise<{ status: 'running' | 'done' | 'failed', items?: ApifyAd[], error?: string }> {
+  try {
+    const r = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`)
+    const d = await r.json() as Record<string, unknown>
+    const status = ((d?.data as Record<string, unknown>)?.status as string) ?? 'FAILED'
+
+    if (status === 'RUNNING' || status === 'READY') return { status: 'running' }
+    if (status === 'SUCCEEDED') {
+      const itemsRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=999`)
+      const items = await itemsRes.json() as ApifyAd[]
+      return { status: 'done', items: Array.isArray(items) ? items : [] }
+    }
+    return { status: 'failed', error: `Apify status: ${status}` }
+  } catch (e) {
+    return { status: 'failed', error: (e as Error).message }
+  }
+}
+
+function processApifyAds(items: ApifyAd[]): MineResult[] {
+  const grouped = new Map<string, { name: string; count: number; earliestDate: number | null; landing: string | null }>()
+
+  for (const ad of items) {
+    const snap = ad.snapshot || {}
+    const pageId = String(snap.page_id || '').trim()
+    if (!pageId) continue
+
+    const existing = grouped.get(pageId) || { name: snap.page_name || '?', count: 0, earliestDate: null, landing: null }
+    existing.count++
+
+    const startMs = ad.start_date ? ad.start_date * 1000 : (ad.start_date_string ? new Date(ad.start_date_string).getTime() : null)
+    if (startMs && !isNaN(startMs) && (!existing.earliestDate || startMs < existing.earliestDate)) {
+      existing.earliestDate = startMs
+    }
+
+    if (!existing.landing && (snap.link_url || snap.cta_link)) {
+      existing.landing = snap.link_url || snap.cta_link || null
+    }
+
+    grouped.set(pageId, existing)
+  }
+
+  const now = Date.now()
+  return Array.from(grouped.entries()).map(([pageId, info]) => ({
+    pagina_nome: info.name,
+    page_id: pageId,
+    total_anuncios: info.count,
+    dias_rodando: info.earliestDate ? Math.floor((now - info.earliestDate) / (1000 * 60 * 60 * 24)) : null,
+    landing_url: info.landing,
+  }))
+}
+
+// ── ROUTES ──
+
+// POST — Start mining (tenta scraper local, fallback Apify)
 export async function POST(req: NextRequest) {
   const userId = Number(req.headers.get('x-user-id'))
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
   const user = await dbGetUserById(userId)
   if (!user?.ativo) return NextResponse.json({ error: 'Conta inativa' }, { status: 403 })
-  if (!SCRAPER_URL) return NextResponse.json({ error: 'SCRAPER_URL não configurado' }, { status: 500 })
 
   const { keyword } = await req.json()
   const minAnuncios = 10
   const minDias = 10
   if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
-  console.log(`[Mine] Starting scraper for keyword: "${keyword.trim()}"`)
+  const kw = keyword.trim()
+  console.log(`[Mine] Starting for keyword: "${kw}"`)
 
-  try {
-    const res = await fetch(`${SCRAPER_URL}/mine`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-      body: JSON.stringify({ keyword: keyword.trim(), count: 100 }),
-      signal: AbortSignal.timeout(15000),
-    })
-    const data = await res.json() as Record<string, unknown>
-    if (!res.ok) throw new Error((data.error as string) || `Scraper HTTP ${res.status}`)
-
-    const jobId = data.jobId as string
-    if (!jobId) return NextResponse.json({ error: 'Scraper não retornou jobId' }, { status: 500 })
-
-    console.log('[Mine] Scraper job started:', jobId)
-    return NextResponse.json({ runId: jobId, keyword: keyword.trim(), minAnuncios, minDias })
-  } catch (e) {
-    return NextResponse.json({ error: `Erro ao iniciar scraper: ${(e as Error).message}` }, { status: 500 })
+  // 1ª tentativa: scraper local (Mac via Cloudflare Tunnel)
+  if (SCRAPER_URL) {
+    try {
+      const res = await fetch(`${SCRAPER_URL}/mine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+        body: JSON.stringify({ keyword: kw, count: 100 }),
+        signal: AbortSignal.timeout(10000),
+      })
+      if (res.ok) {
+        const data = await res.json() as Record<string, unknown>
+        const jobId = data.jobId as string
+        if (jobId) {
+          console.log('[Mine] Local scraper job started:', jobId)
+          return NextResponse.json({ runId: `local:${jobId}`, keyword: kw, minAnuncios, minDias })
+        }
+      }
+    } catch {
+      console.warn('[Mine] Local scraper falhou, caindo no Apify')
+    }
   }
+
+  // 2ª tentativa: Apify fallback
+  const apifyRunId = await startApifyMine(kw)
+  if (!apifyRunId) {
+    return NextResponse.json({ error: 'Erro ao iniciar minerador (scraper local e Apify ambos falharam)' }, { status: 500 })
+  }
+
+  console.log('[Mine] Apify run started:', apifyRunId)
+  return NextResponse.json({ runId: `apify:${apifyRunId}`, keyword: kw, minAnuncios, minDias })
 }
 
-// GET — Poll for results from local scraper
+// GET — Poll for results
 export async function GET(req: NextRequest) {
   const userId = Number(req.headers.get('x-user-id'))
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
@@ -51,29 +160,34 @@ export async function GET(req: NextRequest) {
 
   if (!runId) return NextResponse.json({ error: 'runId obrigatório' }, { status: 400 })
 
+  let results: MineResult[] = []
+
   try {
-    const res = await fetch(`${SCRAPER_URL}/mine?jobId=${runId}`, {
-      headers: { 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-      signal: AbortSignal.timeout(10000),
-    })
-    const data = await res.json() as Record<string, unknown>
-    const status = data.status as string
+    if (runId.startsWith('apify:')) {
+      // ── APIFY POLLING ──
+      const apifyRunId = runId.slice(6)
+      const r = await getApifyMineStatus(apifyRunId)
+      if (r.status === 'running') return NextResponse.json({ status: 'running' })
+      if (r.status === 'failed') return NextResponse.json({ status: 'failed', error: r.error || 'Apify falhou' })
+      results = processApifyAds(r.items || [])
+    } else {
+      // ── LOCAL SCRAPER POLLING ──
+      const localJobId = runId.startsWith('local:') ? runId.slice(6) : runId
+      const res = await fetch(`${SCRAPER_URL}/mine?jobId=${localJobId}`, {
+        headers: { 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+        signal: AbortSignal.timeout(10000),
+      })
+      const data = await res.json() as Record<string, unknown>
+      const status = data.status as string
 
-    if (status === 'running') {
-      return NextResponse.json({ status: 'running' })
+      if (status === 'running') return NextResponse.json({ status: 'running' })
+      if (status === 'failed') return NextResponse.json({ status: 'failed', error: data.error || 'Scraper falhou' })
+      if (status !== 'done') return NextResponse.json({ status: 'failed', error: `Scraper status: ${status}` })
+
+      results = (data.results || []) as MineResult[]
     }
 
-    if (status === 'failed') {
-      return NextResponse.json({ status: 'failed', error: data.error || 'Scraper falhou' })
-    }
-
-    if (status !== 'done') {
-      return NextResponse.json({ status: 'failed', error: `Scraper status: ${status}` })
-    }
-
-    // Results come pre-processed with real ad counts from scraper
-    const results = (data.results || []) as Array<{ pagina_nome: string; page_id: string; total_anuncios: number; dias_rodando: number | null; landing_url: string | null }>
-    console.log(`[Mine] Got ${results.length} pages with real counts`)
+    console.log(`[Mine] Got ${results.length} pages`)
 
     const ofertas = results
       .map(p => {
@@ -96,10 +210,8 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(p => {
-        // Real ad count from scraper — filter directly
         if (p.total_anuncios < minAnuncios) return false
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
-        // Social media already filtered by scraper, but double check
         const url = (p.landing_url || '').toLowerCase()
         if (!url) return false
         const blocked = ['instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com', 'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com', 't.me', 'telegram']
