@@ -261,6 +261,8 @@ async function processOfferGroup(oferta: Offer, allOffers: Offer[], force = fals
   alertas: number
   error?: string
   dedup?: number
+  source?: 'direct' | 'scraper' | 'apify' | 'none'
+  adsCount?: number
 }> {
   // Skip se foi verificada nas últimas 18h (a menos que force=true)
   if (!force && oferta.verificado_em) {
@@ -284,7 +286,7 @@ async function processOfferGroup(oferta: Offer, allOffers: Offer[], force = fals
       totalAlertas += await applyScrapeToOffer(sib, adsCount, landingHash, resolvedPageId)
     }
 
-    return { status: 'verified', alertas: totalAlertas, dedup: siblings.length }
+    return { status: 'verified', alertas: totalAlertas, dedup: siblings.length, source, adsCount }
   } catch (err) {
     return { status: 'error', alertas: 0, error: (err as Error).message }
   }

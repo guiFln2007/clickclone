@@ -71,9 +71,11 @@ jobs:
               alertas=$(echo "$body" | jq -r '.alertas // 0' 2>/dev/null || echo "0")
               nome=$(echo "$body" | jq -r '.nome // "?"' 2>/dev/null || echo "?")
 
+              source=$(echo "$body" | jq -r '.source // "?"' 2>/dev/null || echo "?")
+              adsCount=$(echo "$body" | jq -r '.adsCount // "?"' 2>/dev/null || echo "?")
               case "$status" in
                 verified)
-                  echo "  ✅ $nome verificada ($alertas alertas)"
+                  echo "  ✅ $nome: $adsCount ads via $source ($alertas alertas)"
                   verificadas=$((verificadas + 1))
                   alertas_total=$((alertas_total + alertas))
                   ;;
