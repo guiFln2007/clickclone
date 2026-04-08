@@ -98,6 +98,73 @@ async function getPageHash(url: string): Promise<string | null> {
   }
 }
 
+// Process a single offer — extracted so it can be called from both modes
+async function processOffer(oferta: Awaited<ReturnType<typeof dbGetActiveTrackedOffers>>[0]): Promise<{
+  status: 'verified' | 'skipped' | 'error'
+  alertas: number
+  error?: string
+}> {
+  // Skip se foi verificada nas últimas 18h (economia massiva de Apify)
+  if (oferta.verificado_em) {
+    const hoursSince = (Date.now() - new Date(oferta.verificado_em).getTime()) / 3600000
+    if (hoursSince < 18) return { status: 'skipped', alertas: 0 }
+  }
+
+  try {
+    const { count: adsCount, resolvedPageId } = await getAdsCount(oferta.pagina_nome, oferta.page_id, oferta.ad_library_url)
+    const landingHash = oferta.landing_url ? await getPageHash(oferta.landing_url) : null
+
+    const anterior = oferta.ultimo_snapshot_ads ?? oferta.primeiro_snapshot_ads ?? 0
+    const alertas: { tipo: string; mensagem: string }[] = []
+
+    if (adsCount >= 0) {
+      const diff = adsCount - anterior
+      if (adsCount === 0 && anterior > 0) {
+        alertas.push({ tipo: 'morreu', mensagem: `${oferta.pagina_nome} parou de rodar - 0 anuncios ativos` })
+      } else if (diff >= 10) {
+        alertas.push({ tipo: 'escalou', mensagem: `${oferta.pagina_nome} adicionou ${diff} novos anuncios` })
+      } else if (diff <= -10) {
+        alertas.push({ tipo: 'queda', mensagem: `${oferta.pagina_nome} removeu ${Math.abs(diff)} anuncios` })
+      }
+    }
+
+    if (landingHash && oferta.landing_hash && landingHash !== oferta.landing_hash) {
+      alertas.push({ tipo: 'pagina_mudou', mensagem: `${oferta.pagina_nome} alterou a pagina de destino` })
+    }
+
+    for (const alerta of alertas) {
+      await dbCreateOfferAlert({
+        id: crypto.randomUUID(),
+        tracked_offer_id: oferta.id,
+        tipo: alerta.tipo,
+        mensagem: alerta.mensagem,
+        dados_anteriores: JSON.stringify({ ads: anterior, hash: oferta.landing_hash }),
+        dados_novos: JSON.stringify({ ads: adsCount, hash: landingHash }),
+      })
+    }
+
+    const newStatus = adsCount === 0 && anterior > 0 ? 'morta'
+      : adsCount >= 0 && adsCount - anterior >= 10 ? 'escalando'
+      : adsCount >= 0 && anterior - adsCount >= 10 ? 'caindo'
+      : oferta.status
+
+    const updates: Parameters<typeof dbUpdateTrackedOffer>[1] = {
+      ultimo_snapshot_ads: adsCount >= 0 ? adsCount : undefined,
+      landing_hash: landingHash ?? undefined,
+      status: newStatus,
+      alertas_nao_lidos: oferta.alertas_nao_lidos + alertas.length,
+    }
+    if (resolvedPageId && resolvedPageId !== oferta.page_id) {
+      updates.page_id = resolvedPageId
+    }
+    await dbUpdateTrackedOffer(oferta.id, updates)
+
+    return { status: 'verified', alertas: alertas.length }
+  } catch (err) {
+    return { status: 'error', alertas: 0, error: (err as Error).message }
+  }
+}
+
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
   if (!cronSecret) {
@@ -109,79 +176,40 @@ export async function GET(req: NextRequest) {
   }
 
   const ofertas = await dbGetActiveTrackedOffers()
+  const targetId = req.nextUrl.searchParams.get('id')
+
+  // MODE 1: List mode — returns IDs (used by GitHub Actions to iterate)
+  if (req.nextUrl.searchParams.get('mode') === 'list') {
+    return NextResponse.json({
+      ids: ofertas.map(o => ({
+        id: o.id,
+        nome: o.pagina_nome,
+        ultimaVerificacao: o.verificado_em,
+      })),
+      total: ofertas.length,
+    })
+  }
+
+  // MODE 2: Single offer — process only one (used by GitHub Actions per offer)
+  if (targetId) {
+    const offer = ofertas.find(o => o.id === targetId)
+    if (!offer) return NextResponse.json({ error: 'Oferta não encontrada' }, { status: 404 })
+    const result = await processOffer(offer)
+    return NextResponse.json({ id: targetId, nome: offer.pagina_nome, ...result })
+  }
+
+  // MODE 3: Process all (legacy — risk of timeout, kept for compat)
   let verificadas = 0
   let alertasCriados = 0
   let puladas = 0
-
   for (const oferta of ofertas) {
-    try {
-      // Skip se foi verificada nas últimas 18h (economia massiva de Apify)
-      if (oferta.verificado_em) {
-        const hoursSince = (Date.now() - new Date(oferta.verificado_em).getTime()) / 3600000
-        if (hoursSince < 18) {
-          puladas++
-          continue
-        }
-      }
-
-      const { count: adsCount, resolvedPageId } = await getAdsCount(oferta.pagina_nome, oferta.page_id, oferta.ad_library_url)
-      const landingHash = oferta.landing_url ? await getPageHash(oferta.landing_url) : null
-
-      const anterior = oferta.ultimo_snapshot_ads ?? oferta.primeiro_snapshot_ads ?? 0
-      const alertas: { tipo: string; mensagem: string }[] = []
-
-      if (adsCount >= 0) {
-        const diff = adsCount - anterior
-        if (adsCount === 0 && anterior > 0) {
-          alertas.push({ tipo: 'morreu', mensagem: `${oferta.pagina_nome} parou de rodar - 0 anuncios ativos` })
-        } else if (diff >= 10) {
-          alertas.push({ tipo: 'escalou', mensagem: `${oferta.pagina_nome} adicionou ${diff} novos anuncios` })
-        } else if (diff <= -10) {
-          alertas.push({ tipo: 'queda', mensagem: `${oferta.pagina_nome} removeu ${Math.abs(diff)} anuncios` })
-        }
-      }
-
-      if (landingHash && oferta.landing_hash && landingHash !== oferta.landing_hash) {
-        alertas.push({ tipo: 'pagina_mudou', mensagem: `${oferta.pagina_nome} alterou a pagina de destino` })
-      }
-
-      for (const alerta of alertas) {
-        await dbCreateOfferAlert({
-          id: crypto.randomUUID(),
-          tracked_offer_id: oferta.id,
-          tipo: alerta.tipo,
-          mensagem: alerta.mensagem,
-          dados_anteriores: JSON.stringify({ ads: anterior, hash: oferta.landing_hash }),
-          dados_novos: JSON.stringify({ ads: adsCount, hash: landingHash }),
-        })
-        alertasCriados++
-      }
-
-      const newStatus = adsCount === 0 && anterior > 0 ? 'morta'
-        : adsCount >= 0 && adsCount - anterior >= 10 ? 'escalando'
-        : adsCount >= 0 && anterior - adsCount >= 10 ? 'caindo'
-        : oferta.status
-
-      const updates: Parameters<typeof dbUpdateTrackedOffer>[1] = {
-        ultimo_snapshot_ads: adsCount >= 0 ? adsCount : undefined,
-        landing_hash: landingHash ?? undefined,
-        status: newStatus,
-        alertas_nao_lidos: oferta.alertas_nao_lidos + alertas.length,
-      }
-      // Backfill page_id if scraper resolved a new one
-      if (resolvedPageId && resolvedPageId !== oferta.page_id) {
-        updates.page_id = resolvedPageId
-      }
-      await dbUpdateTrackedOffer(oferta.id, updates)
-
-      verificadas++
-    } catch (err) {
-      console.error(`[Cron] Erro ao verificar oferta ${oferta.id}:`, err)
-      continue
-    }
+    const result = await processOffer(oferta)
+    if (result.status === 'verified') verificadas++
+    else if (result.status === 'skipped') puladas++
+    alertasCriados += result.alertas
   }
 
-  // Cleanup: remove old analysis_cache entries (> 7 days) e.g. housekeeping
+  // Cleanup old cache (housekeeping)
   let cacheCleared = 0
   try {
     const r = await db.execute("DELETE FROM analysis_cache WHERE created_at < datetime('now', '-7 days')")

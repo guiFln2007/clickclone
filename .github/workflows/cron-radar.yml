@@ -10,20 +10,79 @@ jobs:
   check-radar:
     runs-on: ubuntu-latest
     steps:
-      - name: Call cron endpoint
+      - name: List offers
+        id: list
         run: |
-          response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
-            -m 280 \
+          response=$(curl -s -m 60 \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            https://clickclone.forbuy.shop/api/cron/check-radar)
-
-          status=$(echo "$response" | tail -n1 | sed 's/HTTP_STATUS://')
-          body=$(echo "$response" | sed '$d')
-
-          echo "Status: $status"
-          echo "Body: $body"
-
-          if [ "$status" != "200" ]; then
-            echo "::error::Cron endpoint returned $status"
-            exit 1
+            "https://clickclone.forbuy.shop/api/cron/check-radar?mode=list")
+          echo "$response"
+          # Extract ids using jq
+          ids=$(echo "$response" | jq -r '.ids[].id' 2>/dev/null || echo "")
+          if [ -z "$ids" ]; then
+            echo "::warning::Nenhuma oferta ativa"
+            echo "ids=" >> $GITHUB_OUTPUT
+          else
+            # Save ids as space-separated for the next step
+            echo "ids<<EOF" >> $GITHUB_OUTPUT
+            echo "$ids" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            count=$(echo "$ids" | wc -l)
+            echo "📋 $count ofertas ativas pra processar"
           fi
+
+      - name: Process each offer
+        if: steps.list.outputs.ids != ''
+        run: |
+          verificadas=0
+          puladas=0
+          erros=0
+          alertas_total=0
+
+          while IFS= read -r id; do
+            [ -z "$id" ] && continue
+            echo "→ Processando oferta $id..."
+
+            response=$(curl -s -w "\nHTTP:%{http_code}" -m 280 \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              "https://clickclone.forbuy.shop/api/cron/check-radar?id=$id")
+
+            http=$(echo "$response" | tail -n1 | sed 's/HTTP://')
+            body=$(echo "$response" | sed '$d')
+
+            if [ "$http" != "200" ]; then
+              echo "  ❌ HTTP $http: $body"
+              erros=$((erros + 1))
+            else
+              status=$(echo "$body" | jq -r '.status' 2>/dev/null || echo "unknown")
+              alertas=$(echo "$body" | jq -r '.alertas // 0' 2>/dev/null || echo "0")
+              nome=$(echo "$body" | jq -r '.nome // "?"' 2>/dev/null || echo "?")
+
+              case "$status" in
+                verified)
+                  echo "  ✅ $nome verificada ($alertas alertas)"
+                  verificadas=$((verificadas + 1))
+                  alertas_total=$((alertas_total + alertas))
+                  ;;
+                skipped)
+                  echo "  ⏭️ $nome pulada (verificada < 18h)"
+                  puladas=$((puladas + 1))
+                  ;;
+                error)
+                  err=$(echo "$body" | jq -r '.error // ""' 2>/dev/null)
+                  echo "  ⚠️ $nome erro: $err"
+                  erros=$((erros + 1))
+                  ;;
+                *)
+                  echo "  ❓ $nome status: $status"
+                  ;;
+              esac
+            fi
+          done <<< "${{ steps.list.outputs.ids }}"
+
+          echo ""
+          echo "═══ RESUMO ═══"
+          echo "Verificadas: $verificadas"
+          echo "Puladas:     $puladas"
+          echo "Erros:       $erros"
+          echo "Alertas:     $alertas_total"
