@@ -566,19 +566,23 @@ export default function ToolPage() {
     return true
   })
 
+  // Mutual exclusive: oferta só pode estar em escalando OU caindo OU estável, nunca em duas
   const countByStatus = {
     total: trackedOffers.length,
     escalando: trackedOffers.filter(o => {
-      if (o.status === 'escalando') return true
       const ads = o.ultimo_snapshot_ads ?? 0
       const initial = o.primeiro_snapshot_ads ?? 0
-      return initial > 0 && ads > initial
+      if (initial > 0 && ads > initial) return true
+      // Se não tem snapshots ainda mas status do banco diz escalando
+      return ads === 0 && initial === 0 && o.status === 'escalando'
     }).length,
     caindo: trackedOffers.filter(o => {
-      if (o.status === 'caindo' || o.status === 'morta') return true
       const ads = o.ultimo_snapshot_ads ?? 0
       const initial = o.primeiro_snapshot_ads ?? 0
-      return initial > 0 && ads < initial
+      if (initial > 0 && ads < initial) return true
+      // Inclui mortas (0 ads atual, tinha antes)
+      if (ads === 0 && initial > 0) return true
+      return ads === 0 && initial === 0 && (o.status === 'caindo' || o.status === 'morta')
     }).length,
   }
   const lastUpdate = trackedOffers.reduce((latest, o) => {
@@ -987,19 +991,55 @@ export default function ToolPage() {
       {/* Add offer modal */}
       {addOfferModal && (
         <div className="modal-overlay" onClick={() => setAddOfferModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-            <div className="modal-hd"><h3>Adicionar Oferta ao Radar</h3><button className="modal-close" onClick={() => setAddOfferModal(false)}>&times;</button></div>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div>
-                <label className="modal-label" style={{ marginBottom: 6, display: 'block' }}>Nome da pagina do anunciante</label>
-                <input className="modal-input" value={newOfferName} onChange={e => setNewOfferName(e.target.value)} placeholder="Ex: Velas Lucrativas" />
+          <div className="add-offer-modal" onClick={e => e.stopPropagation()}>
+            <div className="aom-hd">
+              <div className="aom-hd-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
               </div>
-              <div>
-                <label className="modal-label" style={{ marginBottom: 6, display: 'block' }}>URL da Biblioteca de Anuncios</label>
-                <input className="modal-input" value={newOfferUrl} onChange={e => setNewOfferUrl(e.target.value)} placeholder="https://www.facebook.com/ads/library/..." />
-                <p style={{ color: '#666', fontSize: 12, marginTop: 6 }}>Abra a Biblioteca de Anuncios do Meta, busque a pagina e copie a URL.</p>
+              <div style={{ flex: 1 }}>
+                <h3 className="aom-title">Adicionar oferta ao Radar</h3>
+                <p className="aom-sub">Monitore an{'\u00fa'}ncios de qualquer p{'\u00e1'}gina automaticamente</p>
               </div>
-              <button className="mine-btn" style={{ width: '100%', marginTop: 4 }} onClick={addOfferManual} disabled={!newOfferName || !newOfferUrl}>
+              <button className="aom-close" onClick={() => setAddOfferModal(false)} aria-label="Fechar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div className="aom-body">
+              <div className="aom-field">
+                <label className="aom-label">Nome do anunciante</label>
+                <input
+                  className="aom-input"
+                  value={newOfferName}
+                  onChange={e => setNewOfferName(e.target.value)}
+                  placeholder="Ex: Velas Lucrativas"
+                  autoFocus
+                />
+              </div>
+
+              <div className="aom-field">
+                <label className="aom-label">URL da Biblioteca de An{'\u00fa'}ncios</label>
+                <input
+                  className="aom-input"
+                  value={newOfferUrl}
+                  onChange={e => setNewOfferUrl(e.target.value)}
+                  placeholder="https://www.facebook.com/ads/library/?active_status=..."
+                />
+                <p className="aom-hint">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  Abra o Meta Ads Library, busque a p{'\u00e1'}gina e copie a URL completa
+                </p>
+              </div>
+            </div>
+
+            <div className="aom-footer">
+              <button className="aom-btn-cancel" onClick={() => setAddOfferModal(false)}>Cancelar</button>
+              <button
+                className="aom-btn-save"
+                onClick={addOfferManual}
+                disabled={!newOfferName || !newOfferUrl}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                 Salvar no Radar
               </button>
             </div>
@@ -1327,6 +1367,30 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#09090
 .saved-btn-outline:hover{border-color:#FF6B00;color:#FF6B00;background:rgba(255,107,0,.04)}
 .saved-btn-solid{padding:12px 0;background:#FF6B00;border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
 .saved-btn-solid:hover{background:#e05e00}
+
+/* ADD OFFER MODAL */
+.add-offer-modal{background:#0d0d0d;border:1px solid #1F2937;border-radius:16px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:aom-in .2s ease}
+@keyframes aom-in{from{opacity:0;transform:scale(.96) translateY(-8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.aom-hd{display:flex;align-items:flex-start;gap:14px;padding:24px 24px 20px;border-bottom:1px solid #1F2937}
+.aom-hd-icon{width:40px;height:40px;border-radius:10px;background:rgba(255,107,0,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.aom-title{font-size:17px;font-weight:700;color:#fff;margin:0 0 4px}
+.aom-sub{font-size:13px;color:#6B7280;margin:0;line-height:1.4}
+.aom-close{width:32px;height:32px;background:transparent;border:1px solid #1F2937;border-radius:8px;color:#6B7280;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.aom-close:hover{border-color:#374151;color:#fff;background:#111}
+.aom-body{padding:20px 24px;display:flex;flex-direction:column;gap:18px}
+.aom-field{display:flex;flex-direction:column;gap:8px}
+.aom-label{font-size:12px;font-weight:600;color:#9CA3AF;letter-spacing:.02em}
+.aom-input{background:#111;border:1px solid #1F2937;border-radius:10px;padding:12px 14px;font-family:inherit;font-size:14px;color:#fff;outline:none;transition:all .15s}
+.aom-input::placeholder{color:#3F3F46}
+.aom-input:focus{border-color:#FF6B00;background:#0a0a0a;box-shadow:0 0 0 3px rgba(255,107,0,.08)}
+.aom-hint{display:flex;align-items:center;gap:6px;font-size:12px;color:#52525b;margin:0}
+.aom-hint svg{flex-shrink:0;color:#6B7280}
+.aom-footer{display:flex;gap:10px;padding:16px 24px 24px;border-top:1px solid #1F2937}
+.aom-btn-cancel{flex:1;padding:11px 16px;background:transparent;border:1px solid #1F2937;border-radius:10px;color:#9CA3AF;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.aom-btn-cancel:hover{border-color:#374151;color:#fff;background:#111}
+.aom-btn-save{flex:2;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;background:#FF6B00;border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
+.aom-btn-save:hover:not(:disabled){background:#e05e00;box-shadow:0 4px 14px rgba(255,107,0,.25)}
+.aom-btn-save:disabled{opacity:.4;cursor:not-allowed}
 
 /* TOAST */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;z-index:300;animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;pointer-events:none}
