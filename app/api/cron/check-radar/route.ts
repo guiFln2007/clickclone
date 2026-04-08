@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { dbGetActiveTrackedOffers, dbUpdateTrackedOffer, dbCreateOfferAlert } from '@/lib/db'
+import db from '@/lib/db'
 import crypto from 'crypto'
 
 export const maxDuration = 300
@@ -98,8 +99,12 @@ async function getPageHash(url: string): Promise<string | null> {
 }
 
 export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET não configurado no servidor' }, { status: 500 })
+  }
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -176,5 +181,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ verificadas, alertasCriados, puladas, total: ofertas.length })
+  // Cleanup: remove old analysis_cache entries (> 7 days) e.g. housekeeping
+  let cacheCleared = 0
+  try {
+    const r = await db.execute("DELETE FROM analysis_cache WHERE created_at < datetime('now', '-7 days')")
+    cacheCleared = r.rowsAffected ?? 0
+  } catch { /* ok */ }
+
+  return NextResponse.json({ verificadas, alertasCriados, puladas, total: ofertas.length, cacheCleared })
 }
