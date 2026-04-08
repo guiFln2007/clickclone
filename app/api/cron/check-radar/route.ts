@@ -26,9 +26,9 @@ async function countAdsFromApify(adLibraryUrl: string): Promise<number> {
       } catch { return adLibraryUrl }
     })()
 
-    // maxAds: 100 — economia Apify, suficiente pra detectar variação
+    // SAFEGUARDS: timeout=120s + memory=1024MB + maxAds=100 (kill switch contra runaway)
     const runRes = await fetch(
-      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
+      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}&timeout=120&memory=1024`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 100 }) }
     )
     const runData = await runRes.json() as Record<string, unknown>

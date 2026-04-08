@@ -21,13 +21,15 @@ async function startApifyMine(keyword: string): Promise<string | null> {
   if (!APIFY_TOKEN) return null
   const searchUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered`
   try {
+    // SAFEGUARDS no nivel da Apify (independente do codigo do cliente):
+    // - timeout=120s: mata o run automaticamente se passar de 2 min
+    // - memory=1024MB: limita RAM do container (menos compute = menos custo)
+    // - maxAds=60 no body: limita quantos ads o actor extrai
     const res = await fetch(
-      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
+      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}&timeout=120&memory=1024`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // SAFEGUARD: maxAds reduzido pra controlar custo. 60 ads é suficiente
-        // pra encontrar 5-15 paginas com 10+ ads (filtro padrao)
         body: JSON.stringify({ urls: [{ url: searchUrl }], maxAds: 60 }),
       }
     )
