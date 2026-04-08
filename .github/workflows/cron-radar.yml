@@ -4,7 +4,16 @@ on:
   schedule:
     # 10:00 UTC = 07:00 BRT (Brazil)
     - cron: '0 10 * * *'
-  workflow_dispatch: # allows manual run from GitHub UI
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Forcar re-verificacao mesmo se rodou ha < 18h'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   check-radar:
@@ -43,9 +52,13 @@ jobs:
             [ -z "$id" ] && continue
             echo "→ Processando oferta $id..."
 
+            force_param=""
+            if [ "${{ github.event.inputs.force }}" = "true" ]; then
+              force_param="&force=1"
+            fi
             response=$(curl -s -w "\nHTTP:%{http_code}" -m 280 \
               -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-              "https://clickclone.forbuy.shop/api/cron/check-radar?id=$id")
+              "https://clickclone.forbuy.shop/api/cron/check-radar?id=$id${force_param}")
 
             http=$(echo "$response" | tail -n1 | sed 's/HTTP://')
             body=$(echo "$response" | sed '$d')

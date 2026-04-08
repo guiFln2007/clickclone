@@ -256,14 +256,14 @@ async function applyScrapeToOffer(
 }
 
 // Processa uma oferta E todas as suas "irmãs" (mesma chave de scrape) com 1 único scrape
-async function processOfferGroup(oferta: Offer, allOffers: Offer[]): Promise<{
+async function processOfferGroup(oferta: Offer, allOffers: Offer[], force = false): Promise<{
   status: 'verified' | 'skipped' | 'error'
   alertas: number
   error?: string
   dedup?: number
 }> {
-  // Skip se foi verificada nas últimas 18h
-  if (oferta.verificado_em) {
+  // Skip se foi verificada nas últimas 18h (a menos que force=true)
+  if (!force && oferta.verificado_em) {
     const hoursSince = (Date.now() - new Date(oferta.verificado_em).getTime()) / 3600000
     if (hoursSince < 18) return { status: 'skipped', alertas: 0 }
   }
@@ -302,6 +302,7 @@ export async function GET(req: NextRequest) {
 
   const ofertas = await dbGetActiveTrackedOffers()
   const targetId = req.nextUrl.searchParams.get('id')
+  const force = req.nextUrl.searchParams.get('force') === '1'
 
   // MODE 1: List mode — agrupa por scrapeKey e retorna 1 representante por grupo
   // (GitHub Actions itera sobre grupos, cada grupo = 1 scrape compartilhado)
@@ -332,7 +333,7 @@ export async function GET(req: NextRequest) {
   if (targetId) {
     const offer = ofertas.find(o => o.id === targetId)
     if (!offer) return NextResponse.json({ error: 'Oferta não encontrada' }, { status: 404 })
-    const result = await processOfferGroup(offer, ofertas)
+    const result = await processOfferGroup(offer, ofertas, force)
     return NextResponse.json({ id: targetId, nome: offer.pagina_nome, ...result })
   }
 
@@ -345,7 +346,7 @@ export async function GET(req: NextRequest) {
     const key = scrapeKey(oferta)
     if (processedKeys.has(key)) continue
     processedKeys.add(key)
-    const result = await processOfferGroup(oferta, ofertas)
+    const result = await processOfferGroup(oferta, ofertas, force)
     if (result.status === 'verified') verificadas++
     else if (result.status === 'skipped') puladas++
     alertasCriados += result.alertas
