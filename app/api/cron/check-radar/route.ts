@@ -11,50 +11,22 @@ const APIFY_TOKEN = process.env.APIFY_TOKEN || ''
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
-function cleanAdLibraryUrl(adLibraryUrl: string): string {
-  try {
-    const u = new URL(adLibraryUrl)
-    const clean = new URL('https://www.facebook.com/ads/library/')
-    for (const k of ['active_status', 'ad_type', 'country', 'search_type', 'view_all_page_id', 'media_type']) {
-      const v = u.searchParams.get(k)
-      if (v) clean.searchParams.set(k, v)
-    }
-    return clean.toString()
-  } catch { return adLibraryUrl }
-}
-
-// CHEAP: leadsbrary actor with onlyTotalCount=true returns just the count, no ad data.
-// Cost: ~$0.00005 per scrape (basically free).
-async function countAdsFromLeadsbrary(adLibraryUrl: string): Promise<number> {
-  if (!APIFY_TOKEN) return -1
-  try {
-    const cleanUrl = cleanAdLibraryUrl(adLibraryUrl)
-    const res = await fetch(
-      `https://api.apify.com/v2/acts/leadsbrary~meta-ads-library-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startUrls: [cleanUrl], onlyTotalCount: true }),
-        signal: AbortSignal.timeout(120000),
-      }
-    )
-    if (!res.ok) return -1
-    const items = await res.json() as Array<{ total_count?: number }>
-    if (!Array.isArray(items) || items.length === 0) return -1
-    const count = items[0]?.total_count
-    return typeof count === 'number' ? count : -1
-  } catch {
-    return -1
-  }
-}
-
-// EXPENSIVE FALLBACK: curious_coder spins Playwright and downloads up to 100 ads.
-// Only used when leadsbrary fails for some reason.
 async function countAdsFromApify(adLibraryUrl: string): Promise<number> {
   if (!APIFY_TOKEN) return -1
   try {
-    const cleanUrl = cleanAdLibraryUrl(adLibraryUrl)
+    const cleanUrl = (() => {
+      try {
+        const u = new URL(adLibraryUrl)
+        const clean = new URL('https://www.facebook.com/ads/library/')
+        for (const k of ['active_status', 'ad_type', 'country', 'search_type', 'view_all_page_id', 'media_type']) {
+          const v = u.searchParams.get(k)
+          if (v) clean.searchParams.set(k, v)
+        }
+        return clean.toString()
+      } catch { return adLibraryUrl }
+    })()
 
+    // maxAds: 100 — economia Apify, suficiente pra detectar variação
     const runRes = await fetch(
       `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 100 }) }
@@ -81,7 +53,83 @@ async function countAdsFromApify(adLibraryUrl: string): Promise<number> {
   }
 }
 
-async function getAdsCount(pageName: string, pageId: string | null, adLibraryUrl: string): Promise<{ count: number; resolvedPageId?: string; source: 'leadsbrary' | 'scraper' | 'apify' | 'none' }> {
+// GRATUITO: faz fetch direto da pagina do Ad Library e extrai a contagem do HTML.
+// Meta embute dados no HTML inicial em varios formatos — tentamos multiplos padroes.
+// Retorna -1 se nao conseguir (caller faz fallback).
+async function countAdsDirect(pageId: string, adLibraryUrl: string): Promise<number> {
+  try {
+    // Monta uma URL limpa do Ad Library pra page especifica
+    const url = new URL('https://www.facebook.com/ads/library/')
+    url.searchParams.set('active_status', 'active')
+    url.searchParams.set('ad_type', 'all')
+    url.searchParams.set('country', 'BR')
+    url.searchParams.set('view_all_page_id', pageId)
+    url.searchParams.set('search_type', 'page')
+    url.searchParams.set('media_type', 'all')
+
+    // Preserva pais da URL original se existir
+    try {
+      const orig = new URL(adLibraryUrl)
+      const country = orig.searchParams.get('country')
+      if (country) url.searchParams.set('country', country)
+    } catch { /* usa BR */ }
+
+    const res = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(20000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Upgrade-Insecure-Requests': '1',
+      },
+    })
+    if (!res.ok) return -1
+    const html = await res.text()
+
+    // Tenta varios padroes conhecidos (Meta muda isso de tempos em tempos)
+    // Ordem: mais especifico -> mais generico
+    const patterns: RegExp[] = [
+      /"total_count"\s*:\s*(\d+)/,
+      /"totalCount"\s*:\s*(\d+)/,
+      /"results"\s*:\s*\{\s*"count"\s*:\s*(\d+)/,
+      /"collation_count"\s*:\s*(\d+)/,
+      /"page_total_count"\s*:\s*(\d+)/,
+      // Texto visivel: "~120 resultados" / "About 120 results" / "Cerca de 120 resultados"
+      /~\s*(\d+)\s+resultad/i,
+      /Cerca de\s+(\d+)\s+resultad/i,
+      /About\s+(\d+)\s+result/i,
+      /(\d+)\s+resultad[ao]s?\s+encontrad/i,
+    ]
+
+    for (const re of patterns) {
+      const m = html.match(re)
+      if (m && m[1]) {
+        const n = parseInt(m[1], 10)
+        if (!isNaN(n) && n >= 0 && n < 100000) return n
+      }
+    }
+
+    // Ultimo recurso: contar ocorrencias de "Biblioteca ID" / "Library ID" no HTML
+    // (cada ad tem um ID visivel). Pode subestimar se houver lazy load, mas e um piso.
+    const idMatches = html.match(/"ad_archive_id"\s*:\s*"?\d+/g)
+    if (idMatches && idMatches.length > 0) {
+      // Dedup por ID
+      const unique = new Set(idMatches)
+      return unique.size
+    }
+
+    return -1
+  } catch {
+    return -1
+  }
+}
+
+async function getAdsCount(pageName: string, pageId: string | null, adLibraryUrl: string): Promise<{ count: number; resolvedPageId?: string; source: 'direct' | 'scraper' | 'apify' | 'none' }> {
   // Prefer saved page_id, fallback to extracting from URL
   let resolvedPageId = pageId || undefined
   if (!resolvedPageId) {
@@ -89,12 +137,14 @@ async function getAdsCount(pageName: string, pageId: string | null, adLibraryUrl
     if (m) resolvedPageId = m[1]
   }
 
-  // ✅ 1ª TENTATIVA: leadsbrary com onlyTotalCount (~$0.00005 por scrape, ~99% mais barato)
-  const leadsbraryCount = await countAdsFromLeadsbrary(adLibraryUrl)
-  if (leadsbraryCount >= 0) {
-    return { count: leadsbraryCount, resolvedPageId, source: 'leadsbrary' }
+  // ✅ 1ª TENTATIVA: scrape direto do HTML do Facebook (GRATUITO)
+  if (resolvedPageId) {
+    const directCount = await countAdsDirect(resolvedPageId, adLibraryUrl)
+    if (directCount >= 0) {
+      return { count: directCount, resolvedPageId, source: 'direct' }
+    }
+    console.warn(`[Radar] Scrape direto falhou pra page ${resolvedPageId}, tentando fallbacks`)
   }
-  console.warn(`[Radar] leadsbrary falhou pra ${pageName}, tentando fallbacks`)
 
   // 2ª: scraper local (se configurado)
   if (SCRAPER_URL) {
@@ -112,7 +162,7 @@ async function getAdsCount(pageName: string, pageId: string | null, adLibraryUrl
     } catch { /* fall through to Apify */ }
   }
 
-  // 3ª: curious_coder Apify (pago, ultimo recurso)
+  // 3ª: Apify (pago, ultimo recurso)
   const count = await countAdsFromApify(adLibraryUrl)
   return { count, resolvedPageId, source: count >= 0 ? 'apify' : 'none' }
 }
