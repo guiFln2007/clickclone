@@ -211,7 +211,7 @@ async function processOfferGroup(oferta: Offer, allOffers: Offer[], force = fals
   alertas: number
   error?: string
   dedup?: number
-  source?: 'direct' | 'scraper' | 'apify' | 'none'
+  source?: 'leadsbrary' | 'scraper' | 'apify' | 'none'
   adsCount?: number
 }> {
   // Skip se foi verificada nas últimas 18h (a menos que force=true)
