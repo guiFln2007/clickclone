@@ -22,15 +22,15 @@ async function startApifyMine(keyword: string): Promise<string | null> {
   const searchUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered`
   try {
     // SAFEGUARDS no nivel da Apify (independente do codigo do cliente):
-    // - timeout=120s: mata o run automaticamente se passar de 2 min
+    // - timeout=180s: mata o run automaticamente se passar de 3 min
     // - memory=1024MB: limita RAM do container (menos compute = menos custo)
-    // - maxAds=60 no body: limita quantos ads o actor extrai
+    // - maxAds=150 no body: limita quantos ads o actor extrai (pra ter 10+ paginas apos filtros)
     const res = await fetch(
-      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}&timeout=120&memory=1024`,
+      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}&timeout=180&memory=1024`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [{ url: searchUrl }], maxAds: 60 }),
+        body: JSON.stringify({ urls: [{ url: searchUrl }], maxAds: 150 }),
       }
     )
     const data = await res.json() as Record<string, unknown>
@@ -273,10 +273,16 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(p => {
+        // Minimo: 10 anuncios ativos
         if (p.total_anuncios < minAnuncios) return false
+        // Maximo: 80 anuncios (acima disso provavelmente e marca grande, nao infoproduto)
+        if (p.total_anuncios > 80) return false
+        // Minimo: 10 dias rodando (se conseguimos calcular)
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
+        // Tem que ter landing
         const url = (p.landing_url || '').toLowerCase()
         if (!url) return false
+        // Sem redes sociais
         const blocked = ['instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com', 'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com', 't.me', 'telegram']
         if (blocked.some(domain => url.includes(domain))) return false
         return true
