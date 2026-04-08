@@ -26,7 +26,9 @@ async function startApifyMine(keyword: string): Promise<string | null> {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [{ url: searchUrl }], maxAds: 200 }),
+        // SAFEGUARD: maxAds reduzido pra controlar custo. 60 ads é suficiente
+        // pra encontrar 5-15 paginas com 10+ ads (filtro padrao)
+        body: JSON.stringify({ urls: [{ url: searchUrl }], maxAds: 60 }),
       }
     )
     const data = await res.json() as Record<string, unknown>
@@ -35,6 +37,45 @@ async function startApifyMine(keyword: string): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+// SAFEGUARD 2: Cache em memoria — mesma keyword nas ultimas 6h reusa o mesmo run
+// Evita lead minerar a mesma keyword 10x e queimar credito
+const mineCache = new Map<string, { runId: string; createdAt: number }>()
+const MINE_CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 horas
+
+function getCachedRun(keyword: string): string | null {
+  const key = keyword.toLowerCase().trim()
+  const cached = mineCache.get(key)
+  if (!cached) return null
+  if (Date.now() - cached.createdAt > MINE_CACHE_TTL_MS) {
+    mineCache.delete(key)
+    return null
+  }
+  return cached.runId
+}
+
+function setCachedRun(keyword: string, runId: string) {
+  const key = keyword.toLowerCase().trim()
+  mineCache.set(key, { runId, createdAt: Date.now() })
+}
+
+// SAFEGUARD 3: Throttle por usuario — max 5 mineracoes a cada 1h
+const userMineHistory = new Map<number, number[]>() // userId -> timestamps
+const USER_MINE_LIMIT = 5
+const USER_MINE_WINDOW_MS = 60 * 60 * 1000 // 1 hora
+
+function checkUserMineLimit(userId: number): { allowed: boolean; remaining: number; resetInMin: number } {
+  const now = Date.now()
+  const history = (userMineHistory.get(userId) || []).filter(t => now - t < USER_MINE_WINDOW_MS)
+  if (history.length >= USER_MINE_LIMIT) {
+    const oldest = Math.min(...history)
+    const resetInMin = Math.ceil((USER_MINE_WINDOW_MS - (now - oldest)) / 60000)
+    return { allowed: false, remaining: 0, resetInMin }
+  }
+  history.push(now)
+  userMineHistory.set(userId, history)
+  return { allowed: true, remaining: USER_MINE_LIMIT - history.length, resetInMin: 0 }
 }
 
 type ApifyAd = {
@@ -114,7 +155,23 @@ export async function POST(req: NextRequest) {
   if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
   const kw = keyword.trim()
-  console.log(`[Mine] Starting for keyword: "${kw}"`)
+
+  // SAFEGUARD: throttle por usuario (5 mineracoes/hora)
+  const limit = checkUserMineLimit(userId)
+  if (!limit.allowed) {
+    return NextResponse.json({
+      error: `Limite de mineracoes atingido. Tente novamente em ${limit.resetInMin} min (max 5/hora)`
+    }, { status: 429 })
+  }
+
+  // SAFEGUARD: cache de 6h por keyword
+  const cachedRunId = getCachedRun(kw)
+  if (cachedRunId) {
+    console.log(`[Mine] Cache HIT pra "${kw}", reusando runId ${cachedRunId}`)
+    return NextResponse.json({ runId: cachedRunId, keyword: kw, minAnuncios, minDias, cached: true })
+  }
+
+  console.log(`[Mine] Starting for keyword: "${kw}" (${limit.remaining} restantes na hora)`)
 
   // 1ª tentativa: scraper local (Mac via Cloudflare Tunnel)
   if (SCRAPER_URL) {
@@ -130,7 +187,9 @@ export async function POST(req: NextRequest) {
         const jobId = data.jobId as string
         if (jobId) {
           console.log('[Mine] Local scraper job started:', jobId)
-          return NextResponse.json({ runId: `local:${jobId}`, keyword: kw, minAnuncios, minDias })
+          const runId = `local:${jobId}`
+          setCachedRun(kw, runId)
+          return NextResponse.json({ runId, keyword: kw, minAnuncios, minDias })
         }
       }
     } catch {
@@ -145,7 +204,9 @@ export async function POST(req: NextRequest) {
   }
 
   console.log('[Mine] Apify run started:', apifyRunId)
-  return NextResponse.json({ runId: `apify:${apifyRunId}`, keyword: kw, minAnuncios, minDias })
+  const runId = `apify:${apifyRunId}`
+  setCachedRun(kw, runId)
+  return NextResponse.json({ runId, keyword: kw, minAnuncios, minDias })
 }
 
 // GET — Poll for results
