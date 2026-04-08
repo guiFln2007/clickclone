@@ -13,6 +13,15 @@ export const maxDuration = 300
 
 const SCRAPER_URL = process.env.SCRAPER_URL || ''
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
+const APIFY_TOKEN = process.env.APIFY_TOKEN || ''
+
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+
+async function safeJson(res: Response): Promise<unknown> {
+  const text = await res.text()
+  if (text.trimStart().startsWith('<')) throw new Error(`Apify retornou HTML. Status: ${res.status}`)
+  try { return JSON.parse(text) } catch { throw new Error(`Apify resposta inválida. Status: ${res.status}`) }
+}
 
 function cleanAdLibraryUrl(url: string): string {
   try {
@@ -27,26 +36,68 @@ function cleanAdLibraryUrl(url: string): string {
   } catch { return url }
 }
 
-// Calls local scraper to scrape ads from a Facebook Ad Library URL
+// Apify fallback (used when local scraper is unavailable)
+async function scrapeAdsFromApify(cleanUrl: string): Promise<Record<string, unknown>[]> {
+  if (!APIFY_TOKEN) throw new Error('Nem scraper local nem APIFY_TOKEN disponíveis')
+  const runRes = await fetch(
+    `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 100 }) }
+  )
+  const runData = await safeJson(runRes) as Record<string, unknown>
+  const runId = (runData?.data as Record<string, unknown>)?.id
+  if (!runId) throw new Error('Apify não retornou runId')
+
+  let status = 'RUNNING'
+  let attempts = 0
+  while (['RUNNING', 'READY'].includes(status) && attempts < 30) {
+    await sleep(2000)
+    const s = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`)
+    const sd = await safeJson(s) as Record<string, unknown>
+    status = (sd?.data as Record<string, unknown>)?.status as string ?? 'FAILED'
+    attempts++
+  }
+
+  const itemsRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=999`)
+  return await safeJson(itemsRes) as Record<string, unknown>[]
+}
+
+// Tries local scraper first, falls back to Apify if scraper is unavailable
 async function scrapeAds(url: string): Promise<Record<string, unknown>[]> {
-  if (!SCRAPER_URL) throw new Error('SCRAPER_URL não configurado')
   const cleanUrl = cleanAdLibraryUrl(url)
 
-  const res = await fetch(`${SCRAPER_URL}/scrape-ads`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-    body: JSON.stringify({ url: cleanUrl, maxAds: 100 }),
-    signal: AbortSignal.timeout(240000),
-  })
+  // Try local scraper first (free)
+  if (SCRAPER_URL) {
+    try {
+      const res = await fetch(`${SCRAPER_URL}/scrape-ads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+        body: JSON.stringify({ url: cleanUrl, maxAds: 100 }),
+        signal: AbortSignal.timeout(240000),
+      })
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as Record<string, string>
-    throw new Error(err.error || `Scraper HTTP ${res.status}`)
+      if (res.ok) {
+        const data = await res.json() as { ads?: Record<string, unknown>[]; results?: Record<string, unknown>[] }
+        const rawAds = (data.ads || data.results || []) as Record<string, unknown>[]
+        if (rawAds.length > 0) {
+          console.log(`[Phase1] Scraper local retornou ${rawAds.length} ads`)
+          return normalizeAds(rawAds)
+        }
+        console.warn('[Phase1] Scraper local retornou 0 ads, fallback pro Apify')
+      } else {
+        console.warn(`[Phase1] Scraper local HTTP ${res.status}, fallback pro Apify`)
+      }
+    } catch (e) {
+      console.warn(`[Phase1] Scraper local indisponível: ${(e as Error).message}, fallback pro Apify`)
+    }
   }
-  const data = await res.json() as { ads?: Record<string, unknown>[]; results?: Record<string, unknown>[] }
-  const rawAds = (data.ads || data.results || []) as Record<string, unknown>[]
 
-  // Normalize to Apify-like shape so the rest of the code works unchanged
+  // Fallback to Apify (paid, ~$0.04 per call)
+  console.log('[Phase1] Usando Apify como fallback')
+  return scrapeAdsFromApify(cleanUrl)
+}
+
+// Normalize ads from local scraper to Apify-like shape
+function normalizeAds(rawAds: Record<string, unknown>[]): Record<string, unknown>[] {
   return rawAds.map(ad => {
     // If already has Apify-like shape, keep as-is
     if (ad.snapshot || ad.start_date) return ad

@@ -6,28 +6,78 @@ export const maxDuration = 300
 
 const SCRAPER_URL = process.env.SCRAPER_URL || ''
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
+const APIFY_TOKEN = process.env.APIFY_TOKEN || ''
+
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+
+async function countAdsFromApify(adLibraryUrl: string): Promise<number> {
+  if (!APIFY_TOKEN) return -1
+  try {
+    const cleanUrl = (() => {
+      try {
+        const u = new URL(adLibraryUrl)
+        const clean = new URL('https://www.facebook.com/ads/library/')
+        for (const k of ['active_status', 'ad_type', 'country', 'search_type', 'view_all_page_id', 'media_type']) {
+          const v = u.searchParams.get(k)
+          if (v) clean.searchParams.set(k, v)
+        }
+        return clean.toString()
+      } catch { return adLibraryUrl }
+    })()
+
+    const runRes = await fetch(
+      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: [{ url: cleanUrl }], maxAds: 200 }) }
+    )
+    const runData = await runRes.json() as Record<string, unknown>
+    const runId = (runData?.data as Record<string, unknown>)?.id as string
+    if (!runId) return -1
+
+    let status = 'RUNNING'
+    let attempts = 0
+    while (['RUNNING', 'READY'].includes(status) && attempts < 30) {
+      await sleep(2000)
+      const s = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`)
+      const sd = await s.json() as Record<string, unknown>
+      status = ((sd?.data as Record<string, unknown>)?.status as string) ?? 'FAILED'
+      attempts++
+    }
+
+    const itemsRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=999`)
+    const items = await itemsRes.json() as unknown[]
+    return Array.isArray(items) ? items.length : -1
+  } catch {
+    return -1
+  }
+}
 
 async function getAdsCount(pageName: string, pageId: string | null, adLibraryUrl: string): Promise<{ count: number; resolvedPageId?: string }> {
-  if (!SCRAPER_URL) return { count: -1 }
-  try {
-    // Prefer saved page_id, fallback to extracting from URL
-    let resolvedPageId = pageId || undefined
-    if (!resolvedPageId) {
-      const m = adLibraryUrl.match(/view_all_page_id=(\d+)/)
-      if (m) resolvedPageId = m[1]
-    }
-    const res = await fetch(`${SCRAPER_URL}/count-ads`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-      body: JSON.stringify({ pageName, pageId: resolvedPageId }),
-      signal: AbortSignal.timeout(60000),
-    })
-    if (!res.ok) return { count: -1 }
-    const data = await res.json() as { count: number; pageId?: string }
-    return { count: data.count, resolvedPageId: data.pageId || resolvedPageId }
-  } catch {
-    return { count: -1 }
+  // Prefer saved page_id, fallback to extracting from URL
+  let resolvedPageId = pageId || undefined
+  if (!resolvedPageId) {
+    const m = adLibraryUrl.match(/view_all_page_id=(\d+)/)
+    if (m) resolvedPageId = m[1]
   }
+
+  // Try local scraper first
+  if (SCRAPER_URL) {
+    try {
+      const res = await fetch(`${SCRAPER_URL}/count-ads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+        body: JSON.stringify({ pageName, pageId: resolvedPageId }),
+        signal: AbortSignal.timeout(60000),
+      })
+      if (res.ok) {
+        const data = await res.json() as { count: number; pageId?: string }
+        return { count: data.count, resolvedPageId: data.pageId || resolvedPageId }
+      }
+    } catch { /* fall through to Apify */ }
+  }
+
+  // Fallback to Apify
+  const count = await countAdsFromApify(adLibraryUrl)
+  return { count, resolvedPageId }
 }
 
 async function getPageHash(url: string): Promise<string | null> {
