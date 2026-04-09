@@ -23,10 +23,10 @@ async function startApifyMine(keyword: string): Promise<string | null> {
   try {
     // SAFEGUARDS no nivel da Apify (independente do codigo do cliente):
     // - timeout=180s: mata o run automaticamente se passar de 3 min
-    // - memory=1024MB: limita RAM do container (menos compute = menos custo)
+    // - memory=512MB: minimo do actor (1 URL por 512MB)
     // - maxAds=150 no body: limita quantos ads o actor extrai (pra ter 10+ paginas apos filtros)
     const res = await fetch(
-      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}&timeout=180&memory=1024`,
+      `https://api.apify.com/v2/acts/curious_coder~facebook-ads-library-scraper/runs?token=${APIFY_TOKEN}&timeout=180&memory=512`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
