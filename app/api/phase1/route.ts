@@ -376,7 +376,7 @@ export async function POST(req: NextRequest) {
 
         if (!ads.length) throw new Error('Nenhum anúncio encontrado. Verifique a URL.')
 
-        send({ type: 'progress', text: `📊 ${ads.length} anúncios encontrados. Analisando com Claude...` })
+        send({ type: 'progress', text: `📊 ${ads.length} anúncios encontrados. Analisando...` })
 
         const landingUrl = extractLandingUrl(ads) || ''
         const digest = buildAdsDigest(ads)

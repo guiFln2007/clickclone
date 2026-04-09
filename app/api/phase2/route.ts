@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
           ? `✅ ${pageText.length} caracteres extraídos`
           : '⚠️ Pouco texto extraído — analisando com dados dos anúncios' })
 
-        send({ type: 'progress', text: '🧠 Analisando página com Claude...' })
+        send({ type: 'progress', text: '🧠 Analisando página...' })
 
         const Anthropic = (await import('@anthropic-ai/sdk')).default
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

@@ -456,7 +456,7 @@ export default function ToolPage() {
     if (!mineKeyword.trim() || mining) return
     setMining(true); setMineError(''); setMineResults([]); setMineStatus('Conectando ao Meta Ad Library...')
     try {
-      // 1. Start the Apify run
+      // 1. Start the mining run
       const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ keyword: mineKeyword.trim() }) })
       if (!startRes.ok) { const e = await startRes.json().catch(() => ({})); throw new Error(e.error || 'Erro ao iniciar') }
       const { runId } = await startRes.json()
@@ -587,8 +587,9 @@ export default function ToolPage() {
         {/* HEADER */}
         <header className="header">
           <div className="header-left">
-            <img src="/logo.png" alt="RatoAds" className="header-logo" />
-            <span className="header-brand">RatoAds</span>
+            <div className="header-logo-circle">
+              <img src="/logo.png" alt="RatoAds" />
+            </div>
           </div>
           <nav className="header-tabs">
             {[
@@ -1032,9 +1033,33 @@ body::before{
   position:sticky;top:0;z-index:50;
   backdrop-filter:blur(8px);
 }
-.header-left{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.header-logo{height:36px;width:auto;filter:drop-shadow(0 2px 8px rgba(255,107,0,.2))}
-.header-brand{font-size:18px;font-weight:900;color:var(--accent);letter-spacing:-.03em;text-shadow:0 0 24px rgba(255,107,0,.3)}
+.header-left{display:flex;align-items:center;flex-shrink:0}
+.header-logo-circle{
+  width:54px;height:54px;border-radius:50%;
+  background:rgba(15,15,20,.7);
+  border:1px solid rgba(255,255,255,.06);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,.4),
+    0 0 24px rgba(255,107,0,.15),
+    inset 0 1px 0 rgba(255,255,255,.05);
+  transition:all .35s var(--ease-spring);
+  cursor:pointer;
+}
+.header-logo-circle:hover{
+  transform:scale(1.06) rotate(-3deg);
+  box-shadow:
+    0 12px 40px rgba(0,0,0,.5),
+    0 0 32px rgba(255,107,0,.25),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  border-color:rgba(255,107,0,.25);
+}
+.header-logo-circle img{
+  width:38px;height:38px;object-fit:contain;
+  filter:drop-shadow(0 2px 8px rgba(255,107,0,.3));
+}
 
 /* PILL NAV */
 .header-tabs{
