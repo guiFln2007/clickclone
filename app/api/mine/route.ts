@@ -212,9 +212,22 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const runId = req.nextUrl.searchParams.get('runId')
-  const minAnuncios = 3
+  const minAnuncios = 10
+  const maxAnuncios = 80
   const minDias = 10
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
+
+  // Padroes de nomes "expert pessoal" — descartar (queremos infoprodutos de marca)
+  const EXPERT_PATTERNS = /^(prof\.?|professor|professora|dr\.?|dra\.?|coach|mentor|mentora|especialista|guru|consultor|consultora|nutri|psic\.?|advogad[ao])\b/i
+
+  // Dominios bloqueados como landing (redes sociais + bio links + lancamento)
+  const BLOCKED_LANDING_DOMAINS = [
+    'instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com',
+    'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com',
+    't.me', 'telegram',
+    'linktr.ee', 'lnk.bio', 'beacons.ai', 'campsite.bio', 'linkin.bio',
+    'bio.link', 'msha.ke', 'flowpage.com', 'allmylinks.com',
+  ]
 
   if (!runId) return NextResponse.json({ error: 'runId obrigatório' }, { status: 400 })
 
@@ -249,37 +262,45 @@ export async function GET(req: NextRequest) {
 
     const ofertas = results
       .map(p => {
-        const volPts = p.total_anuncios >= 50 ? 4 : p.total_anuncios >= 20 ? 3 : p.total_anuncios >= 10 ? 2 : 0
-        const tempoPts = p.dias_rodando === null ? 0 : p.dias_rodando >= 41 ? 3 : p.dias_rodando >= 21 ? 2 : p.dias_rodando >= 10 ? 1 : 0
-        const maxPts = p.dias_rodando === null ? 7 : 10
-        const score = Math.round(((volPts + tempoPts + 2) / maxPts) * 10)
+        // Score recalibrado pra refletir o novo modelo de count (que e um floor)
+        // Volume: 30+ = excelente, 20+ = bom, 15+ = ok, 10+ = limite
+        const volPts = p.total_anuncios >= 30 ? 4 : p.total_anuncios >= 20 ? 3 : p.total_anuncios >= 15 ? 2 : p.total_anuncios >= 10 ? 1 : 0
+        // Tempo: 60+ dias = excelente, 30+ = bom, 15+ = ok, 10+ = limite
+        const tempoPts = p.dias_rodando === null ? 1 : p.dias_rodando >= 60 ? 4 : p.dias_rodando >= 30 ? 3 : p.dias_rodando >= 15 ? 2 : p.dias_rodando >= 10 ? 1 : 0
+        // Score 1-10: (volPts + tempoPts) * 10 / 8 (max=8)
+        const score = Math.max(1, Math.min(10, Math.round((volPts + tempoPts) * 10 / 8)))
+
+        // ad_library_url: se temos page_id numerico real, abre direto a biblioteca da pagina.
+        // Se nao (slug), faz busca por nome exato (mais preciso que busca solta).
+        const isNumericId = /^\d+$/.test(p.page_id)
+        const adLibraryUrl = isNumericId
+          ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
+          : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent('"' + p.pagina_nome + '"')}&search_type=keyword_exact_phrase`
 
         return {
           pagina_nome: p.pagina_nome,
-          ad_library_url: /^\d+$/.test(p.page_id)
-            ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
-            : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(p.pagina_nome)}&search_type=keyword_unordered`,
+          ad_library_url: adLibraryUrl,
           landing_url: p.landing_url,
           total_anuncios: p.total_anuncios,
           dias_rodando: p.dias_rodando,
-          score_escalabilidade: Math.min(10, score),
+          score_escalabilidade: score,
           nicho,
           resumo_angulo: '',
         }
       })
       .filter(p => {
-        // Minimo: 10 anuncios ativos
+        // Range de ads: 10-80 (descarta mortos e marca grande)
         if (p.total_anuncios < minAnuncios) return false
-        // Maximo: 80 anuncios (acima disso provavelmente e marca grande, nao infoproduto)
-        if (p.total_anuncios > 80) return false
-        // Minimo: 10 dias rodando (se conseguimos calcular)
+        if (p.total_anuncios > maxAnuncios) return false
+        // Minimo 10 dias rodando
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
         // Tem que ter landing
         const url = (p.landing_url || '').toLowerCase()
         if (!url) return false
-        // Sem redes sociais
-        const blocked = ['instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com', 'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com', 't.me', 'telegram']
-        if (blocked.some(domain => url.includes(domain))) return false
+        // Sem redes sociais e bio links
+        if (BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
+        // Sem nomes "expert pessoal" (Professor, Dr., Coach, etc)
+        if (EXPERT_PATTERNS.test(p.pagina_nome.trim())) return false
         return true
       })
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
