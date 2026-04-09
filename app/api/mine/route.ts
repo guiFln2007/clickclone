@@ -213,20 +213,14 @@ export async function GET(req: NextRequest) {
 
   const runId = req.nextUrl.searchParams.get('runId')
   const minAnuncios = 10
-  const maxAnuncios = 80
   const minDias = 10
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
 
-  // Padroes de nomes "expert pessoal" — descartar (queremos infoprodutos de marca)
-  const EXPERT_PATTERNS = /^(prof\.?|professor|professora|dr\.?|dra\.?|coach|mentor|mentora|especialista|guru|consultor|consultora|nutri|psic\.?|advogad[ao])\b/i
-
-  // Dominios bloqueados como landing (redes sociais + bio links + lancamento)
+  // So bloqueia redes sociais como landing (sem bio links, sem expert filter)
   const BLOCKED_LANDING_DOMAINS = [
     'instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com',
     'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com',
     't.me', 'telegram',
-    'linktr.ee', 'lnk.bio', 'beacons.ai', 'campsite.bio', 'linkin.bio',
-    'bio.link', 'msha.ke', 'flowpage.com', 'allmylinks.com',
   ]
 
   if (!runId) return NextResponse.json({ error: 'runId obrigatório' }, { status: 400 })
@@ -289,18 +283,15 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(p => {
-        // Range de ads: 10-80 (descarta mortos e marca grande)
+        // Minimo: 10 anuncios ativos
         if (p.total_anuncios < minAnuncios) return false
-        if (p.total_anuncios > maxAnuncios) return false
-        // Minimo 10 dias rodando
+        // Minimo: 10 dias rodando
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
         // Tem que ter landing
         const url = (p.landing_url || '').toLowerCase()
         if (!url) return false
-        // Sem redes sociais e bio links
+        // Sem redes sociais
         if (BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
-        // Sem nomes "expert pessoal" (Professor, Dr., Coach, etc)
-        if (EXPERT_PATTERNS.test(p.pagina_nome.trim())) return false
         return true
       })
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
