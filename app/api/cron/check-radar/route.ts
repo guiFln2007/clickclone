@@ -236,8 +236,9 @@ async function applyScrapeToOffer(
     })
   }
 
-  const newStatus = adsCount === 0 && anterior > 0 ? 'morta'
-    : adsCount >= 0 && adsCount - anterior >= 10 ? 'escalando'
+  // Marca de "morta" desabilitado temporariamente — scraper local pode dar
+  // 0 ads por bug, e nao queremos perder ofertas. Reativa depois de validar.
+  const newStatus = adsCount >= 0 && adsCount - anterior >= 10 ? 'escalando'
     : adsCount >= 0 && anterior - adsCount >= 10 ? 'caindo'
     : oferta.status
 
