@@ -199,16 +199,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 2ª tentativa: Apify fallback
-  const apifyRunId = await startApifyMine(kw)
-  if (!apifyRunId) {
-    return NextResponse.json({ error: 'Erro ao iniciar minerador (scraper local e Apify ambos falharam)' }, { status: 500 })
-  }
-
-  console.log('[Mine] Apify run started:', apifyRunId)
-  const runId = `apify:${apifyRunId}`
-  setCachedRun(kw, runId)
-  return NextResponse.json({ runId, keyword: kw, minAnuncios, minDias })
+  // FALLBACK APIFY DESABILITADO — custo inviavel ($0.30-0.80 por chamada)
+  // Quando scraper local nao tiver disponivel, retorna erro claro
+  return NextResponse.json({
+    error: 'Minerador temporariamente offline. Tente novamente mais tarde.'
+  }, { status: 503 })
 }
 
 // GET — Poll for results
