@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
   if (!user?.ativo) return NextResponse.json({ error: 'Conta inativa' }, { status: 403 })
 
   const { keyword } = await req.json()
-  const minAnuncios = 10
+  const minAnuncios = 3
   const minDias = 10
   if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
       const res = await fetch(`${SCRAPER_URL}/mine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-        body: JSON.stringify({ keyword: kw, count: 100 }),
+        body: JSON.stringify({ keyword: kw, count: 300 }),
         signal: AbortSignal.timeout(10000),
       })
       if (res.ok) {
@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const runId = req.nextUrl.searchParams.get('runId')
-  const minAnuncios = 10
+  const minAnuncios = 3
   const minDias = 10
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
 
