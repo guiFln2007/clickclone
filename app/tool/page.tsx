@@ -592,9 +592,47 @@ export default function ToolPage() {
           </div>
           <nav className="header-tabs">
             {[
-              { id: 'analise' as Tab, label: 'Analise de Biblioteca', svg: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> },
-              { id: 'rastreamento' as Tab, label: 'Rastreamento', svg: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>, badge: totalAlerts },
-              { id: 'minerador' as Tab, label: 'Minerador', svg: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> },
+              {
+                id: 'minerador' as Tab,
+                label: 'Minera\u00e7\u00e3o Autom\u00e1tica',
+                svg: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.5 5.5l4 4"/>
+                    <path d="M10.5 9.5l-7 7v3h3l7-7"/>
+                    <path d="M17.5 8.5l3-3a2.121 2.121 0 0 0-3-3l-3 3"/>
+                    <path d="M9.5 8.5L8 7l1.5-1.5L11 7"/>
+                  </svg>
+                ),
+              },
+              {
+                id: 'analise' as Tab,
+                label: 'An\u00e1lise de Biblioteca',
+                svg: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                    <path d="M8 11h2"/>
+                    <path d="M11 8v6"/>
+                    <path d="M13 11h1"/>
+                  </svg>
+                ),
+              },
+              {
+                id: 'rastreamento' as Tab,
+                label: 'Rastreamento de Ofertas',
+                svg: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <circle cx="12" cy="12" r="6"/>
+                    <circle cx="12" cy="12" r="2"/>
+                    <line x1="12" y1="2" x2="12" y2="4"/>
+                    <line x1="12" y1="20" x2="12" y2="22"/>
+                    <line x1="2" y1="12" x2="4" y2="12"/>
+                    <line x1="20" y1="12" x2="22" y2="12"/>
+                  </svg>
+                ),
+                badge: totalAlerts,
+              },
             ].map(t => (
               <button key={t.id} className={`header-tab${activeTab === t.id ? ' active' : ''}`} onClick={() => setActiveTab(t.id)}>
                 <span className="tab-icon">{t.svg}</span>

@@ -62,38 +62,11 @@ async function scrapeAdsFromApify(cleanUrl: string): Promise<Record<string, unkn
   return await safeJson(itemsRes) as Record<string, unknown>[]
 }
 
-// Tries local scraper first, falls back to Apify if scraper is unavailable
+// Phase 1 sempre usa Apify — scraper local nao tem snapshot.body.text/title/cta
+// que o Claude precisa pra analisar. Custo ~\$0.04/analise.
 async function scrapeAds(url: string): Promise<Record<string, unknown>[]> {
   const cleanUrl = cleanAdLibraryUrl(url)
-
-  // Try local scraper first (free)
-  if (SCRAPER_URL) {
-    try {
-      const res = await fetch(`${SCRAPER_URL}/scrape-ads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-        body: JSON.stringify({ url: cleanUrl, maxAds: 60 }),
-        signal: AbortSignal.timeout(240000),
-      })
-
-      if (res.ok) {
-        const data = await res.json() as { ads?: Record<string, unknown>[]; results?: Record<string, unknown>[] }
-        const rawAds = (data.ads || data.results || []) as Record<string, unknown>[]
-        if (rawAds.length > 0) {
-          console.log(`[Phase1] Scraper local retornou ${rawAds.length} ads`)
-          return normalizeAds(rawAds)
-        }
-        console.warn('[Phase1] Scraper local retornou 0 ads, fallback pro Apify')
-      } else {
-        console.warn(`[Phase1] Scraper local HTTP ${res.status}, fallback pro Apify`)
-      }
-    } catch (e) {
-      console.warn(`[Phase1] Scraper local indisponível: ${(e as Error).message}, fallback pro Apify`)
-    }
-  }
-
-  // Fallback to Apify (paid, ~$0.04 per call)
-  console.log('[Phase1] Usando Apify como fallback')
+  console.log('[Phase1] Usando Apify (scraper local nao tem campos completos)')
   return scrapeAdsFromApify(cleanUrl)
 }
 
