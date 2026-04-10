@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import RatMascot from './RatMascot'
 
 /* ─────────── TYPES ─────────── */
@@ -931,27 +932,35 @@ export default function ToolPage() {
 
             {/* Chart */}
             <div className="hist-chart-wrap">
-              <h3 className="hist-chart-title">Evolu&ccedil;&atilde;o dos Criativos</h3>
-              <div className="hist-chart">
+              <h3 className="hist-chart-title">Evolu{'\u00e7\u00e3'}o dos Criativos</h3>
+              <div style={{ width: '100%', height: 260 }}>
                 {(() => {
-                  const points = historyView.snapshots.slice().reverse()
+                  const points = historyView.snapshots.slice().reverse().map(p => ({
+                    date: new Date(p.registrado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+                    ads: p.ads_count,
+                  }))
                   if (points.length < 1) return <div className="empty-state" style={{ padding: 40 }}>Nenhum dado ainda</div>
-                  const max = Math.max(...points.map(p => p.ads_count), 1)
-                  const min = Math.min(...points.map(p => p.ads_count))
-                  const range = max - min || 1
-                  const w = points.length > 1 ? 100 / (points.length - 1) : 50
-                  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${points.length > 1 ? i * w : 50},${100 - ((p.ads_count - min) / range) * 75 - 12}`).join(' ')
-                  const areaD = pathD + ` L${points.length > 1 ? (points.length - 1) * w : 50},100 L0,100 Z`
                   return (
-                    <>
-                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="hist-chart-svg">
-                        <defs><linearGradient id="hcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FF6B00" stopOpacity=".15"/><stop offset="100%" stopColor="#FF6B00" stopOpacity="0"/></linearGradient></defs>
-                        <path d={areaD} fill="url(#hcg)" />
-                        <path d={pathD} fill="none" stroke="#FF6B00" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                        {points.map((p, i) => <circle key={i} cx={points.length > 1 ? i * w : 50} cy={100 - ((p.ads_count - min) / range) * 75 - 12} r="1.5" fill="#FF6B00" />)}
-                      </svg>
-                      <div className="hist-chart-labels">{points.map((p, i) => <span key={i}>{new Date(p.registrado_em).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })}</span>)}</div>
-                    </>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={points} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#FF8C00" stopOpacity={0.3} />
+                            <stop offset="100%" stopColor="#FF8C00" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.05)" />
+                        <XAxis dataKey="date" tick={{ fill: '#555', fontSize: 11, fontFamily: 'Sora' }} axisLine={{ stroke: 'rgba(255,255,255,.06)' }} tickLine={false} />
+                        <YAxis tick={{ fill: '#555', fontSize: 11, fontFamily: 'Sora' }} axisLine={false} tickLine={false} />
+                        <Tooltip
+                          contentStyle={{ background: 'rgba(10,10,10,.95)', border: '1px solid rgba(255,140,0,.25)', borderRadius: 10, fontFamily: 'Sora', fontSize: 13, backdropFilter: 'blur(12px)' }}
+                          labelStyle={{ color: '#888', fontWeight: 600, marginBottom: 4 }}
+                          itemStyle={{ color: '#FF8C00', fontWeight: 700 }}
+                          formatter={(value) => [`${value} an\u00fancios`, 'Ativos']}
+                        />
+                        <Area type="monotone" dataKey="ads" stroke="#FF8C00" strokeWidth={2.5} fill="url(#chartGrad)" dot={{ r: 4, fill: '#FF8C00', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#FF8C00', stroke: 'rgba(255,140,0,.3)', strokeWidth: 4 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   )
                 })()}
               </div>
@@ -1015,9 +1024,9 @@ export default function ToolPage() {
 /* ─────────── CSS ─────────── */
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#050507;color:#fafafa;-webkit-font-smoothing:antialiased}
+html,body{height:100%;font-family:'Sora',system-ui,sans-serif;background:#000;color:#fafafa;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 
 /* GLOBAL ANIM TOKENS */
 :root{
@@ -1036,51 +1045,35 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#05050
   --ease-spring:cubic-bezier(.34,1.56,.64,1);
 }
 
-/* AMBIENT GRADIENT BG */
+/* DOT GRID + AMBIENT GLOW (matching landing) */
 body::before{
   content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-  background:
-    radial-gradient(1200px 600px at 50% -200px,rgba(255,107,0,.08),transparent 60%),
-    radial-gradient(800px 400px at 90% 10%,rgba(255,107,0,.04),transparent 70%);
+  background-image:radial-gradient(circle,rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:24px 24px;
 }
+body::after{
+  content:'';position:fixed;top:-220px;left:-580px;width:1400px;height:200px;pointer-events:none;z-index:0;
+  background:linear-gradient(90deg,rgba(255,208,182,.15),transparent);
+  border-radius:9999px;transform:rotate(43deg);mix-blend-mode:screen;
+  animation:glowStrong 8s ease-in-out infinite alternate;
+}
+@keyframes glowStrong{0%{opacity:.55}25%{opacity:.3}50%{opacity:.45}75%{opacity:.2}100%{opacity:.04}}
 
 /* LAYOUT */
 .app{min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1}
 
-/* HEADER — pill style estilo Motion */
+/* HEADER */
 .header{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:18px 32px 0;height:auto;background:transparent;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:16px 32px;height:auto;
+  background:rgba(0,0,0,.6);
+  border-bottom:1px solid rgba(255,255,255,.04);
   position:sticky;top:0;z-index:50;
-  backdrop-filter:blur(8px);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
 }
 .header-left{display:flex;align-items:center;flex-shrink:0}
-.header-logo-circle{
-  width:54px;height:54px;border-radius:50%;
-  background:rgba(15,15,20,.7);
-  border:1px solid rgba(255,255,255,.06);
-  backdrop-filter:blur(20px) saturate(180%);
-  -webkit-backdrop-filter:blur(20px) saturate(180%);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:
-    0 8px 32px rgba(0,0,0,.4),
-    0 0 24px rgba(255,107,0,.15),
-    inset 0 1px 0 rgba(255,255,255,.05);
-  transition:all .35s var(--ease-spring);
-  cursor:pointer;
-}
-.header-logo-circle:hover{
-  transform:scale(1.06) rotate(-3deg);
-  box-shadow:
-    0 12px 40px rgba(0,0,0,.5),
-    0 0 32px rgba(255,107,0,.25),
-    inset 0 1px 0 rgba(255,255,255,.08);
-  border-color:rgba(255,107,0,.25);
-}
-.header-logo-circle img{
-  width:38px;height:38px;object-fit:contain;
-  filter:drop-shadow(0 2px 8px rgba(255,107,0,.3));
-}
+.header-logo-circle{display:flex;align-items:center;cursor:pointer}
+.header-logo-circle img{height:36px;width:auto;display:block;filter:drop-shadow(0 0 16px rgba(255,107,0,.45)) drop-shadow(0 0 4px rgba(255,107,0,.3))}
 
 /* PILL NAV */
 .header-tabs{
@@ -1178,8 +1171,8 @@ body::before{
 
 /* ANALYZE */
 .analyze-hero{text-align:center;margin-bottom:32px;animation:contentFade .5s var(--ease-out)}
-.analyze-title{font-size:clamp(32px,4vw,48px);font-weight:900;letter-spacing:-.04em;margin-bottom:10px;background:linear-gradient(180deg,#fff 0%,#a1a1aa 100%);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.1}
-.acc{background:linear-gradient(135deg,#FF6B00,#FFA94D);-webkit-background-clip:text;background-clip:text;color:transparent}
+.analyze-title{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-.04em;margin-bottom:10px;line-height:1.1;color:#fff}
+.acc{background:linear-gradient(135deg,#FF8C00,#FFB347);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .analyze-sub{font-size:15px;color:var(--text-2);margin-bottom:32px;font-weight:500}
 
 .analyze-form{display:flex;gap:10px;max-width:720px;margin:0 auto}
