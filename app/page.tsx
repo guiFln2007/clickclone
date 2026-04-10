@@ -276,7 +276,9 @@ export default function LandingPage() {
         .hero{min-height:auto;display:flex;align-items:center;padding:220px 40px 200px;position:relative;overflow:hidden;text-align:center}
         @media(max-width:640px){.hero{padding:140px 20px 80px}}
         .hero-mobile-logo{display:none}
-        @media(max-width:640px){.hero-mobile-logo{display:flex;justify-content:center;margin-bottom:20px;position:relative;z-index:5}.hero-mobile-logo img{height:80px;width:auto;filter:drop-shadow(0 0 22px rgba(255,140,0,.45))}}
+        @media(max-width:640px){.hero-mobile-logo{display:flex;justify-content:center;width:100%;margin:0 auto 24px;position:relative;z-index:5}.hero-mobile-logo img{height:80px;width:auto;filter:drop-shadow(0 0 22px rgba(255,140,0,.45))}
+        .hero{padding:100px 20px 60px}
+        .hero-inner{display:flex;flex-direction:column;align-items:center}}
         .hero-inner{max-width:800px;margin:0 auto;width:100%;position:relative;z-index:1}
         .hero-h1{font-size:clamp(38px,6vw,72px);font-weight:800;line-height:1.04;letter-spacing:-.05em;margin-bottom:24px;margin-top:0}
         .hero-h1 .acc{background:linear-gradient(135deg,#FF8C00,#FFB347);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
