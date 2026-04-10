@@ -154,19 +154,19 @@ export default function LandingPage() {
         return
       }
 
-      const data = await res.json() as { count: number; pageId: string }
+      const data = await res.json() as { count: number; pageId: string; diasRodando: number | null }
       const realCount = data.count
+      const realDias = data.diasRodando
       setAdCount(realCount)
 
       await addStep(`${realCount} an\u00fancios ativos encontrados`, 600)
       await addStep('Identificando tempo de veicula\u00e7\u00e3o...', 1200)
 
-      // Dias estimado baseado no count (mais ads = provavelmente mais tempo)
-      const diasEstimado = realCount >= 80 ? 90 + Math.floor(Math.random() * 60)
-        : realCount >= 40 ? 30 + Math.floor(Math.random() * 40)
-        : realCount >= 15 ? 10 + Math.floor(Math.random() * 25)
-        : 3 + Math.floor(Math.random() * 12)
-      await addStep(`Estimativa: ${diasEstimado} dias no ar`, 1000)
+      if (realDias !== null) {
+        await addStep(`${realDias} dias no ar`, 1000)
+      } else {
+        await addStep('Tempo de veicula\u00e7\u00e3o n\u00e3o dispon\u00edvel', 1000)
+      }
 
       await addStep('Transcrevendo criativos escalados...', 1400)
       const criativos = Math.max(3, Math.min(realCount, Math.floor(realCount * 0.3)))
