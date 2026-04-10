@@ -376,6 +376,9 @@ export default function LandingPage() {
         .price-c-premium::before{display:none}
         .price-c-premium::after{background:radial-gradient(circle,rgba(255,140,0,.14) 0%,transparent 70%);width:280px;height:280px;top:-80px;right:-80px}
         .badge-premium{background:linear-gradient(135deg,rgba(255,140,0,.18),rgba(255,180,80,.18));border-color:rgba(255,140,0,.4)}
+        .plan-badge{font-size:10px;font-weight:800;padding:5px 12px;border-radius:6px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+        .plan-badge-starter{background:rgba(255,255,255,.06);color:#888;border:1px solid rgba(255,255,255,.1)}
+        .plan-badge-premium{background:linear-gradient(135deg,#FF8C00,#FF6B00);color:#fff;border:none;box-shadow:0 4px 14px rgba(255,107,0,.35)}
         .pack-shine{background:linear-gradient(110deg,#FF8C00 10%,#FFE4B5 25%,#FFB347 40%,#FF8C00 60%,#FFE4B5 75%,#FF8C00 90%);background-size:300% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:transparent;animation:shine-slide 3.5s linear infinite;filter:drop-shadow(0 0 12px rgba(255,180,80,.4))}
         @keyframes shine-slide{0%{background-position:200% 0}100%{background-position:-100% 0}}
         .price-c{background:rgba(255,255,255,.02);border:2px solid rgba(255,255,255,.07);border-radius:20px;padding:44px;position:relative;overflow:hidden;backdrop-filter:blur(14px);display:flex;flex-direction:column;height:100%;transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s ease,border-color .4s ease}
@@ -586,7 +589,7 @@ export default function LandingPage() {
                   <div className="price-am">R$57<span style={{ fontSize: 28, fontWeight: 700, letterSpacing: 0 }}>,90</span></div>
                   <div style={{ fontSize: 12, color: '#444', marginTop: 5, fontWeight: 400 }}>/m{'\u00ea'}s</div>
                 </div>
-                <span className="badge"><span className="bdot" />B{'\u00e1'}sico</span>
+                <span className="plan-badge plan-badge-starter">Starter</span>
               </div>
               {['5 an\u00e1lises por m\u00eas','5 minera\u00e7\u00f5es autom\u00e1ticas','Score completo da oferta','\u00c2ngulo + pontos fracos + pontos fortes','3 scripts de CTV por an\u00e1lise','Rastreamento de 5 ofertas','Atualiza\u00e7\u00e3o di\u00e1ria autom\u00e1tica','Suporte 24h via WhatsApp','Alertas de varia\u00e7\u00e3o','Hist\u00f3rico de 30 dias'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
@@ -601,7 +604,7 @@ export default function LandingPage() {
                   <div className="price-am">R$147<span style={{ fontSize: 28, fontWeight: 700, letterSpacing: 0 }}>,90</span></div>
                   <div style={{ fontSize: 12, color: '#444', marginTop: 5, fontWeight: 400 }}>/m{'\u00ea'}s</div>
                 </div>
-                <span className="badge badge-premium"><span className="bdot" />Mais popular</span>
+                <span className="plan-badge plan-badge-premium">{'\u2605'} Mais popular</span>
               </div>
               {['15 an\u00e1lises por trimestre','15 minera\u00e7\u00f5es autom\u00e1ticas','Tudo do Starter Pack','Rastreamento de 10 ofertas','Alertas de novos an\u00fancios escalados','10 scripts de CTV por an\u00e1lise','Suporte VIP via WhatsApp','Acesso antecipado a updates','Hist\u00f3rico completo','Relat\u00f3rios de tend\u00eancia'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
