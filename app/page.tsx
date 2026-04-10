@@ -311,6 +311,7 @@ export default function LandingPage() {
         .demo-step-loading{color:#888}
         .demo-step-icon{font-size:11px;flex-shrink:0;width:16px;text-align:center}
         .scroll-hint{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;color:#252525;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;z-index:2}
+        @media(max-width:640px){.scroll-hint{display:none}}
         .scroll-arrow{width:18px;height:18px;border-right:1.5px solid #2a2a2a;border-bottom:1.5px solid #2a2a2a;animation:scroll-bounce 1.8s ease-in-out infinite}
         .demo-box{display:flex;background:rgba(9,9,9,.9);border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s;max-width:560px;margin:0 auto;backdrop-filter:blur(8px)}
         .demo-box:focus-within{border-color:rgba(255,140,0,.5);box-shadow:0 0 0 3px rgba(255,140,0,.08)}
