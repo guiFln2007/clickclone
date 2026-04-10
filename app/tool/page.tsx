@@ -270,6 +270,12 @@ export default function ToolPage() {
   const [userId, setUserId] = useState<number | null>(null)
   const [userName, setUserName] = useState('')
   const [analises, setAnalises] = useState<number | null>(null)
+  const [mineracoes, setMineracoes] = useState<number | null>(null)
+  const [maxAnalises, setMaxAnalises] = useState(5)
+  const [maxMineracoes, setMaxMineracoes] = useState(5)
+  const [maxSlots, setMaxSlots] = useState(5)
+  const [plano, setPlano] = useState('starter')
+  const [renovaEm, setRenovaEm] = useState<string | null>(null)
   const [upgradeModal, setUpgradeModal] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
@@ -283,6 +289,12 @@ export default function ToolPage() {
       if (typeof d.user?.id === 'number') setUserId(d.user.id)
       if (d.user?.nome) setUserName(d.user.nome.split(' ')[0])
       if (typeof d.user?.analises === 'number') setAnalises(d.user.analises)
+      if (typeof d.user?.mineracoes === 'number') setMineracoes(d.user.mineracoes)
+      if (typeof d.user?.max_analises === 'number') setMaxAnalises(d.user.max_analises)
+      if (typeof d.user?.max_mineracoes === 'number') setMaxMineracoes(d.user.max_mineracoes)
+      if (typeof d.user?.max_slots_radar === 'number') setMaxSlots(d.user.max_slots_radar)
+      if (d.user?.plano) setPlano(d.user.plano)
+      if (d.user?.renova_em) setRenovaEm(d.user.renova_em)
     }).catch(() => {})
   }, [])
 
@@ -643,14 +655,23 @@ export default function ToolPage() {
             ))}
           </nav>
           <div className="header-right" ref={profileRef}>
-            <div className="header-saldo">{analises ?? '\u2014'} analises</div>
+            <div className="header-saldo">{plano === 'premium' ? 'Premium' : 'Starter'}</div>
             <button className="header-avatar" onClick={() => setProfileOpen(o => !o)}>
               {userName ? userName[0].toUpperCase() : '?'}
             </button>
             {profileOpen && (
               <div className="profile-drop">
                 <div className="profile-name">{userName}</div>
-                <a href="/settings/plans" className="profile-link">Planos</a>
+                <div className="profile-plan-badge">{plano === 'premium' ? 'Premium' : 'Starter'}</div>
+                <div className="profile-quotas">
+                  <div className="pq-row"><span className="pq-label">An{'\u00e1'}lises</span><span className="pq-val">{analises ?? 0}/{maxAnalises}</span></div>
+                  <div className="pq-row"><span className="pq-label">Minera{'\u00e7\u00f5'}es</span><span className="pq-val">{mineracoes ?? 0}/{maxMineracoes}</span></div>
+                  <div className="pq-row"><span className="pq-label">Slots Radar</span><span className="pq-val">{trackedOffers.length}/{maxSlots}</span></div>
+                  {renovaEm && (
+                    <div className="pq-row pq-renew"><span className="pq-label">Renova em</span><span className="pq-val">{Math.max(0, Math.ceil((new Date(renovaEm).getTime() - Date.now()) / 86400000))} dias</span></div>
+                  )}
+                </div>
+                <a href="/settings/plans" className="profile-link">Gerenciar plano</a>
                 <button className="profile-link" onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login' }}>Sair</button>
               </div>
             )}
@@ -1131,6 +1152,17 @@ body::before{
 .profile-name{padding:10px 12px;font-size:13px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);margin-bottom:6px}
 .profile-link{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:transparent;color:var(--text-2);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border-radius:8px;transition:all .15s;text-decoration:none}
 .profile-link:hover{background:var(--bg-elev-2);color:var(--text)}
+.profile-plan-badge{
+  padding:6px 12px;margin:8px 12px;border-radius:999px;font-size:11px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;text-align:center;
+  background:linear-gradient(135deg,rgba(255,107,0,.15),rgba(255,107,0,.05));
+  color:var(--accent);border:1px solid rgba(255,107,0,.25);
+}
+.profile-quotas{padding:8px 12px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin:6px 0}
+.pq-row{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.pq-label{color:var(--text-3);font-weight:500}
+.pq-val{color:var(--text);font-weight:700;font-variant-numeric:tabular-nums}
+.pq-renew .pq-val{color:var(--accent)}
 @media(max-width:900px){
   .header{padding:14px 16px 0;flex-wrap:wrap}
   .header-tabs{order:3;width:100%;justify-content:center;margin-top:12px}
