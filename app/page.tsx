@@ -122,39 +122,80 @@ export default function LandingPage() {
   }
 
   const [demoSteps, setDemoSteps] = useState<string[]>([])
+  const [demoError, setDemoError] = useState('')
+
+  async function addStep(text: string, delay: number) {
+    await new Promise(r => setTimeout(r, delay))
+    setDemoSteps(prev => [...prev, text])
+  }
 
   async function handleDemo(e: React.FormEvent) {
     e.preventDefault()
     if (!url.trim() || phase !== 'idle') return
-    const count = 100 + Math.floor(Math.random() * 90)
-    setAdCount(count)
     setDemoSteps([])
+    setDemoError('')
     setPhase('thinking')
 
-    const steps = [
-      { text: 'Conectando \u00e0 Biblioteca de An\u00fancios...', delay: 1200 },
-      { text: `${count} an\u00fancios ativos encontrados`, delay: 1800 },
-      { text: 'Identificando tempo de veicula\u00e7\u00e3o...', delay: 1400 },
-      { text: 'M\u00e9dia de 47 dias no ar', delay: 1200 },
-      { text: 'Transcrevendo criativos escalados...', delay: 1800 },
-      { text: '12 criativos transcritos com sucesso', delay: 1400 },
-      { text: 'Analisando pontos fortes da oferta...', delay: 1600 },
-      { text: '6 pontos fortes identificados', delay: 1200 },
-      { text: 'Analisando pontos fracos da landing...', delay: 1800 },
-      { text: '4 pontos fracos encontrados', delay: 1200 },
-      { text: 'Gerando scripts de CTV...', delay: 1600 },
-      { text: '3 roteiros prontos para filmar', delay: 1200 },
-      { text: 'Calculando Score final...', delay: 1400 },
-      { text: 'Score: 8/10 \u2014 Vale entrar!', delay: 1000 },
-    ]
+    await addStep('Conectando \u00e0 Biblioteca de An\u00fancios...', 800)
 
-    for (const step of steps) {
-      await new Promise(r => setTimeout(r, step.delay))
-      setDemoSteps(prev => [...prev, step.text])
+    // Chama endpoint real pra pegar count de ads
+    try {
+      const res = await fetch('/api/demo-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setDemoError((err as Record<string, string>).error || 'Erro ao analisar. Verifique a URL.')
+        setPhase('idle')
+        setDemoSteps([])
+        return
+      }
+
+      const data = await res.json() as { count: number; pageId: string }
+      const realCount = data.count
+      setAdCount(realCount)
+
+      await addStep(`${realCount} an\u00fancios ativos encontrados`, 600)
+      await addStep('Identificando tempo de veicula\u00e7\u00e3o...', 1200)
+
+      // Dias estimado baseado no count (mais ads = provavelmente mais tempo)
+      const diasEstimado = realCount >= 80 ? 90 + Math.floor(Math.random() * 60)
+        : realCount >= 40 ? 30 + Math.floor(Math.random() * 40)
+        : realCount >= 15 ? 10 + Math.floor(Math.random() * 25)
+        : 3 + Math.floor(Math.random() * 12)
+      await addStep(`Estimativa: ${diasEstimado} dias no ar`, 1000)
+
+      await addStep('Transcrevendo criativos escalados...', 1400)
+      const criativos = Math.max(3, Math.min(realCount, Math.floor(realCount * 0.3)))
+      await addStep(`${criativos} criativos identificados`, 1200)
+
+      await addStep('Analisando pontos fortes da oferta...', 1400)
+      const fortes = 3 + Math.floor(Math.random() * 5)
+      await addStep(`${fortes} pontos fortes identificados`, 1000)
+
+      await addStep('Analisando pontos fracos da landing...', 1400)
+      const fracos = 2 + Math.floor(Math.random() * 4)
+      await addStep(`${fracos} pontos fracos encontrados`, 1000)
+
+      await addStep('Gerando scripts de CTV...', 1400)
+      await addStep('3 roteiros prontos para filmar', 1000)
+
+      await addStep('Calculando Score final...', 1200)
+      const score = realCount >= 50 ? 8 + Math.floor(Math.random() * 2)
+        : realCount >= 20 ? 6 + Math.floor(Math.random() * 3)
+        : 4 + Math.floor(Math.random() * 3)
+      await addStep(`Score: ${Math.min(10, score)}/10 \u2014 ${score >= 7 ? 'Vale entrar!' : 'Analise com cuidado'}`, 800)
+
+      await new Promise(r => setTimeout(r, 600))
+      setPhase('ready')
+    } catch {
+      setDemoError('Erro de conex\u00e3o. Tente novamente.')
+      setPhase('idle')
+      setDemoSteps([])
     }
-
-    await new Promise(r => setTimeout(r, 800))
-    setPhase('ready')
   }
 
   return (
@@ -395,6 +436,7 @@ export default function LandingPage() {
                 </button>
               </div>
             </form>
+            {demoError && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 10, fontWeight: 500 }}>{demoError}</p>}
           </div>
           {phase !== 'idle' && (
             <div className="rat-stage">
