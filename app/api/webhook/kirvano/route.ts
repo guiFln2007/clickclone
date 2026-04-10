@@ -11,6 +11,20 @@ function extractCustomer(body: Record<string, unknown>) {
   return { email, name, kirvano_id }
 }
 
+// Mapeia o valor pago pro plano correto
+// Starter: R$57,90 | Premium: R$147,90 (trimestral)
+function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
+  const amount = Number(body.amount || body.total || body.price || (body.charge as Record<string, unknown>)?.amount || 0)
+  // Valor em centavos ou reais — normaliza
+  const value = amount > 1000 ? amount / 100 : amount
+  // Premium = acima de R$100
+  if (value >= 100) return 'premium'
+  // Checa product name/id como fallback
+  const productName = String(body.product_name || body.offer_name || body.plan_name || '').toLowerCase()
+  if (productName.includes('premium') || productName.includes('trimestral')) return 'premium'
+  return 'starter'
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -29,15 +43,15 @@ export async function POST(req: NextRequest) {
       const { email, name, kirvano_id } = extractCustomer(body)
       if (!email) return Response.json({ error: 'Email ausente no payload' }, { status: 400 })
 
-      // Gera senha temporária, salva hasheada
+      const plano = detectPlan(body)
       const tempPassword = Math.random().toString(36).slice(2, 10)
       const hash = await bcrypt.hash(tempPassword, 10)
 
-      const user = await dbActivateUser(kirvano_id, email, name, hash)
+      const user = await dbActivateUser(kirvano_id, email, name, hash, plano)
 
       sendWelcomeEmail(email, name, tempPassword).catch(console.error)
-      console.log(`[kirvano] PURCHASE_APPROVED: ${email} (id=${user?.id})`)
-      return Response.json({ ok: true, user_id: user?.id })
+      console.log(`[kirvano] PURCHASE_APPROVED: ${email} plano=${plano} (id=${user?.id})`)
+      return Response.json({ ok: true, user_id: user?.id, plano })
     }
 
     // ── RENOVAÇÃO DE ASSINATURA ───────────────────────────────────────────────
@@ -45,9 +59,10 @@ export async function POST(req: NextRequest) {
       const { email } = extractCustomer(body)
       if (!email) return Response.json({ error: 'Email ausente no payload' }, { status: 400 })
 
-      await dbRenewUser(email)
-      console.log(`[kirvano] SUBSCRIPTION_RENEWED: ${email}`)
-      return Response.json({ ok: true })
+      const plano = detectPlan(body)
+      await dbRenewUser(email, plano)
+      console.log(`[kirvano] SUBSCRIPTION_RENEWED: ${email} plano=${plano}`)
+      return Response.json({ ok: true, plano })
     }
 
     // ── CANCELAMENTO / FALHA DE COBRANÇA ──────────────────────────────────────

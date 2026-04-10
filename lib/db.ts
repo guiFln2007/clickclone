@@ -126,9 +126,9 @@ export async function initDb() {
 }
 
 // Plan definitions — single source of truth
-export const PLANS: Record<string, { analises: number; mineracoes: number; slots_radar: number; label: string; periodo: string }> = {
-  mensal: { analises: 5, mineracoes: 5, slots_radar: 5, label: 'Mensal', periodo: 'mensal' },
-  trimestral: { analises: 20, mineracoes: 15, slots_radar: 5, label: 'Trimestral', periodo: 'trimestral' },
+export const PLANS: Record<string, { analises: number; mineracoes: number; slots_radar: number; label: string; periodo: string; dias: number }> = {
+  starter: { analises: 5, mineracoes: 5, slots_radar: 5, label: 'Starter', periodo: 'mensal', dias: 30 },
+  premium: { analises: 15, mineracoes: 15, slots_radar: 10, label: 'Premium', periodo: 'trimestral', dias: 90 },
 }
 
 export type User = {
@@ -211,12 +211,10 @@ export async function dbSetHash(email: string, hash: string) {
   await db.execute({ sql: 'UPDATE users SET hash = ? WHERE email = ?', args: [hash, email] })
 }
 
-export async function dbActivateUser(kirvano_id: string, email: string, name: string, hash?: string, plano = 'mensal'): Promise<User> {
+export async function dbActivateUser(kirvano_id: string, email: string, name: string, hash?: string, plano = 'starter'): Promise<User> {
   await initDb()
-  const plan = PLANS[plano] || PLANS.mensal
-  const renovaEm = plano === 'trimestral'
-    ? new Date(Date.now() + 90 * 86400000).toISOString()
-    : new Date(Date.now() + 30 * 86400000).toISOString()
+  const plan = PLANS[plano] || PLANS.starter
+  const renovaEm = new Date(Date.now() + plan.dias * 86400000).toISOString()
 
   const existing = await dbGetUserByEmail(email)
   if (existing) {
@@ -241,11 +239,9 @@ export async function dbActivateUser(kirvano_id: string, email: string, name: st
 export async function dbRenewUser(email: string, plano?: string): Promise<void> {
   await initDb()
   const existing = await dbGetUserByEmail(email)
-  const planKey = plano || existing?.plano || 'mensal'
-  const plan = PLANS[planKey] || PLANS.mensal
-  const renovaEm = planKey === 'trimestral'
-    ? new Date(Date.now() + 90 * 86400000).toISOString()
-    : new Date(Date.now() + 30 * 86400000).toISOString()
+  const planKey = plano || existing?.plano || 'starter'
+  const plan = PLANS[planKey] || PLANS.starter
+  const renovaEm = new Date(Date.now() + plan.dias * 86400000).toISOString()
 
   await db.execute({
     sql: `UPDATE users SET ativo = 1, plano = ?, analises = ?, mineracoes = ?,
