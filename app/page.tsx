@@ -169,7 +169,7 @@ export default function LandingPage() {
       }
 
       await addStep('Transcrevendo criativos escalados...', 1400)
-      const criativos = Math.max(3, Math.min(realCount, Math.floor(realCount * 0.3)))
+      const criativos = realCount > 0 ? Math.max(3, Math.min(realCount, Math.floor(realCount * 0.3))) : 3
       await addStep(`${criativos} criativos identificados`, 1200)
 
       await addStep('Analisando pontos fortes da oferta...', 1400)
@@ -283,11 +283,11 @@ export default function LandingPage() {
         .word-wrap{font-style:italic;display:inline-block;min-width:10px;background:linear-gradient(135deg,#FF8C00,#FFB347);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
         .hero-sub{font-size:17px;color:#555;line-height:1.75;margin-bottom:48px;max-width:520px;margin-left:auto;margin-right:auto;font-weight:300}
         .tcur{display:inline-block;width:2px;height:.82em;background:#FF8C00;margin-left:1px;vertical-align:middle}
-        .rat-stage{margin-top:68px;display:flex;flex-direction:column;align-items:center;gap:34px;animation:fadein .5s ease;max-width:560px;margin-left:auto;margin-right:auto;width:100%}
-        .rat-img-wrap{position:relative;width:380px;height:380px;display:flex;align-items:center;justify-content:center;max-width:80vw}
+        .rat-stage{margin-top:40px;display:flex;flex-direction:column;align-items:center;gap:20px;animation:fadein .5s ease;max-width:560px;margin-left:auto;margin-right:auto;width:100%}
+        .rat-img-wrap{position:relative;width:240px;height:240px;display:flex;align-items:center;justify-content:center;max-width:60vw}
         .rat-aura{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(180,80,0,.22),transparent 65%);animation:aura-pulse 2.4s ease-in-out infinite;pointer-events:none}
         @keyframes aura-pulse{0%,100%{transform:scale(.85);opacity:.45}50%{transform:scale(1.1);opacity:.85}}
-        .rat-thinking{width:320px;max-width:75vw;height:auto;animation:floaty 2.8s ease-in-out infinite;filter:drop-shadow(0 0 30px rgba(180,80,0,.4));position:relative;z-index:1}
+        .rat-thinking{width:200px;max-width:55vw;height:auto;animation:floaty 2.8s ease-in-out infinite;filter:drop-shadow(0 0 30px rgba(180,80,0,.4));position:relative;z-index:1}
         .status-bar{width:100%;display:flex;flex-direction:column;gap:14px}
         .status-track{height:6px;background:rgba(255,255,255,.05);border-radius:100px;overflow:hidden;border:1px solid rgba(255,140,0,.14);position:relative}
         .status-fill{height:100%;background:linear-gradient(90deg,#FF8C00,#FFB347);border-radius:100px;transition:width .9s cubic-bezier(.16,1,.3,1);box-shadow:0 0 18px rgba(255,140,0,.55);position:relative;overflow:hidden}
@@ -299,7 +299,7 @@ export default function LandingPage() {
         .elip{display:inline-block;width:18px;text-align:left;animation:elip 1.4s steps(4,end) infinite;overflow:hidden;vertical-align:bottom}
         @keyframes elip{0%{width:0}25%{width:6px}50%{width:12px}75%,100%{width:18px}}
         .status-cta{padding:11px 22px;font-size:13px;margin-left:6px}
-        .demo-steps-list{display:flex;flex-direction:column;gap:6px;text-align:left;max-height:320px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,140,0,.3) transparent;padding:4px 0}
+        .demo-steps-list{display:flex;flex-direction:column;gap:6px;text-align:left;padding:4px 0}
         .demo-step{display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 12px;border-radius:8px;animation:fadein .35s ease}
         .demo-step-action{color:#666;background:rgba(255,255,255,.02)}
         .demo-step-result{color:#FF8C00;background:rgba(255,140,0,.06);border:1px solid rgba(255,140,0,.12);font-weight:600}
@@ -456,12 +456,6 @@ export default function LandingPage() {
                       </div>
                     )
                   })}
-                  {phase === 'thinking' && demoSteps.length < 14 && (
-                    <div className="demo-step demo-step-loading">
-                      <span className="st-pulse" />
-                      <span>Processando<span className="elip">...</span></span>
-                    </div>
-                  )}
                 </div>
                 {phase === 'ready' && (
                   <div className="status-text st-ready" style={{ marginTop: 16, animation: 'fadein .5s ease' }}>

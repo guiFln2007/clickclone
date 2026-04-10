@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       const countRes = await fetch(`${SCRAPER_URL}/count-ads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-        body: JSON.stringify({ pageName: '', pageId }),
+        body: JSON.stringify({ pageName: 'demo', pageId }),
         signal: AbortSignal.timeout(30000),
       })
       if (countRes.ok) {
