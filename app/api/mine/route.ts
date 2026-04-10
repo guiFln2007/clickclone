@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbGetUserById } from '@/lib/db'
+import { dbGetUserById, dbDecrementMineracoes } from '@/lib/db'
 
 const SCRAPER_URL = process.env.SCRAPER_URL || ''
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
@@ -151,6 +151,11 @@ export async function POST(req: NextRequest) {
   const user = await dbGetUserById(userId)
   if (!user?.ativo) return NextResponse.json({ error: 'Conta inativa' }, { status: 403 })
 
+  // Checa quota de mineracoes do plano
+  if ((user.mineracoes ?? 0) <= 0) {
+    return NextResponse.json({ error: 'Limite de minera\u00e7\u00f5es atingido neste per\u00edodo. Fa\u00e7a upgrade ou aguarde a renova\u00e7\u00e3o.' }, { status: 402 })
+  }
+
   const { keyword } = await req.json()
   const minAnuncios = 3
   const minDias = 10
@@ -173,7 +178,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ runId: cachedRunId, keyword: kw, minAnuncios, minDias, cached: true })
   }
 
-  console.log(`[Mine] Starting for keyword: "${kw}" (${limit.remaining} restantes na hora)`)
+  // Decrementa quota de mineracao
+  await dbDecrementMineracoes(userId)
+  console.log(`[Mine] Starting for keyword: "${kw}" (${limit.remaining} restantes na hora, ${(user.mineracoes ?? 1) - 1} mineracoes restantes)`)
 
   // 1ª tentativa: scraper local (Mac via Cloudflare Tunnel)
   if (SCRAPER_URL) {

@@ -26,14 +26,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'pagina_nome e ad_library_url sao obrigatorios' }, { status: 400 })
   }
 
+  // Checa limite de slots do radar
+  const existing = await dbGetTrackedOffers(userId)
+  const maxSlots = user.max_slots_radar ?? 5
+  if (existing.length >= maxSlots) {
+    return NextResponse.json({ error: `Limite de ${maxSlots} ofertas no radar atingido. Remova uma oferta ou fa\u00e7a upgrade.` }, { status: 402 })
+  }
+
   // Extract numeric page_id from URL (only count numeric IDs as real page_ids for matching)
   const extractRealPageId = (url: string): string | null => {
     try { const v = new URL(url).searchParams.get('view_all_page_id'); return v && /^\d+$/.test(v) ? v : null } catch { return null }
   }
   const realPageId = (bodyPageId && /^\d+$/.test(bodyPageId)) ? bodyPageId : extractRealPageId(ad_library_url)
-
-  // Check duplicate: page_id (if real) OR exact URL OR exact page name
-  const existing = await dbGetTrackedOffers(userId)
   const dup = existing.find(o => {
     if (realPageId && o.page_id === realPageId) return true
     if (realPageId && extractRealPageId(o.ad_library_url) === realPageId) return true
