@@ -121,14 +121,39 @@ export default function LandingPage() {
     el.scrollBy({ left: dir * el.offsetWidth, behavior: 'smooth' })
   }
 
+  const [demoSteps, setDemoSteps] = useState<string[]>([])
+
   async function handleDemo(e: React.FormEvent) {
     e.preventDefault()
     if (!url.trim() || phase !== 'idle') return
-    setAdCount(100 + Math.floor(Math.random() * 90))
+    const count = 100 + Math.floor(Math.random() * 90)
+    setAdCount(count)
+    setDemoSteps([])
     setPhase('thinking')
-    await new Promise(r => setTimeout(r, 2400))
-    setPhase('found')
-    await new Promise(r => setTimeout(r, 2000))
+
+    const steps = [
+      { text: 'Conectando \u00e0 Biblioteca de An\u00fancios...', delay: 1200 },
+      { text: `${count} an\u00fancios ativos encontrados`, delay: 1800 },
+      { text: 'Identificando tempo de veicula\u00e7\u00e3o...', delay: 1400 },
+      { text: 'M\u00e9dia de 47 dias no ar', delay: 1200 },
+      { text: 'Transcrevendo criativos escalados...', delay: 1800 },
+      { text: '12 criativos transcritos com sucesso', delay: 1400 },
+      { text: 'Analisando pontos fortes da oferta...', delay: 1600 },
+      { text: '6 pontos fortes identificados', delay: 1200 },
+      { text: 'Analisando pontos fracos da landing...', delay: 1800 },
+      { text: '4 pontos fracos encontrados', delay: 1200 },
+      { text: 'Gerando scripts de CTV...', delay: 1600 },
+      { text: '3 roteiros prontos para filmar', delay: 1200 },
+      { text: 'Calculando Score final...', delay: 1400 },
+      { text: 'Score: 8/10 \u2014 Vale entrar!', delay: 1000 },
+    ]
+
+    for (const step of steps) {
+      await new Promise(r => setTimeout(r, step.delay))
+      setDemoSteps(prev => [...prev, step.text])
+    }
+
+    await new Promise(r => setTimeout(r, 800))
     setPhase('ready')
   }
 
@@ -233,6 +258,12 @@ export default function LandingPage() {
         .elip{display:inline-block;width:18px;text-align:left;animation:elip 1.4s steps(4,end) infinite;overflow:hidden;vertical-align:bottom}
         @keyframes elip{0%{width:0}25%{width:6px}50%{width:12px}75%,100%{width:18px}}
         .status-cta{padding:11px 22px;font-size:13px;margin-left:6px}
+        .demo-steps-list{display:flex;flex-direction:column;gap:6px;text-align:left;max-height:320px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,140,0,.3) transparent;padding:4px 0}
+        .demo-step{display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 12px;border-radius:8px;animation:fadein .35s ease}
+        .demo-step-action{color:#666;background:rgba(255,255,255,.02)}
+        .demo-step-result{color:#FF8C00;background:rgba(255,140,0,.06);border:1px solid rgba(255,140,0,.12);font-weight:600}
+        .demo-step-loading{color:#888}
+        .demo-step-icon{font-size:11px;flex-shrink:0;width:16px;text-align:center}
         .scroll-hint{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;color:#252525;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;z-index:2}
         .scroll-arrow{width:18px;height:18px;border-right:1.5px solid #2a2a2a;border-bottom:1.5px solid #2a2a2a;animation:scroll-bounce 1.8s ease-in-out infinite}
         .demo-box{display:flex;background:rgba(9,9,9,.9);border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s;max-width:560px;margin:0 auto;backdrop-filter:blur(8px)}
@@ -372,12 +403,31 @@ export default function LandingPage() {
                 <img src="/logo.png" alt="ratoads pensando" className="rat-thinking" />
               </div>
               <div className="status-bar">
-                <div className="status-track"><div className="status-fill" style={{ width: phase === 'thinking' ? '38%' : phase === 'found' ? '78%' : '100%' }} /></div>
-                <div className={`status-text st-${phase}`}>
-                  {phase === 'thinking' && <><span className="st-pulse" /><span>gerando an{'\u00e1'}lise<span className="elip">...</span></span></>}
-                  {phase === 'found' && <><span className="st-pulse" /><span>{adCount} an{'\u00fa'}ncios encontrados<span className="elip">...</span></span></>}
-                  {phase === 'ready' && <><span className="st-check">{'\u2713'}</span><span>Sua an{'\u00e1'}lise est{'\u00e1'} pronta</span><a href="#preco" className="btn btn-orange status-cta">Ver an{'\u00e1'}lise {'\u2192'}</a></>}
+                <div className="status-track"><div className="status-fill" style={{ width: phase === 'ready' ? '100%' : `${Math.min(95, (demoSteps.length / 14) * 100)}%` }} /></div>
+                <div className="demo-steps-list">
+                  {demoSteps.map((step, i) => {
+                    const isResult = !step.includes('...')
+                    return (
+                      <div key={i} className={`demo-step ${isResult ? 'demo-step-result' : 'demo-step-action'}`} style={{ animation: 'fadein .35s ease' }}>
+                        <span className="demo-step-icon">{isResult ? '\u2713' : '\u25B8'}</span>
+                        <span>{step}</span>
+                      </div>
+                    )
+                  })}
+                  {phase === 'thinking' && demoSteps.length < 14 && (
+                    <div className="demo-step demo-step-loading">
+                      <span className="st-pulse" />
+                      <span>Processando<span className="elip">...</span></span>
+                    </div>
+                  )}
                 </div>
+                {phase === 'ready' && (
+                  <div className="status-text st-ready" style={{ marginTop: 16, animation: 'fadein .5s ease' }}>
+                    <span className="st-check">{'\u2713'}</span>
+                    <span>An{'\u00e1'}lise completa pronta!</span>
+                    <a href="#preco" className="btn btn-orange status-cta">Desbloquear an{'\u00e1'}lise {'\u2192'}</a>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -511,7 +561,7 @@ export default function LandingPage() {
                 </div>
                 <span className="badge badge-premium"><span className="bdot" />Mais popular</span>
               </div>
-              {['An\u00e1lises ilimitadas','20 minera\u00e7\u00f5es autom\u00e1ticas','Tudo do Starter Pack','Rastreamento de 15 ofertas','Alertas de novos an\u00fancios escalados','10 scripts de CTV por an\u00e1lise','Suporte VIP via WhatsApp','Acesso antecipado a updates','Hist\u00f3rico completo','Relat\u00f3rios de tend\u00eancia'].map(f => (
+              {['15 an\u00e1lises por trimestre','15 minera\u00e7\u00f5es autom\u00e1ticas','Tudo do Starter Pack','Rastreamento de 10 ofertas','Alertas de novos an\u00fancios escalados','10 scripts de CTV por an\u00e1lise','Suporte VIP via WhatsApp','Acesso antecipado a updates','Hist\u00f3rico completo','Relat\u00f3rios de tend\u00eancia'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
               <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Quero o Premium {'\u2192'}</a>
