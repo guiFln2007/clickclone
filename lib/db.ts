@@ -110,7 +110,25 @@ export async function initDb() {
     await db.execute('ALTER TABLE tracked_offers ADD COLUMN page_id TEXT')
   } catch { /* column already exists */ }
 
+  // Migration: add quota fields for plan system
+  const migrations = [
+    'ALTER TABLE users ADD COLUMN mineracoes INTEGER NOT NULL DEFAULT 5',
+    'ALTER TABLE users ADD COLUMN max_analises INTEGER NOT NULL DEFAULT 5',
+    'ALTER TABLE users ADD COLUMN max_mineracoes INTEGER NOT NULL DEFAULT 5',
+    'ALTER TABLE users ADD COLUMN max_slots_radar INTEGER NOT NULL DEFAULT 5',
+    'ALTER TABLE users ADD COLUMN renova_em TEXT',
+  ]
+  for (const sql of migrations) {
+    try { await db.execute(sql) } catch { /* column already exists */ }
+  }
+
   initialized = true
+}
+
+// Plan definitions — single source of truth
+export const PLANS: Record<string, { analises: number; mineracoes: number; slots_radar: number; label: string; periodo: string }> = {
+  mensal: { analises: 5, mineracoes: 5, slots_radar: 5, label: 'Mensal', periodo: 'mensal' },
+  trimestral: { analises: 20, mineracoes: 15, slots_radar: 5, label: 'Trimestral', periodo: 'trimestral' },
 }
 
 export type User = {
@@ -120,9 +138,14 @@ export type User = {
   hash: string | null
   plano: string
   analises: number
+  mineracoes: number
   creditos: number
+  max_analises: number
+  max_mineracoes: number
+  max_slots_radar: number
   ativo: number
   kirvano_id: string | null
+  renova_em: string | null
   created_at: string
 }
 
@@ -143,9 +166,14 @@ function rowToUser(row: Record<string, unknown>): User {
     hash: (row.hash as string) ?? null,
     plano: row.plano as string,
     analises: row.analises as number,
+    mineracoes: (row.mineracoes as number) ?? 5,
     creditos: row.creditos as number,
+    max_analises: (row.max_analises as number) ?? 5,
+    max_mineracoes: (row.max_mineracoes as number) ?? 5,
+    max_slots_radar: (row.max_slots_radar as number) ?? 5,
     ativo: row.ativo as number,
     kirvano_id: (row.kirvano_id as string) ?? null,
+    renova_em: (row.renova_em as string) ?? null,
     created_at: row.created_at as string,
   }
 }
@@ -183,24 +211,47 @@ export async function dbSetHash(email: string, hash: string) {
   await db.execute({ sql: 'UPDATE users SET hash = ? WHERE email = ?', args: [hash, email] })
 }
 
-export async function dbActivateUser(kirvano_id: string, email: string, name: string, hash?: string): Promise<User> {
+export async function dbActivateUser(kirvano_id: string, email: string, name: string, hash?: string, plano = 'mensal'): Promise<User> {
   await initDb()
+  const plan = PLANS[plano] || PLANS.mensal
+  const renovaEm = plano === 'trimestral'
+    ? new Date(Date.now() + 90 * 86400000).toISOString()
+    : new Date(Date.now() + 30 * 86400000).toISOString()
+
   const existing = await dbGetUserByEmail(email)
   if (existing) {
     await db.execute({
-      sql: 'UPDATE users SET ativo = 1, plano = ?, analises = 10, creditos = 100, kirvano_id = ?, name = ? WHERE email = ?',
-      args: ['pro', kirvano_id, name, email],
+      sql: `UPDATE users SET ativo = 1, plano = ?, analises = ?, mineracoes = ?,
+            max_analises = ?, max_mineracoes = ?, max_slots_radar = ?,
+            creditos = 100, kirvano_id = ?, name = ?, renova_em = ? WHERE email = ?`,
+      args: [plano, plan.analises, plan.mineracoes, plan.analises, plan.mineracoes, plan.slots_radar, kirvano_id, name, renovaEm, email],
     })
     return (await dbGetUserByEmail(email))!
   }
-  return dbCreateUser({ email, name, kirvano_id, hash })
+  const user = await dbCreateUser({ email, name, kirvano_id, hash })
+  await db.execute({
+    sql: `UPDATE users SET plano = ?, analises = ?, mineracoes = ?,
+          max_analises = ?, max_mineracoes = ?, max_slots_radar = ?,
+          renova_em = ? WHERE id = ?`,
+    args: [plano, plan.analises, plan.mineracoes, plan.analises, plan.mineracoes, plan.slots_radar, renovaEm, user.id],
+  })
+  return (await dbGetUserByEmail(email))!
 }
 
-export async function dbRenewUser(email: string): Promise<void> {
+export async function dbRenewUser(email: string, plano?: string): Promise<void> {
   await initDb()
+  const existing = await dbGetUserByEmail(email)
+  const planKey = plano || existing?.plano || 'mensal'
+  const plan = PLANS[planKey] || PLANS.mensal
+  const renovaEm = planKey === 'trimestral'
+    ? new Date(Date.now() + 90 * 86400000).toISOString()
+    : new Date(Date.now() + 30 * 86400000).toISOString()
+
   await db.execute({
-    sql: 'UPDATE users SET ativo = 1, plano = ?, analises = 10, creditos = 100 WHERE email = ?',
-    args: ['pro', email],
+    sql: `UPDATE users SET ativo = 1, plano = ?, analises = ?, mineracoes = ?,
+          max_analises = ?, max_mineracoes = ?, max_slots_radar = ?,
+          creditos = 100, renova_em = ? WHERE email = ?`,
+    args: [planKey, plan.analises, plan.mineracoes, plan.analises, plan.mineracoes, plan.slots_radar, renovaEm, email],
   })
 }
 
@@ -242,6 +293,15 @@ export async function dbDecrementAnalises(userId: number): Promise<boolean> {
   await initDb()
   const res = await db.execute({
     sql: 'UPDATE users SET analises = analises - 1 WHERE id = ? AND analises > 0',
+    args: [userId],
+  })
+  return (res.rowsAffected ?? 0) > 0
+}
+
+export async function dbDecrementMineracoes(userId: number): Promise<boolean> {
+  await initDb()
+  const res = await db.execute({
+    sql: 'UPDATE users SET mineracoes = mineracoes - 1 WHERE id = ? AND mineracoes > 0',
     args: [userId],
   })
   return (res.rowsAffected ?? 0) > 0
