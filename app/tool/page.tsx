@@ -1073,7 +1073,7 @@ body::after{
 }
 .header-left{display:flex;align-items:center;flex-shrink:0}
 .header-logo-circle{display:flex;align-items:center;cursor:pointer}
-.header-logo-circle img{height:36px;width:auto;display:block;filter:drop-shadow(0 0 16px rgba(255,107,0,.45)) drop-shadow(0 0 4px rgba(255,107,0,.3))}
+.header-logo-circle img{height:36px;width:auto;display:block;filter:drop-shadow(0 0 16px rgba(255,107,0,.45)) drop-shadow(0 0 4px rgba(255,107,0,.3));mix-blend-mode:lighten}
 
 /* PILL NAV */
 .header-tabs{
