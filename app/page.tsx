@@ -230,8 +230,7 @@ export default function LandingPage() {
         .noise{position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.15;mix-blend-mode:plus-lighter;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23n)'/%3E%3C/svg%3E");background-repeat:repeat;background-size:250px 250px;animation:noisemove .45s steps(1) infinite}
         nav{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:200;height:60px;display:flex;align-items:center;padding:0 20px 0 16px;width:calc(100% - 48px);max-width:1100px;background:rgba(10,10,10,.72);border:1px solid rgba(255,255,255,.08);border-radius:16px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);transition:background .3s ease,border-color .3s ease;box-shadow:0 4px 32px rgba(0,0,0,.4)}
         nav.nav-scrolled{background:rgba(6,6,6,.9);border-color:rgba(255,255,255,.1)}
-        @media(max-width:640px){nav{top:10px;width:calc(100% - 24px);padding:0 14px 0 12px;height:54px;border-radius:12px}
-        .nav-burger{display:none !important}}
+        @media(max-width:640px){nav{display:none !important}}
         .nav-logo{display:flex;align-items:center;flex-shrink:0}.nav-logo img{height:36px;width:auto;display:block}
         .nav-center{display:flex;align-items:center;gap:4px;position:absolute;left:50%;transform:translateX(-50%)}
         @media(max-width:640px){.nav-center{display:none}}
@@ -277,6 +276,7 @@ export default function LandingPage() {
         .hero{min-height:auto;display:flex;align-items:center;padding:220px 40px 200px;position:relative;overflow:hidden;text-align:center}
         @media(max-width:640px){.hero{padding:140px 20px 80px}}
         .hero-mobile-logo{display:none}
+        @media(max-width:640px){.hero-mobile-logo{display:flex;justify-content:center;margin-bottom:20px;position:relative;z-index:5}.hero-mobile-logo img{height:80px;width:auto;filter:drop-shadow(0 0 22px rgba(255,140,0,.45))}}
         .hero-inner{max-width:800px;margin:0 auto;width:100%;position:relative;z-index:1}
         .hero-h1{font-size:clamp(38px,6vw,72px);font-weight:800;line-height:1.04;letter-spacing:-.05em;margin-bottom:24px;margin-top:0}
         .hero-h1 .acc{background:linear-gradient(135deg,#FF8C00,#FFB347);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
