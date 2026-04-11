@@ -335,6 +335,7 @@ export default function LandingPage() {
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         html{scroll-behavior:smooth}
         body{font-family:'Sora',sans-serif;background:#000;color:#fff;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+        html{overflow-x:hidden}
         .dot-grid{position:fixed;inset:0;pointer-events:none;z-index:0;background-image:radial-gradient(circle,rgba(255,255,255,.07) 1px,transparent 1px);background-size:24px 24px}
         .sc-top{opacity:0;translate:0 52px;filter:blur(6px);transition:opacity .75s cubic-bezier(.16,1,.3,1),translate .75s cubic-bezier(.16,1,.3,1),filter .75s ease}
         .sc-bot{opacity:0;translate:0 -52px;filter:blur(6px);transition:opacity .75s cubic-bezier(.16,1,.3,1),translate .75s cubic-bezier(.16,1,.3,1),filter .75s ease}
@@ -354,7 +355,7 @@ export default function LandingPage() {
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
         @keyframes scroll-bounce{0%,100%{transform:translateY(0) rotate(45deg);opacity:.5}50%{transform:translateY(8px) rotate(45deg);opacity:1}}
-        .bg-glow{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+        .bg-glow{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;max-width:100vw}
         .bg-glow-1{position:absolute;top:-220px;left:-580px;width:1400px;height:200px;background:linear-gradient(90deg,#FFD0B6,transparent);border-radius:9999px;transform:rotate(43deg);mix-blend-mode:screen;animation:glowStrong 8s ease-in-out infinite alternate}
         .bg-glow-2{position:absolute;top:-300px;left:-680px;width:1800px;height:290px;background:linear-gradient(90deg,#F16517,transparent);border-radius:9999px;transform:rotate(40deg);mix-blend-mode:screen;animation:glowSoft 9.5s ease-in-out infinite alternate}
         .noise{position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.15;mix-blend-mode:plus-lighter;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23n)'/%3E%3C/svg%3E");background-repeat:repeat;background-size:250px 250px;animation:noisemove .45s steps(1) infinite}
@@ -389,9 +390,9 @@ export default function LandingPage() {
         .glow{animation:gp 3s ease-in-out infinite}
         section{padding:100px 40px;position:relative;z-index:1}
         .wrap{max-width:900px;margin:0 auto}
-        .wrap-w{max-width:1160px;margin:0 auto}
+        .wrap-w{max-width:1160px;margin:0 auto;padding:0 16px}
         .sec-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);margin:0 40px;position:relative;z-index:1}
-        @media(max-width:640px){section{padding:60px 16px}.sec-divider{margin:0 16px}.wrap{padding:0}.sec-hd{margin-bottom:40px}h2.title{font-size:clamp(24px,7vw,36px)}}
+        @media(max-width:640px){section{padding:48px 16px}.sec-divider{margin:0 16px}.wrap{padding:0}.wrap-w{padding:0 12px}.sec-hd{margin-bottom:32px}h2.title{font-size:clamp(22px,6.5vw,34px)}.feat-c{padding:28px 22px}.feat-t{font-size:17px}.feat-d{font-size:12.5px}.step-c{padding:28px 20px 24px}.step-t{font-size:16px;min-height:auto}.step-d{font-size:12px}}
         .sec-hd{text-align:center;margin-bottom:60px}
         .sec-label{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px}
         .sec-label::before,.sec-label::after{content:'';width:32px;height:1px;flex-shrink:0}
@@ -695,14 +696,11 @@ export default function LandingPage() {
 
       <section>
         <div className="wrap">
-          <div className="sec-hd sc-top">
+          <div className="sec-hd sc-top" style={{ marginBottom: 32 }}>
             <div className="sec-label"><span>Quem usa</span></div>
             <h2 className="title" style={{ fontSize: 'clamp(22px,4vw,42px)' }}>Clientes que sa{'\u00ed'}ram do ROI negativo para a <span className="acc">ESCALA.</span></h2>
           </div>
         </div>
-      </section>
-
-      <section style={{ paddingTop: 0, paddingBottom: 20 }}>
         <div className="wrap-w">
           <div className="res-car sc-top">
             <div className="res-scroll" ref={resScrollRef}>
