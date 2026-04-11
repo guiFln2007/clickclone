@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose'
 
 const ADMIN_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_SECRET || 'admin-fallback-change-in-prod'
+  process.env.ADMIN_SECRET || (() => { throw new Error('ADMIN_SECRET env var is required') })()
 )
 
 export async function signAdminToken(): Promise<string> {

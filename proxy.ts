@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 
 const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'clickclone-secret-change-in-prod'
+  process.env.JWT_SECRET || (() => { throw new Error('JWT_SECRET env var is required') })()
 )
 
 const ADMIN_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_SECRET || 'admin-fallback-change-in-prod'
+  process.env.ADMIN_SECRET || (() => { throw new Error('ADMIN_SECRET env var is required') })()
 )
 
 const PUBLIC_PATHS = ['/login', '/api/auth', '/api/webhook', '/_next', '/favicon']
@@ -14,11 +14,21 @@ const PUBLIC_PATHS = ['/login', '/api/auth', '/api/webhook', '/_next', '/favicon
 // Rotas de API que permitem uso sem auth (plano gratuito por IP/sessão)
 const FREE_API_PATHS = ['/api/analyze', '/api/edit']
 
+// Security headers applied to all responses
+function addSecurityHeaders(res: NextResponse): NextResponse {
+  res.headers.set('X-Content-Type-Options', 'nosniff')
+  res.headers.set('X-Frame-Options', 'DENY')
+  res.headers.set('X-XSS-Protection', '1; mode=block')
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  return res
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // Admin login sempre público (página e API)
-  if (pathname === '/admin/login' || pathname === '/api/admin/login') return NextResponse.next()
+  if (pathname === '/admin/login' || pathname === '/api/admin/login') return addSecurityHeaders(NextResponse.next())
 
   // Proteção das rotas /admin e /api/admin
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
@@ -31,7 +41,7 @@ export async function proxy(req: NextRequest) {
     }
     try {
       await jwtVerify(adminToken, ADMIN_SECRET)
-      return NextResponse.next()
+      return addSecurityHeaders(NextResponse.next())
     } catch {
       if (pathname.startsWith('/api/admin')) {
         return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
@@ -44,7 +54,7 @@ export async function proxy(req: NextRequest) {
 
   // Rotas sempre públicas
   if (pathname === '/' || PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next()
+    return addSecurityHeaders(NextResponse.next())
   }
 
   const token =
@@ -54,7 +64,7 @@ export async function proxy(req: NextRequest) {
   if (!token) {
     // APIs com plano gratuito → passa sem header x-user-id (rota trata internamente)
     if (FREE_API_PATHS.some((p) => pathname.startsWith(p))) {
-      return NextResponse.next()
+      return addSecurityHeaders(NextResponse.next())
     }
     // Outras APIs → 401
     if (pathname.startsWith('/api/')) {
@@ -70,7 +80,7 @@ export async function proxy(req: NextRequest) {
     requestHeaders.set('x-user-id', String(payload.sub))
     requestHeaders.set('x-user-email', String(payload.email || ''))
 
-    return NextResponse.next({ request: { headers: requestHeaders } })
+    return addSecurityHeaders(NextResponse.next({ request: { headers: requestHeaders } }))
   } catch {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
@@ -85,9 +95,15 @@ export const config = {
   matcher: [
     '/tool/:path*',
     '/settings/:path*',
-    '/api/analyze/:path*',
-    '/api/edit/:path*',
     '/admin/:path*',
     '/api/admin/:path*',
+    '/api/analyze/:path*',
+    '/api/edit/:path*',
+    '/api/phase1/:path*',
+    '/api/phase2/:path*',
+    '/api/mine/:path*',
+    '/api/radar/:path*',
+    '/api/demo-scan/:path*',
+    '/api/projects/:path*',
   ],
 }

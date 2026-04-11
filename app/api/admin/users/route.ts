@@ -2,8 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { dbAdminGetUsers, dbAdminCountUsers, dbCreateUser, dbGetUserById } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/mailer'
+import { verifyAdminToken } from '@/lib/admin-jwt'
+
+async function requireAdmin(req: NextRequest) {
+  const token = req.cookies.get('admin_token')?.value
+  if (!token) return false
+  try { await verifyAdminToken(token); return true } catch { return false }
+}
 
 export async function GET(req: NextRequest) {
+  if (!await requireAdmin(req)) return NextResponse.json({ error: 'N\u00e3o autorizado' }, { status: 401 })
   const { searchParams } = req.nextUrl
   const search = searchParams.get('search') || ''
   const page = Math.max(1, Number(searchParams.get('page') || 1))
@@ -21,6 +29,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!await requireAdmin(req)) return NextResponse.json({ error: 'N\u00e3o autorizado' }, { status: 401 })
   const { email, name, plano } = await req.json()
   if (!email) return NextResponse.json({ error: 'Email obrigat\u00f3rio' }, { status: 400 })
 

@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
 
-const SECRET = process.env.JWT_SECRET || 'clickclone-secret-change-in-prod'
+const SECRET: string = process.env.JWT_SECRET ?? (() => { throw new Error('JWT_SECRET env var is required') })()
 
 export type JwtPayload = {
   sub: number   // user id
@@ -10,7 +10,7 @@ export type JwtPayload = {
 }
 
 export function signToken(payload: Omit<JwtPayload, 'iat' | 'exp'>): string {
-  return jwt.sign(payload, SECRET, { expiresIn: '30d' })
+  return jwt.sign(payload, SECRET, { expiresIn: '7d' })
 }
 
 export function verifyToken(token: string): JwtPayload | null {

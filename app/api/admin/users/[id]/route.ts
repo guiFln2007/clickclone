@@ -9,11 +9,19 @@ import {
   dbSetHash,
 } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/mailer'
+import { verifyAdminToken } from '@/lib/admin-jwt'
+
+async function requireAdmin(req: NextRequest) {
+  const token = req.cookies.get('admin_token')?.value
+  if (!token) return false
+  try { await verifyAdminToken(token); return true } catch { return false }
+}
 
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (!await requireAdmin(req)) return NextResponse.json({ error: 'N\u00e3o autorizado' }, { status: 401 })
   const { id: idStr } = await context.params
   const id = Number(idStr)
   const body = await req.json()
@@ -44,9 +52,10 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (!await requireAdmin(req)) return NextResponse.json({ error: 'N\u00e3o autorizado' }, { status: 401 })
   const { id: idStr } = await context.params
   await dbAdminDeleteUser(Number(idStr))
   return NextResponse.json({ ok: true })

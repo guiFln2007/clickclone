@@ -29,10 +29,15 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    // Valida token (Kirvano manda como body.token)
+    // Valida token (obrigatorio — rejeita se KIRVANO_SECRET nao configurado)
+    const kirvanoSecret = process.env.KIRVANO_SECRET
+    if (!kirvanoSecret) {
+      console.error('[kirvano] KIRVANO_SECRET nao configurado — rejeitando webhook')
+      return Response.json({ error: 'Server misconfigured' }, { status: 500 })
+    }
     const secret = String(body.token || '') || req.headers.get('x-kirvano-secret') || ''
-    if (process.env.KIRVANO_SECRET && secret !== process.env.KIRVANO_SECRET) {
-      console.warn(`[kirvano] 401 - token invalido`)
+    if (secret !== kirvanoSecret) {
+      console.warn('[kirvano] 401 - token invalido')
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
     console.log(`[kirvano] Webhook recebido. Event: ${body.event || body.type || '?'}, email: ${(body.customer as Record<string,unknown>)?.email || body.email || '?'}`)
