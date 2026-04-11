@@ -697,7 +697,7 @@ export default function LandingPage() {
         <div className="wrap">
           <div className="sec-hd sc-top">
             <div className="sec-label"><span>Quem usa</span></div>
-            <h2 className="title">Insights de clientes que sa{'\u00ed'}ram do<br />ROI negativo para a <span className="acc">ESCALA.</span></h2>
+            <h2 className="title" style={{ fontSize: 'clamp(22px,4vw,42px)' }}>Clientes que sa{'\u00ed'}ram do ROI negativo para a <span className="acc">ESCALA.</span></h2>
           </div>
         </div>
       </section>
