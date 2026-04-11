@@ -60,45 +60,36 @@ const PRATICA_STEPS = [
 
 function PraticaSection() {
   const [activeStep, setActiveStep] = useState(0)
-  const [progress, setProgress] = useState(0)
-  const [done, setDone] = useState<boolean[]>([false, false, false])
-  const [transitioning, setTransitioning] = useState(false)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const [progresses, setProgresses] = useState([0, 0, 0])
+  const [done, setDone] = useState([false, false, false])
+  const videoRefs = [useRef<HTMLVideoElement>(null), useRef<HTMLVideoElement>(null), useRef<HTMLVideoElement>(null)]
 
-  // When step changes: load video, autoplay if not first
-  useEffect(() => {
-    setProgress(0)
-    setTransitioning(false)
-    const v = videoRef.current
-    if (v) {
-      v.load()
-      // Autoplay for steps 2 and 3
-      if (activeStep > 0) {
-        v.play().catch(() => {})
-      }
-    }
-  }, [activeStep])
+  function goTo(idx: number) {
+    // Pause current video
+    const cur = videoRefs[activeStep].current
+    if (cur) cur.pause()
+    setActiveStep(idx)
+    // Autoplay next if not first
+    setTimeout(() => {
+      const next = videoRefs[idx].current
+      if (next && idx > 0) next.play().catch(() => {})
+    }, 600)
+  }
 
-  const step = PRATICA_STEPS[activeStep]
-  const nextStep = activeStep < 2 ? PRATICA_STEPS[activeStep + 1] : null
-  const circumference = 2 * Math.PI * 30
-
-  function handleTimeUpdate() {
-    const v = videoRef.current
+  function handleTimeUpdate(idx: number) {
+    const v = videoRefs[idx].current
     if (!v || !v.duration) return
-    setProgress((v.currentTime / v.duration) * 100)
+    setProgresses(prev => { const n = [...prev]; n[idx] = (v.currentTime / v.duration) * 100; return n })
   }
 
-  function handleEnded() {
-    setProgress(100)
-    setDone(prev => { const n = [...prev]; n[activeStep] = true; return n })
-    if (activeStep < 2) {
-      setTransitioning(true)
-      setTimeout(() => setActiveStep(s => s + 1), 900)
-    }
+  function handleEnded(idx: number) {
+    setProgresses(prev => { const n = [...prev]; n[idx] = 100; return n })
+    setDone(prev => { const n = [...prev]; n[idx] = true; return n })
+    if (idx < 2) setTimeout(() => goTo(idx + 1), 1000)
   }
 
-  const strokeOffset = circumference - (progress / 100) * circumference
+  const circumference = 2 * Math.PI * 30
+  const step = PRATICA_STEPS[activeStep]
 
   return (
     <section>
@@ -109,26 +100,23 @@ function PraticaSection() {
         </div>
 
         <div className="prt-carousel sc-top">
-          {/* Video stack — active + next preview */}
-          <div className="prt-stack">
-            {/* Next step preview (3D behind — no text, just dark shape) */}
-            {nextStep && !transitioning && (
-              <div className="prt-video prt-video-next">
-                <div style={{ width: '100%', height: '100%', background: '#06080f', borderRadius: 14, position: 'absolute', inset: 0 }} />
-              </div>
-            )}
-            {/* Active video */}
-            <div className={`prt-video prt-video-active ${transitioning ? 'prt-active-exiting' : ''}`} key={activeStep}>
-              <video
-                ref={videoRef}
-                src={step.video}
-                onTimeUpdate={handleTimeUpdate}
-                onEnded={handleEnded}
-                controls
-                playsInline
-                preload="metadata"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 14, position: 'absolute', inset: 0, background: '#000' }}
-              />
+          {/* Video slider — all 3 videos rendered, translateX to slide */}
+          <div className="prt-slider-wrap">
+            <div className="prt-slider" style={{ transform: `translateX(-${activeStep * 100}%)` }}>
+              {PRATICA_STEPS.map((s, i) => (
+                <div className="prt-slide" key={i}>
+                  <video
+                    ref={videoRefs[i]}
+                    src={s.video}
+                    onTimeUpdate={() => handleTimeUpdate(i)}
+                    onEnded={() => handleEnded(i)}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="prt-player"
+                  />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -140,25 +128,25 @@ function PraticaSection() {
             <svg width="72" height="72" viewBox="0 0 72 72" className="prt-ring-svg">
               <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,140,0,.12)" strokeWidth="3" />
               <circle cx="36" cy="36" r="30" fill="none" stroke={done[activeStep] ? '#10B981' : '#FF8C00'} strokeWidth="3"
-                strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeOffset}
-                style={{ transition: 'stroke-dashoffset .5s ease, stroke .3s', transform: 'rotate(-90deg)', transformOrigin: '36px 36px' }} />
+                strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference - (progresses[activeStep] / 100) * circumference}
+                style={{ transition: 'stroke-dashoffset .4s ease-out, stroke .3s', transform: 'rotate(-90deg)', transformOrigin: '36px 36px' }} />
             </svg>
-            <div className="prt-ring-icon">
+            <div className="prt-ring-icon" style={{ transition: 'all .3s ease' }}>
               {done[activeStep] ? <span style={{ fontSize: 22, color: '#10B981', fontWeight: 800 }}>{'\u2713'}</span> : step.icon}
             </div>
           </div>
 
-          {/* Text */}
-          <div className="prt-info" key={`info-${activeStep}`} style={{ animation: 'prtSlideIn .5s cubic-bezier(.16,1,.3,1)' }}>
-            <div className="prt-step-label">Passo {step.n}</div>
-            <div className="prt-step-title">{step.t}</div>
-            <div className="prt-step-desc">{step.d}</div>
+          {/* Text — CSS transition instead of re-mount */}
+          <div className="prt-info">
+            <div className="prt-step-label" style={{ transition: 'opacity .4s', opacity: 1 }}>Passo {step.n}</div>
+            <div className="prt-step-title" style={{ transition: 'opacity .4s', opacity: 1 }}>{step.t}</div>
+            <div className="prt-step-desc" style={{ transition: 'opacity .4s', opacity: 1 }}>{step.d}</div>
           </div>
 
           {/* Dots */}
           <div className="prt-dots">
             {PRATICA_STEPS.map((_, i) => (
-              <button key={i} className={`prt-dot ${i === activeStep ? 'prt-dot-active' : ''} ${done[i] ? 'prt-dot-done' : ''}`} onClick={() => { setTransitioning(false); setActiveStep(i) }} />
+              <button key={i} className={`prt-dot ${i === activeStep ? 'prt-dot-active' : ''} ${done[i] ? 'prt-dot-done' : ''}`} onClick={() => goTo(i)} />
             ))}
           </div>
         </div>
@@ -534,16 +522,11 @@ export default function LandingPage() {
         .back-top{position:fixed;bottom:28px;right:28px;z-index:100;width:44px;height:44px;border-radius:50%;background:rgba(255,140,0,.1);border:1px solid rgba(255,140,0,.22);color:#FF8C00;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .25s;backdrop-filter:blur(8px);cursor:pointer}
         .back-top:hover{background:rgba(255,140,0,.22);transform:translateY(-2px)}
         /* PRATICA CAROUSEL */
-        @keyframes prtSlideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
-        @keyframes prtExitLeft{to{opacity:0;transform:translateX(-110%) scale(.9) rotateY(8deg)}}
-        @keyframes prtEnterFromRight{from{transform:translateX(60px) scale(.88) rotateY(-6deg);opacity:.5}to{transform:translateX(0) scale(1) rotateY(0);opacity:1}}
-        .prt-carousel{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:640px;margin:0 auto;perspective:1200px}
-        .prt-stack{position:relative;width:100%;aspect-ratio:16/9;margin-bottom:0}
-        .prt-video{width:100%;height:100%;background:#06080f;border:1px solid rgba(255,140,0,.15);border-radius:16px;position:absolute;inset:0;overflow:hidden}
-        .prt-video-active{z-index:2;transform:scale(1) rotateY(0);transition:transform .6s cubic-bezier(.16,1,.3,1),opacity .6s}
-        .prt-video-next{z-index:1;transform:translateX(40px) scale(.88) rotateY(-6deg);opacity:.35;filter:blur(2px);transition:all .6s cubic-bezier(.16,1,.3,1)}
-        .prt-active-exiting{animation:prtExitLeft .7s cubic-bezier(.16,1,.3,1) forwards}
-        .prt-next-entering{animation:prtEnterFromRight .7s cubic-bezier(.16,1,.3,1) forwards;filter:blur(0)}
+        .prt-carousel{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:640px;margin:0 auto}
+        .prt-slider-wrap{width:100%;overflow:hidden;border-radius:16px;border:1px solid rgba(255,140,0,.15);background:#000}
+        .prt-slider{display:flex;transition:transform .7s cubic-bezier(.16,1,.3,1)}
+        .prt-slide{min-width:100%;position:relative;aspect-ratio:16/9}
+        .prt-player{width:100%;height:100%;object-fit:cover;display:block;background:#000}
         .prt-connector{display:flex;justify-content:center;padding:10px 0}
         .prt-line{width:2px;height:36px;background:linear-gradient(180deg,rgba(255,140,0,.5),rgba(255,140,0,.1))}
         .prt-ring-wrap{position:relative;width:72px;height:72px;margin-bottom:16px}
