@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const normalizedEvent = event.toUpperCase().replace('.', '_')
 
     // ── COMPRA APROVADA ───────────────────────────────────────────────────────
-    if (normalizedEvent === 'PURCHASE_APPROVED') {
+    if (normalizedEvent === 'PURCHASE_APPROVED' || normalizedEvent === 'SALE_APPROVED') {
       const { email, name, kirvano_id } = extractCustomer(body)
       if (!email) return Response.json({ error: 'Email ausente no payload' }, { status: 400 })
 
