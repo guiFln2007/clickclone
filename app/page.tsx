@@ -62,19 +62,25 @@ function PraticaSection() {
   const [activeStep, setActiveStep] = useState(0)
   const [progress, setProgress] = useState(0)
   const [done, setDone] = useState<boolean[]>([false, false, false])
+  const [transitioning, setTransitioning] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  // Reset video when step changes
+  // When step changes: load video, autoplay if not first
   useEffect(() => {
     setProgress(0)
+    setTransitioning(false)
     const v = videoRef.current
     if (v) {
       v.load()
-      v.pause()
+      // Autoplay for steps 2 and 3
+      if (activeStep > 0) {
+        v.play().catch(() => {})
+      }
     }
   }, [activeStep])
 
   const step = PRATICA_STEPS[activeStep]
+  const nextStep = activeStep < 2 ? PRATICA_STEPS[activeStep + 1] : null
   const circumference = 2 * Math.PI * 30
 
   function handleTimeUpdate() {
@@ -86,9 +92,10 @@ function PraticaSection() {
   function handleEnded() {
     setProgress(100)
     setDone(prev => { const n = [...prev]; n[activeStep] = true; return n })
-    setTimeout(() => {
-      if (activeStep < 2) setActiveStep(s => s + 1)
-    }, 1200)
+    if (activeStep < 2) {
+      setTransitioning(true)
+      setTimeout(() => setActiveStep(s => s + 1), 900)
+    }
   }
 
   const strokeOffset = circumference - (progress / 100) * circumference
@@ -102,9 +109,18 @@ function PraticaSection() {
         </div>
 
         <div className="prt-carousel sc-top">
-          {/* Video */}
-          <div className="prt-video-wrap">
-            <div className="prt-video" key={activeStep} style={{ animation: 'prtSlideIn .5s ease' }}>
+          {/* Video stack — active + next preview */}
+          <div className="prt-stack">
+            {/* Next step preview (3D behind) */}
+            {nextStep && (
+              <div className={`prt-video prt-video-next ${transitioning ? 'prt-next-entering' : ''}`}>
+                <div style={{ width: '100%', height: '100%', background: '#06080f', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'absolute', inset: 0 }}>
+                  <span style={{ color: '#333', fontSize: 13, fontWeight: 600 }}>Passo {nextStep.n}</span>
+                </div>
+              </div>
+            )}
+            {/* Active video */}
+            <div className={`prt-video prt-video-active ${transitioning ? 'prt-active-exiting' : ''}`} key={activeStep}>
               <video
                 ref={videoRef}
                 src={step.video}
@@ -122,7 +138,7 @@ function PraticaSection() {
           <div className="prt-connector"><div className="prt-line" /></div>
 
           {/* Icon with progress ring */}
-          <div className="prt-ring-wrap" key={`ring-${activeStep}`} style={{ animation: 'prtSlideIn .5s ease' }}>
+          <div className="prt-ring-wrap">
             <svg width="72" height="72" viewBox="0 0 72 72" className="prt-ring-svg">
               <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,140,0,.12)" strokeWidth="3" />
               <circle cx="36" cy="36" r="30" fill="none" stroke={done[activeStep] ? '#10B981' : '#FF8C00'} strokeWidth="3"
@@ -135,7 +151,7 @@ function PraticaSection() {
           </div>
 
           {/* Text */}
-          <div className="prt-info" key={`info-${activeStep}`} style={{ animation: 'prtSlideIn .5s ease' }}>
+          <div className="prt-info" key={`info-${activeStep}`} style={{ animation: 'prtSlideIn .5s cubic-bezier(.16,1,.3,1)' }}>
             <div className="prt-step-label">Passo {step.n}</div>
             <div className="prt-step-title">{step.t}</div>
             <div className="prt-step-desc">{step.d}</div>
@@ -144,7 +160,7 @@ function PraticaSection() {
           {/* Dots */}
           <div className="prt-dots">
             {PRATICA_STEPS.map((_, i) => (
-              <button key={i} className={`prt-dot ${i === activeStep ? 'prt-dot-active' : ''} ${done[i] ? 'prt-dot-done' : ''}`} onClick={() => setActiveStep(i)} />
+              <button key={i} className={`prt-dot ${i === activeStep ? 'prt-dot-active' : ''} ${done[i] ? 'prt-dot-done' : ''}`} onClick={() => { setTransitioning(false); setActiveStep(i) }} />
             ))}
           </div>
         </div>
@@ -521,9 +537,15 @@ export default function LandingPage() {
         .back-top:hover{background:rgba(255,140,0,.22);transform:translateY(-2px)}
         /* PRATICA CAROUSEL */
         @keyframes prtSlideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
-        .prt-carousel{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:640px;margin:0 auto}
-        .prt-video-wrap{width:100%;margin-bottom:0}
-        .prt-video{width:100%;aspect-ratio:16/9;background:#06080f;border:1px solid rgba(255,140,0,.15);border-radius:16px;position:relative;overflow:hidden}
+        @keyframes prtExitLeft{to{opacity:0;transform:translateX(-110%) scale(.9) rotateY(8deg)}}
+        @keyframes prtEnterFromRight{from{transform:translateX(60px) scale(.88) rotateY(-6deg);opacity:.5}to{transform:translateX(0) scale(1) rotateY(0);opacity:1}}
+        .prt-carousel{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:640px;margin:0 auto;perspective:1200px}
+        .prt-stack{position:relative;width:100%;aspect-ratio:16/9;margin-bottom:0}
+        .prt-video{width:100%;height:100%;background:#06080f;border:1px solid rgba(255,140,0,.15);border-radius:16px;position:absolute;inset:0;overflow:hidden}
+        .prt-video-active{z-index:2;transform:scale(1) rotateY(0);transition:transform .6s cubic-bezier(.16,1,.3,1),opacity .6s}
+        .prt-video-next{z-index:1;transform:translateX(40px) scale(.88) rotateY(-6deg);opacity:.35;filter:blur(2px);transition:all .6s cubic-bezier(.16,1,.3,1)}
+        .prt-active-exiting{animation:prtExitLeft .7s cubic-bezier(.16,1,.3,1) forwards}
+        .prt-next-entering{animation:prtEnterFromRight .7s cubic-bezier(.16,1,.3,1) forwards;filter:blur(0)}
         .prt-connector{display:flex;justify-content:center;padding:10px 0}
         .prt-line{width:2px;height:36px;background:linear-gradient(180deg,rgba(255,140,0,.5),rgba(255,140,0,.1))}
         .prt-ring-wrap{position:relative;width:72px;height:72px;margin-bottom:16px}
