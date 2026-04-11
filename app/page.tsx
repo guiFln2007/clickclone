@@ -724,7 +724,7 @@ export default function LandingPage() {
             <span className="badge" style={{ marginBottom: 28 }}><span className="bdot" />Comece agora</span>
             <h2 className="title" style={{ marginBottom: 18 }}><span className="acc">Analise</span> antes de investir.</h2>
             <p style={{ fontSize: 16, color: '#444', marginBottom: 40, lineHeight: 1.85, fontWeight: 300 }}>Minere a oferta perfeita e receba analise completa em segundos</p>
-            <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange-lg glow" style={{ display: 'inline-flex' }}>Analisar minha primeira oferta {'\u2192'}</a>
+            <a href="#preco" className="btn btn-orange-lg glow" style={{ display: 'inline-flex' }}>Analisar minha primeira oferta {'\u2192'}</a>
           </div>
         </div>
       </section>
