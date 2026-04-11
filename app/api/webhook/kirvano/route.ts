@@ -29,9 +29,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    // Valida secret header (configurado no painel Kirvano)
-    const secret = req.headers.get('x-kirvano-secret')
+    // Valida secret — aceita de multiplas formas (Kirvano manda como 'token' no body ou header)
+    const headerSecret = req.headers.get('x-kirvano-secret') || req.headers.get('x-webhook-token') || req.headers.get('authorization')?.replace('Bearer ', '')
+    const bodyToken = String(body.token || body.secret || '')
+    const secret = headerSecret || bodyToken
+    console.log(`[kirvano] Webhook recebido. Event: ${body.event || body.type || '?'}, hasSecret: ${!!secret}, email: ${(body.customer as Record<string,unknown>)?.email || body.email || '?'}`)
     if (process.env.KIRVANO_SECRET && secret !== process.env.KIRVANO_SECRET) {
+      console.warn(`[kirvano] 401 - secret nao bateu. Esperado: ${process.env.KIRVANO_SECRET?.slice(0,8)}..., Recebido: ${secret?.slice(0,8)}...`)
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
