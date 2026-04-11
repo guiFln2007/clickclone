@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 const CHECKOUT_URL = process.env.NEXT_PUBLIC_CHECKOUT_URL || 'https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9'
+const PREMIUM_URL = 'https://pay.kirvano.com/c60822ee-79dc-4e2c-ab27-031d405ca57c'
 
 const USERS = [
   { img: '/avatars/8477.jpg', name: 'Lucas Ferreira', role: 'Produtor low ticket', quote: 'Analisei 3 concorrentes em 10 minutos. Lancei no mesmo dia com a p\u00e1gina j\u00e1 modelada.' },
@@ -609,7 +610,7 @@ export default function LandingPage() {
               {['15 an\u00e1lises por trimestre','15 minera\u00e7\u00f5es autom\u00e1ticas','Tudo do Starter Pack','Rastreamento de 10 ofertas','Alertas de novos an\u00fancios escalados','10 scripts de CTV por an\u00e1lise','Suporte VIP via WhatsApp','Acesso antecipado a updates','Hist\u00f3rico completo','Relat\u00f3rios de tend\u00eancia'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
-              <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Quero o Premium {'\u2192'}</a>
+              <a href={PREMIUM_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Quero o Premium {'\u2192'}</a>
               <p style={{ textAlign: 'center', fontSize: 11.5, color: '#2a2a2a', marginTop: 12 }}>Acesso imediato {'\u00b7'} Cancele quando quiser</p>
             </div>
           </div>
