@@ -29,8 +29,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    // Log tudo que chega pra debug
-    console.log(`[kirvano] Webhook recebido. Event: ${body.event || body.type || '?'}, email: ${(body.customer as Record<string,unknown>)?.email || body.email || '?'}, body keys: ${Object.keys(body).join(',')}`)
+    // Valida token (Kirvano manda como body.token)
+    const secret = String(body.token || '') || req.headers.get('x-kirvano-secret') || ''
+    if (process.env.KIRVANO_SECRET && secret !== process.env.KIRVANO_SECRET) {
+      console.warn(`[kirvano] 401 - token invalido`)
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    console.log(`[kirvano] Webhook recebido. Event: ${body.event || body.type || '?'}, email: ${(body.customer as Record<string,unknown>)?.email || body.email || '?'}`)
 
     const event = (body.event || body.type || '') as string
     const normalizedEvent = event.toUpperCase().replace('.', '_')
