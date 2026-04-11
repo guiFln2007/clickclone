@@ -40,19 +40,19 @@ type Phase = 'idle' | 'thinking' | 'found' | 'ready'
 const PRATICA_STEPS = [
   {
     n: '01', t: 'Minera\u00e7\u00e3o Autom\u00e1tica',
-    d: 'Digito uma palavra-chave e o RatoAds encontra todas as ofertas escaladas do nicho.',
+    d: 'Digite uma palavra-chave e o RatoAds encontra todas as ofertas escaladas do nicho.',
     video: '/videos/minerador.mp4',
     icon: <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style={{width:36,height:36}}><path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="#FF8C00"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="#FF8C00"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="#FF8C00"/></svg>,
   },
   {
     n: '02', t: 'An\u00e1lise Completa',
-    d: 'Escolho a oferta, clico em analisar e recebo score, pontos fracos e roteiros de CTV.',
+    d: 'Escolha a oferta, clique em "analisar" e receba o score, pontos fracos e roteiros de CTV.',
     video: '/videos/analise.mp4',
     icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:36,height:36}}><circle cx="19" cy="19" r="15" fill="rgba(255,140,0,.08)"/><circle cx="19" cy="19" r="15" stroke="#FF8C00" strokeWidth="4.5"/><rect x="9" y="22" width="4" height="7" rx="1" fill="#FF8C00"/><rect x="15" y="18" width="4" height="11" rx="1" fill="#FF8C00"/><rect x="21" y="14" width="4" height="15" rx="1" fill="#FF8C00"/><line x1="30" y1="30" x2="44" y2="44" stroke="#FF8C00" strokeWidth="5.5" strokeLinecap="round"/></svg>,
   },
   {
     n: '03', t: 'Rastreamento',
-    d: 'Adiciono no radar e acompanho diariamente quantos ads ativos a oferta tem.',
+    d: 'Adicione no radar e acompanhe diariamente quantos ads ativos a oferta tem.',
     video: '/videos/rastreamento.mp4',
     icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:36,height:36}}><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" fill="rgba(255,140,0,.08)"/><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" stroke="#FF8C00" strokeWidth="4.5" strokeLinejoin="round"/><circle cx="24" cy="18" r="6" stroke="#FF8C00" strokeWidth="3" fill="none"/><circle cx="24" cy="18" r="1.8" fill="#FF8C00"/></svg>,
   },
@@ -111,12 +111,10 @@ function PraticaSection() {
         <div className="prt-carousel sc-top">
           {/* Video stack — active + next preview */}
           <div className="prt-stack">
-            {/* Next step preview (3D behind) */}
-            {nextStep && (
-              <div className={`prt-video prt-video-next ${transitioning ? 'prt-next-entering' : ''}`}>
-                <div style={{ width: '100%', height: '100%', background: '#06080f', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'absolute', inset: 0 }}>
-                  <span style={{ color: '#333', fontSize: 13, fontWeight: 600 }}>Passo {nextStep.n}</span>
-                </div>
+            {/* Next step preview (3D behind — no text, just dark shape) */}
+            {nextStep && !transitioning && (
+              <div className="prt-video prt-video-next">
+                <div style={{ width: '100%', height: '100%', background: '#06080f', borderRadius: 14, position: 'absolute', inset: 0 }} />
               </div>
             )}
             {/* Active video */}
@@ -143,7 +141,7 @@ function PraticaSection() {
               <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,140,0,.12)" strokeWidth="3" />
               <circle cx="36" cy="36" r="30" fill="none" stroke={done[activeStep] ? '#10B981' : '#FF8C00'} strokeWidth="3"
                 strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeOffset}
-                style={{ transition: 'stroke-dashoffset .15s linear, stroke .3s', transform: 'rotate(-90deg)', transformOrigin: '36px 36px' }} />
+                style={{ transition: 'stroke-dashoffset .5s ease, stroke .3s', transform: 'rotate(-90deg)', transformOrigin: '36px 36px' }} />
             </svg>
             <div className="prt-ring-icon">
               {done[activeStep] ? <span style={{ fontSize: 22, color: '#10B981', fontWeight: 800 }}>{'\u2713'}</span> : step.icon}
