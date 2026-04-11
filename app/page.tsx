@@ -403,6 +403,24 @@ export default function LandingPage() {
         .fq-a p{font-size:14px;color:#555;line-height:1.85;padding-bottom:22px;font-weight:300}
         .back-top{position:fixed;bottom:28px;right:28px;z-index:100;width:44px;height:44px;border-radius:50%;background:rgba(255,140,0,.1);border:1px solid rgba(255,140,0,.22);color:#FF8C00;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .25s;backdrop-filter:blur(8px);cursor:pointer}
         .back-top:hover{background:rgba(255,140,0,.22);transform:translateY(-2px)}
+        /* PRATICA SECTION */
+        .pratica-timeline{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;align-items:start}
+        @media(max-width:768px){.pratica-timeline{grid-template-columns:1fr;gap:40px}}
+        .pratica-step{display:flex;flex-direction:column;align-items:center;text-align:center}
+        .pratica-video{width:100%;margin-bottom:0}
+        .pratica-video-placeholder{width:100%;aspect-ratio:16/9;background:#06080f;border:1px solid rgba(255,140,0,.15);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;transition:border-color .3s,box-shadow .3s;cursor:pointer;position:relative;overflow:hidden}
+        .pratica-video-placeholder::before{content:'';position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.03) 1px,transparent 1px);background-size:20px 20px;pointer-events:none}
+        .pratica-video-placeholder:hover{border-color:rgba(255,140,0,.4);box-shadow:0 0 30px rgba(255,140,0,.1)}
+        .pratica-video-label{font-size:12px;color:#444;font-weight:500}
+        .pratica-connector{display:flex;justify-content:center;padding:8px 0}
+        .pratica-line{width:2px;height:32px;background:linear-gradient(180deg,rgba(255,140,0,.5),rgba(255,140,0,.1))}
+        .pratica-icon-wrap{margin-bottom:16px}
+        .pratica-icon-circle{width:64px;height:64px;border-radius:50%;border:1.5px solid rgba(255,140,0,.3);background:rgba(255,140,0,.06);display:flex;align-items:center;justify-content:center;position:relative;transition:border-color .3s,box-shadow .3s}
+        .pratica-icon-circle::before{content:'';position:absolute;inset:-5px;border-radius:50%;border:1.5px solid transparent;border-top-color:rgba(255,140,0,.5);animation:arc-spin 4s linear infinite}
+        .pratica-step:hover .pratica-icon-circle{border-color:rgba(255,140,0,.6);box-shadow:0 0 24px rgba(255,140,0,.2)}
+        .pratica-label{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:rgba(255,140,0,.5);letter-spacing:.15em;text-transform:uppercase;margin-bottom:8px}
+        .pratica-title{font-size:18px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+        .pratica-desc{font-size:13px;color:#666;line-height:1.7;font-weight:300;max-width:260px}
       `}</style>
 
       <div className="dot-grid" aria-hidden />
@@ -417,7 +435,7 @@ export default function LandingPage() {
         </div>
         <div className="nav-r">
           <button className={`nav-burger ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(o => !o)} aria-label="Menu"><span /><span /><span /></button>
-          <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn-nav-cta">Come{'\u00e7'}ar {'\u2192'}</a>
+          <a href="#preco" className="btn-nav-cta">Come{'\u00e7'}ar {'\u2192'}</a>
         </div>
         {menuOpen && (
           <div className="nav-mobile-menu">
@@ -493,6 +511,64 @@ export default function LandingPage() {
           ])}
         </div>
       </div>
+
+      {/* COMO FUNCIONA NA PRÁTICA */}
+      <section>
+        <div className="wrap">
+          <div className="sec-hd sc-top">
+            <div className="sec-label"><span>Na pr{'\u00e1'}tica</span></div>
+            <h2 className="title">Como funciona<br /><span className="acc">na pr{'\u00e1'}tica?</span></h2>
+          </div>
+
+          {/* Video + Steps timeline */}
+          <div className="pratica-timeline sc-top">
+            {[
+              {
+                n: '01', t: `Minera${'\u00e7'}${'\u00e3'}o Autom${'\u00e1'}tica`,
+                d: `Digito uma palavra-chave e o RatoAds encontra todas as ofertas escaladas do nicho.`,
+                icon: <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style={{width:42,height:42}}><path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="#FF8C00"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="#FF8C00"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="#FF8C00"/></svg>,
+              },
+              {
+                n: '02', t: `An${'\u00e1'}lise Completa`,
+                d: `Escolho a oferta, clico em analisar e recebo score, pontos fracos e roteiros de CTV.`,
+                icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:42,height:42}}><circle cx="19" cy="19" r="15" fill="rgba(255,140,0,.08)"/><circle cx="19" cy="19" r="15" stroke="#FF8C00" strokeWidth="4.5"/><rect x="9" y="22" width="4" height="7" rx="1" fill="#FF8C00"/><rect x="15" y="18" width="4" height="11" rx="1" fill="#FF8C00"/><rect x="21" y="14" width="4" height="15" rx="1" fill="#FF8C00"/><line x1="30" y1="30" x2="44" y2="44" stroke="#FF8C00" strokeWidth="5.5" strokeLinecap="round"/></svg>,
+              },
+              {
+                n: '03', t: 'Rastreamento',
+                d: `Adiciono no radar e acompanho diariamente quantos ads ativos a oferta tem.`,
+                icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:42,height:42}}><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" fill="rgba(255,140,0,.08)"/><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" stroke="#FF8C00" strokeWidth="4.5" strokeLinejoin="round"/><circle cx="24" cy="18" r="6" stroke="#FF8C00" strokeWidth="3" fill="none"/><circle cx="24" cy="18" r="1.8" fill="#FF8C00"/></svg>,
+              },
+            ].map(({ n, t, d, icon }, i) => (
+              <div key={n} className="pratica-step">
+                {/* Video placeholder */}
+                <div className="pratica-video">
+                  <div className="pratica-video-placeholder">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><polygon points="5 3 19 12 5 21 5 3" fill="#FF8C00" opacity=".8"/></svg>
+                    <span className="pratica-video-label">V{'\u00ed'}deo em breve</span>
+                  </div>
+                </div>
+
+                {/* Vertical connector line */}
+                <div className="pratica-connector">
+                  <div className="pratica-line" />
+                </div>
+
+                {/* Icon */}
+                <div className="pratica-icon-wrap">
+                  <div className="pratica-icon-circle">{icon}</div>
+                </div>
+
+                {/* Label */}
+                <div className="pratica-label">Passo {n}</div>
+                <div className="pratica-title">{t}</div>
+                <div className="pratica-desc">{d}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="sec-divider" />
 
       <section id="como-funciona">
         <div className="wrap">
