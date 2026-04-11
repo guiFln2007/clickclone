@@ -41,16 +41,19 @@ const PRATICA_STEPS = [
   {
     n: '01', t: 'Minera\u00e7\u00e3o Autom\u00e1tica',
     d: 'Digito uma palavra-chave e o RatoAds encontra todas as ofertas escaladas do nicho.',
+    video: 'https://player-vz-be1cbbe9-2ec.tv.pandavideo.com.br/embed/?v=dbbfb4b8-098d-4520-880e-edc65b9590d8',
     icon: <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style={{width:36,height:36}}><path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="#FF8C00"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="#FF8C00"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="#FF8C00"/></svg>,
   },
   {
     n: '02', t: 'An\u00e1lise Completa',
     d: 'Escolho a oferta, clico em analisar e recebo score, pontos fracos e roteiros de CTV.',
+    video: 'https://player-vz-be1cbbe9-2ec.tv.pandavideo.com.br/embed/?v=2e53a378-50cb-4447-8a5e-e289ad76acd6',
     icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:36,height:36}}><circle cx="19" cy="19" r="15" fill="rgba(255,140,0,.08)"/><circle cx="19" cy="19" r="15" stroke="#FF8C00" strokeWidth="4.5"/><rect x="9" y="22" width="4" height="7" rx="1" fill="#FF8C00"/><rect x="15" y="18" width="4" height="11" rx="1" fill="#FF8C00"/><rect x="21" y="14" width="4" height="15" rx="1" fill="#FF8C00"/><line x1="30" y1="30" x2="44" y2="44" stroke="#FF8C00" strokeWidth="5.5" strokeLinecap="round"/></svg>,
   },
   {
     n: '03', t: 'Rastreamento',
     d: 'Adiciono no radar e acompanho diariamente quantos ads ativos a oferta tem.',
+    video: 'https://player-vz-be1cbbe9-2ec.tv.pandavideo.com.br/embed/?v=b6f9283f-3e4c-4a5c-b78c-1df6c30fabeb',
     icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:36,height:36}}><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" fill="rgba(255,140,0,.08)"/><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" stroke="#FF8C00" strokeWidth="4.5" strokeLinejoin="round"/><circle cx="24" cy="18" r="6" stroke="#FF8C00" strokeWidth="3" fill="none"/><circle cx="24" cy="18" r="1.8" fill="#FF8C00"/></svg>,
   },
 ]
@@ -98,8 +101,12 @@ function PraticaSection() {
           {/* Video */}
           <div className="prt-video-wrap">
             <div className="prt-video" key={activeStep} style={{ animation: 'prtSlideIn .5s ease' }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><polygon points="5 3 19 12 5 21 5 3" fill="#FF8C00" opacity=".8"/></svg>
-              <span style={{ fontSize: 13, color: '#444', fontWeight: 500 }}>V{'\u00ed'}deo {step.n} em breve</span>
+              <iframe
+                src={step.video}
+                style={{ border: 'none', width: '100%', height: '100%', borderRadius: 14, position: 'absolute', inset: 0 }}
+                allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture"
+                allowFullScreen
+              />
             </div>
           </div>
 
@@ -510,8 +517,7 @@ export default function LandingPage() {
         @keyframes prtSlideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
         .prt-carousel{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:640px;margin:0 auto}
         .prt-video-wrap{width:100%;margin-bottom:0}
-        .prt-video{width:100%;aspect-ratio:16/9;background:#06080f;border:1px solid rgba(255,140,0,.15);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;position:relative;overflow:hidden}
-        .prt-video::before{content:'';position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.03) 1px,transparent 1px);background-size:20px 20px;pointer-events:none}
+        .prt-video{width:100%;aspect-ratio:16/9;background:#06080f;border:1px solid rgba(255,140,0,.15);border-radius:16px;position:relative;overflow:hidden}
         .prt-connector{display:flex;justify-content:center;padding:10px 0}
         .prt-line{width:2px;height:36px;background:linear-gradient(180deg,rgba(255,140,0,.5),rgba(255,140,0,.1))}
         .prt-ring-wrap{position:relative;width:72px;height:72px;margin-bottom:16px}
