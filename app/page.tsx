@@ -42,6 +42,7 @@ const PRATICA_STEPS = [
     n: '01', t: 'Minera\u00e7\u00e3o Autom\u00e1tica',
     d: 'Digite uma palavra-chave e o RatoAds encontra todas as ofertas escaladas do nicho.',
     video: '/videos/minerador.mp4',
+    panda: 'https://player-vz-be1cbbe9-2ec.tv.pandavideo.com.br/embed/?v=dbbfb4b8-098d-4520-880e-edc65b9590d8',
     icon: <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style={{width:36,height:36}}><path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="#FF8C00"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="#FF8C00"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="#FF8C00"/></svg>,
   },
   {
@@ -105,16 +106,26 @@ function PraticaSection() {
             <div className="prt-slider" style={{ transform: `translateX(-${activeStep * 100}%)` }}>
               {PRATICA_STEPS.map((s, i) => (
                 <div className="prt-slide" key={i}>
-                  <video
-                    ref={videoRefs[i]}
-                    src={s.video}
-                    onTimeUpdate={() => handleTimeUpdate(i)}
-                    onEnded={() => handleEnded(i)}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    className="prt-player"
-                  />
+                  {(s as Record<string, unknown>).panda && i === 0 ? (
+                    <iframe
+                      src={(s as Record<string, unknown>).panda as string}
+                      className="prt-player"
+                      style={{ border: 'none' }}
+                      allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video
+                      ref={videoRefs[i]}
+                      src={s.video}
+                      onTimeUpdate={() => handleTimeUpdate(i)}
+                      onEnded={() => handleEnded(i)}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="prt-player"
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -380,7 +391,7 @@ export default function LandingPage() {
         .wrap{max-width:900px;margin:0 auto}
         .wrap-w{max-width:1160px;margin:0 auto}
         .sec-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);margin:0 40px;position:relative;z-index:1}
-        @media(max-width:640px){section{padding:72px 20px}.sec-divider{margin:0 20px}}
+        @media(max-width:640px){section{padding:60px 16px}.sec-divider{margin:0 16px}.wrap{padding:0}.sec-hd{margin-bottom:40px}h2.title{font-size:clamp(24px,7vw,36px)}}
         .sec-hd{text-align:center;margin-bottom:60px}
         .sec-label{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px}
         .sec-label::before,.sec-label::after{content:'';width:32px;height:1px;flex-shrink:0}
@@ -396,10 +407,15 @@ export default function LandingPage() {
         @media(max-width:640px){.hero{padding:140px 20px 80px}}
         .hero-mobile-logo{display:none}
         @media(max-width:640px){
-        .hero{flex-direction:column;padding:60px 20px 40px;min-height:auto}
-        .hero-mobile-logo{display:flex;justify-content:center;width:100%;order:-1;margin-bottom:24px;flex-shrink:0}
-        .hero-mobile-logo img{height:80px;width:auto;filter:drop-shadow(0 0 22px rgba(255,140,0,.45))}
+        .hero{flex-direction:column;padding:60px 16px 40px;min-height:auto}
+        .hero-h1{font-size:clamp(28px,8vw,42px);margin-bottom:16px}
+        .hero-sub{font-size:14px;margin-bottom:32px}
+        .hero-mobile-logo{display:flex;justify-content:center;width:100%;order:-1;margin-bottom:20px;flex-shrink:0}
+        .hero-mobile-logo img{height:70px;width:auto;filter:drop-shadow(0 0 22px rgba(255,140,0,.45))}
         .hero-inner{width:100%}
+        .demo-box{flex-direction:column;border-radius:10px}
+        .demo-in{padding:14px 16px;font-size:13px}
+        .demo-sub{padding:14px 20px}
         }
         .hero-inner{max-width:800px;margin:0 auto;width:100%;position:relative;z-index:1}
         .hero-h1{font-size:clamp(38px,6vw,72px);font-weight:800;line-height:1.04;letter-spacing:-.05em;margin-bottom:24px;margin-top:0}
@@ -489,7 +505,7 @@ export default function LandingPage() {
         .res-nav-btn:hover{border-color:rgba(255,140,0,.4);background:#111}
         .price-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;align-items:stretch}
         @media(max-width:880px){.price-grid{grid-template-columns:1fr;max-width:520px;margin:0 auto}}
-        @media(max-width:560px){.price-grid{max-width:340px;gap:18px}.price-c{padding:32px 24px}.price-c .price-am{font-size:50px}}
+        @media(max-width:560px){.price-grid{max-width:100%;gap:16px}.price-c{padding:24px 20px;border-radius:16px}.price-c .price-am{font-size:42px}.pack-title{font-size:15px}.plan-badge{font-size:9px;padding:4px 8px}.pf{font-size:12.5px;padding:9px 0;gap:8px}}
         .pack-title{font-size:18px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;line-height:1}
         .price-c-premium{border:2px solid #FFB347;background:linear-gradient(180deg,rgba(255,140,0,.06),rgba(255,255,255,.02));box-shadow:0 0 0 1px rgba(255,228,181,.6),0 0 18px rgba(255,140,0,.7),0 0 48px rgba(255,140,0,.45),0 0 90px rgba(255,140,0,.25),inset 0 0 24px rgba(255,140,0,.08),0 24px 80px rgba(0,0,0,.5)}
         .price-c-premium::before{display:none}
@@ -618,18 +634,7 @@ export default function LandingPage() {
         <div className="scroll-hint sc-fade" style={{ transitionDelay: '1.2s' }}><span>Continuar</span><div className="scroll-arrow" /></div>
       </div>
 
-      <div className="ticker">
-        <div className="tk-in">
-          {[...Array(2)].flatMap((_, r) => [
-            <div key={`${r}a`} className="tk-i"><span style={{ color: '#FF8C00' }}>{'\u2726'}</span><span className="hl">2 min</span> por an{'\u00e1'}lise</div>,
-            <div key={`${r}b`} className="tk-i"><span style={{ color: '#FF8C00' }}>{'\u2726'}</span><span className="hl">30+</span> an{'\u00fa'}ncios raspados</div>,
-            <div key={`${r}c`} className="tk-i"><span style={{ color: '#FF8C00' }}>{'\u2726'}</span>Score <span className="hl">1{'\u2013'}10</span> da oferta</div>,
-            <div key={`${r}d`} className="tk-i"><span style={{ color: '#FF8C00' }}>{'\u2726'}</span><span className="hl">3</span> scripts de CTV</div>,
-            <div key={`${r}e`} className="tk-i"><span style={{ color: '#FF8C00' }}>{'\u2726'}</span>Powered by <span className="hl">IA Avan{'\u00e7'}ada</span></div>,
-            <div key={`${r}f`} className="tk-i"><span style={{ color: '#FF8C00' }}>{'\u2726'}</span>Minera{'\u00e7'}{'\u00e3'}o <span className="hl">Autom{'\u00e1'}tica</span></div>,
-          ])}
-        </div>
-      </div>
+      <div className="sec-divider" />
 
       <section id="como-funciona">
         <div className="wrap">
@@ -726,7 +731,7 @@ export default function LandingPage() {
           </div>
           <div className="price-grid">
             <div className="price-c sc-top">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
                 <div>
                   <div className="pack-title acc">STARTER PACK</div>
                   <div className="price-am">R$57<span style={{ fontSize: 28, fontWeight: 700, letterSpacing: 0 }}>,90</span></div>
@@ -741,7 +746,7 @@ export default function LandingPage() {
               <p style={{ textAlign: 'center', fontSize: 11.5, color: '#2a2a2a', marginTop: 12 }}>Acesso imediato {'\u00b7'} Cancele quando quiser</p>
             </div>
             <div className="price-c price-c-premium sc-top">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22, position: 'relative', zIndex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22, position: 'relative', zIndex: 1, flexWrap: 'wrap', gap: 12 }}>
                 <div>
                   <div className="pack-title pack-shine">PREMIUM PACK</div>
                   <div className="price-am">R$147<span style={{ fontSize: 28, fontWeight: 700, letterSpacing: 0 }}>,90</span></div>
