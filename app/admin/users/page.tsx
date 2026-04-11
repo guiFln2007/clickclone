@@ -9,6 +9,10 @@ type AdminUser = {
   name: string | null
   plano: string
   analises: number
+  mineracoes: number
+  max_analises: number
+  max_mineracoes: number
+  max_slots_radar: number
   creditos: number
   ativo: number
   created_at: string
@@ -16,7 +20,7 @@ type AdminUser = {
 }
 
 type Modal =
-  | { type: 'analises' | 'creditos'; user: AdminUser }
+  | { type: 'analises' | 'mineracoes' | 'creditos'; user: AdminUser }
   | { type: 'delete'; user: AdminUser }
   | { type: 'reset'; user: AdminUser; tempPassword?: string }
   | { type: 'create' }
@@ -39,7 +43,7 @@ function AdminUsersContent() {
   const [actionVal, setActionVal] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [msg, setMsg] = useState('')
-  const [createForm, setCreateForm] = useState({ email: '', name: '', analises: '10', creditos: '100' })
+  const [createForm, setCreateForm] = useState({ email: '', name: '', analises: '5', mineracoes: '5', plano: 'starter' })
 
   const load = useCallback(async (s = search, p = page) => {
     setLoading(true)
@@ -72,7 +76,16 @@ function AdminUsersContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ addAnalises: Number(actionVal) }),
       })
-      showMsg(`+${actionVal} análises adicionadas para ${modal.user.email}`)
+      showMsg(`+${actionVal} an\u00e1lises para ${modal.user.email}`)
+    }
+
+    if (modal.type === 'mineracoes') {
+      await fetch(`/api/admin/users/${modal.user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addMineracoes: Number(actionVal) }),
+      })
+      showMsg(`+${actionVal} minera\u00e7\u00f5es para ${modal.user.email}`)
     }
 
     if (modal.type === 'creditos') {
@@ -81,7 +94,7 @@ function AdminUsersContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ addCreditos: Number(actionVal) }),
       })
-      showMsg(`+${actionVal} créditos adicionados para ${modal.user.email}`)
+      showMsg(`+${actionVal} cr\u00e9ditos para ${modal.user.email}`)
     }
 
     if (modal.type === 'delete') {
@@ -109,14 +122,13 @@ function AdminUsersContent() {
         body: JSON.stringify({
           email: createForm.email,
           name: createForm.name || undefined,
-          analises: Number(createForm.analises),
-          creditos: Number(createForm.creditos),
+          plano: createForm.plano,
         }),
       })
       const data = await res.json()
       if (res.ok) {
-        showMsg(`Usuário criado! Senha temporária: ${data.tempPassword}`)
-        setCreateForm({ email: '', name: '', analises: '10', creditos: '100' })
+        showMsg(`Usu\u00e1rio criado! Senha tempor\u00e1ria: ${data.tempPassword}`)
+        setCreateForm({ email: '', name: '', analises: '5', mineracoes: '5', plano: 'starter' })
       } else {
         showMsg(data.error || 'Erro ao criar usuário')
         setActionLoading(false)
@@ -211,12 +223,12 @@ function AdminUsersContent() {
                 <th style={th}>Email</th>
                 <th style={th}>Nome</th>
                 <th style={th}>Plano</th>
-                <th style={th}>Análises</th>
-                <th style={th}>Créditos</th>
+                <th style={th}>An{'\u00e1'}lises</th>
+                <th style={th}>Minera{'\u00e7\u00f5'}es</th>
+                <th style={th}>Slots</th>
                 <th style={th}>Status</th>
                 <th style={th}>Cadastro</th>
-                <th style={th}>Últ. Análise</th>
-                <th style={th}>Ações</th>
+                <th style={th}>A{'\u00e7\u00f5'}es</th>
               </tr>
             </thead>
             <tbody>
@@ -233,14 +245,15 @@ function AdminUsersContent() {
                   <td style={td}>
                     <span style={{
                       padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
-                      background: u.plano === 'pro' ? '#1a2e1a' : '#2a1a1a',
-                      color: u.plano === 'pro' ? '#4ade80' : '#f87171',
+                      background: u.plano === 'premium' ? '#2a1f0a' : u.plano === 'starter' ? '#1a2e1a' : '#2a1a1a',
+                      color: u.plano === 'premium' ? '#FF8C00' : u.plano === 'starter' ? '#4ade80' : '#f87171',
                     }}>
                       {u.plano.toUpperCase()}
                     </span>
                   </td>
-                  <td style={{ ...td, color: u.analises === 0 ? '#e55' : '#ccc' }}>{u.analises}</td>
-                  <td style={td}>{u.creditos}</td>
+                  <td style={{ ...td, color: u.analises === 0 ? '#e55' : '#ccc' }}>{u.analises}/{u.max_analises || 5}</td>
+                  <td style={{ ...td, color: (u.mineracoes || 0) === 0 ? '#e55' : '#ccc' }}>{u.mineracoes || 0}/{u.max_mineracoes || 5}</td>
+                  <td style={td}>{u.max_slots_radar || 5}</td>
                   <td style={td}>
                     <span style={{
                       padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
@@ -254,8 +267,8 @@ function AdminUsersContent() {
                   <td style={{ ...td, color: '#555', fontSize: 12 }}>{fmt(u.last_analysis)}</td>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                      <button style={btn('#1a2a1e', '#4ade80')} onClick={() => { setActionVal(''); setModal({ type: 'analises', user: u }) }}>+Análises</button>
-                      <button style={btn('#1a1e2a', '#60a5fa')} onClick={() => { setActionVal(''); setModal({ type: 'creditos', user: u }) }}>+Créditos</button>
+                      <button style={btn('#1a2a1e', '#4ade80')} onClick={() => { setActionVal(''); setModal({ type: 'analises', user: u }) }}>+An{'\u00e1'}lises</button>
+                      <button style={btn('#1a1e2a', '#60a5fa')} onClick={() => { setActionVal(''); setModal({ type: 'mineracoes', user: u }) }}>+Minera{'\u00e7\u00f5'}es</button>
                       <button style={btn()} onClick={() => toggleAtivo(u)}>{u.ativo ? 'Desativar' : 'Ativar'}</button>
                       <button style={btn('#2a2a1a', '#facc15')} onClick={() => setModal({ type: 'reset', user: u })}>Reset</button>
                       <button style={btn('#2a1a1a', '#f87171')} onClick={() => setModal({ type: 'delete', user: u })}>Excluir</button>
@@ -296,10 +309,10 @@ function AdminUsersContent() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Add análises */}
-            {(modal.type === 'analises' || modal.type === 'creditos') && (
+            {(modal.type === 'analises' || modal.type === 'mineracoes' || modal.type === 'creditos') && (
               <>
                 <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>
-                  {modal.type === 'analises' ? 'Adicionar Análises' : 'Adicionar Créditos'}
+                  {modal.type === 'analises' ? 'Adicionar An\u00e1lises' : modal.type === 'mineracoes' ? 'Adicionar Minera\u00e7\u00f5es' : 'Adicionar Cr\u00e9ditos'}
                 </h3>
                 <p style={{ color: '#666', fontSize: 13, marginBottom: 18 }}>{modal.user.email}</p>
                 <input
@@ -377,14 +390,21 @@ function AdminUsersContent() {
                     <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Nome</label>
                     <input type="text" value={createForm.name} onChange={(e) => setCreateForm(f => ({ ...f, name: e.target.value }))} placeholder="Nome do usuário" style={inputStyle} />
                   </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Plano</label>
+                    <select value={createForm.plano} onChange={(e) => setCreateForm(f => ({ ...f, plano: e.target.value }))} style={{ ...inputStyle, cursor: 'pointer' }}>
+                      <option value="starter">Starter (5/5/5)</option>
+                      <option value="premium">Premium (15/15/10)</option>
+                    </select>
+                  </div>
                   <div style={{ display: 'flex', gap: 10 }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Análises</label>
+                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>An{'\u00e1'}lises</label>
                       <input type="number" min={0} value={createForm.analises} onChange={(e) => setCreateForm(f => ({ ...f, analises: e.target.value }))} style={inputStyle} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Créditos</label>
-                      <input type="number" min={0} value={createForm.creditos} onChange={(e) => setCreateForm(f => ({ ...f, creditos: e.target.value }))} style={inputStyle} />
+                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Minera{'\u00e7\u00f5'}es</label>
+                      <input type="number" min={0} value={createForm.mineracoes} onChange={(e) => setCreateForm(f => ({ ...f, mineracoes: e.target.value }))} style={inputStyle} />
                     </div>
                   </div>
                 </div>

@@ -19,6 +19,10 @@ export async function PATCH(
   const body = await req.json()
 
   if (body.addAnalises) await dbAdminAddAnalises(id, Number(body.addAnalises))
+  if (body.addMineracoes) {
+    const { default: db } = await import('@/lib/db')
+    await db.execute({ sql: 'UPDATE users SET mineracoes = mineracoes + ? WHERE id = ?', args: [Number(body.addMineracoes), id] })
+  }
   if (body.addCreditos) await dbAdminAddCreditos(id, Number(body.addCreditos))
   if (body.ativo !== undefined) await dbAdminSetAtivo(id, body.ativo ? 1 : 0)
 
