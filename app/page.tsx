@@ -64,6 +64,31 @@ function PraticaSection() {
   const [progresses, setProgresses] = useState([0, 0, 0])
   const [done, setDone] = useState([false, false, false])
   const videoRefs = [useRef<HTMLVideoElement>(null), useRef<HTMLVideoElement>(null), useRef<HTMLVideoElement>(null)]
+  const activeStepRef = useRef(activeStep)
+  activeStepRef.current = activeStep
+
+  // Panda Video postMessage listener — auto-advance on video end (step 0)
+  useEffect(() => {
+    function onMessage(ev: MessageEvent) {
+      if (typeof ev.data !== 'object' || !ev.data) return
+      const d = ev.data as { message?: string; currentTime?: number; duration?: number }
+      if (d.message === 'panda_timeupdate' && d.currentTime != null && d.duration) {
+        if (activeStepRef.current === 0) {
+          setProgresses(prev => { const n = [...prev]; n[0] = (d.currentTime! / d.duration!) * 100; return n })
+        }
+      }
+      if (d.message === 'panda_ended' || d.message === 'panda_pause' && d.currentTime && d.duration && d.currentTime >= d.duration - 0.5) {
+        if (activeStepRef.current === 0 && !done[0]) {
+          setProgresses(prev => { const n = [...prev]; n[0] = 100; return n })
+          setDone(prev => { const n = [...prev]; n[0] = true; return n })
+          setTimeout(() => goTo(1), 1000)
+        }
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function goTo(idx: number) {
     // Pause current video
@@ -191,7 +216,7 @@ export default function LandingPage() {
     const init = async () => {
       try {
         const { default: Lenis } = await import('lenis')
-        lenis = new Lenis({ duration: 1.4, easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)) })
+        lenis = new Lenis({ duration: 0.8, easing: (t: number) => 1 - Math.pow(1 - t, 3), smoothWheel: true, syncTouch: false })
         function raf(time: number) { lenis.raf(time); rafId = requestAnimationFrame(raf) }
         rafId = requestAnimationFrame(raf)
       } catch { /* fallback */ }
