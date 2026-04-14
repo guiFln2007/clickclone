@@ -73,7 +73,10 @@ function PraticaSection() {
     // Autoplay next if not first
     setTimeout(() => {
       const next = videoRefs[idx].current
-      if (next && idx > 0) next.play().catch(() => {})
+      if (next && idx > 0) {
+        next.load()
+        next.play().catch(() => {})
+      }
     }, 600)
   }
 
@@ -83,9 +86,13 @@ function PraticaSection() {
     setProgresses(prev => { const n = [...prev]; n[idx] = (v.currentTime / v.duration) * 100; return n })
   }
 
-  function handleEnded(idx: number) {
+  async function handleEnded(idx: number) {
     setProgresses(prev => { const n = [...prev]; n[idx] = 100; return n })
     setDone(prev => { const n = [...prev]; n[idx] = true; return n })
+    // Exit fullscreen if active so the slider transition is visible
+    if (typeof document !== 'undefined' && document.fullscreenElement) {
+      try { await document.exitFullscreen() } catch {}
+    }
     if (idx < 2) setTimeout(() => goTo(idx + 1), 1000)
   }
 

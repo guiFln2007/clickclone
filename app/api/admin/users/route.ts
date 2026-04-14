@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   const { dbActivateUser } = await import('@/lib/db')
   const user = await dbActivateUser('admin-created', email, name || '', hash, plano || 'starter')
 
-  await sendWelcomeEmail(email, name || '', tempPassword)
+  sendWelcomeEmail(email, name || '', tempPassword).catch(console.error)
 
   const { hash: _h, ...safeUser } = user!
   return NextResponse.json({ user: safeUser, tempPassword })
