@@ -63,31 +63,67 @@ function PraticaSection() {
   const [activeStep, setActiveStep] = useState(0)
   const [progresses, setProgresses] = useState([0, 0, 0])
   const [done, setDone] = useState([false, false, false])
+  const [playing, setPlaying] = useState([false, false, false])
   const videoRefs = [useRef<HTMLVideoElement>(null), useRef<HTMLVideoElement>(null), useRef<HTMLVideoElement>(null)]
   const activeStepRef = useRef(activeStep)
   activeStepRef.current = activeStep
 
-  // Panda Video postMessage listener — auto-advance on video end (step 0)
+  function togglePlay(i: number) {
+    const v = videoRefs[i].current
+    if (!v) return
+    if (v.paused) v.play().catch(() => {})
+    else v.pause()
+  }
+
+  function toggleFs(i: number) {
+    const v = videoRefs[i].current
+    if (!v) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vAny = v as any
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {})
+    } else if (v.requestFullscreen) v.requestFullscreen().catch(() => {})
+    else if (vAny.webkitEnterFullscreen) vAny.webkitEnterFullscreen()
+    else if (vAny.webkitRequestFullscreen) vAny.webkitRequestFullscreen()
+  }
+
+  // Smooth progress — rAF loop reads currentTime @ 60fps (timeupdate only fires 4x/s)
   useEffect(() => {
-    function onMessage(ev: MessageEvent) {
-      if (typeof ev.data !== 'object' || !ev.data) return
-      const d = ev.data as { message?: string; currentTime?: number; duration?: number }
-      if (d.message === 'panda_timeupdate' && d.currentTime != null && d.duration) {
-        if (activeStepRef.current === 0) {
-          setProgresses(prev => { const n = [...prev]; n[0] = (d.currentTime! / d.duration!) * 100; return n })
-        }
+    let raf: number
+    function tick() {
+      const v = videoRefs[activeStep].current
+      if (v && !v.paused && v.duration) {
+        const pct = (v.currentTime / v.duration) * 100
+        setProgresses(prev => {
+          if (Math.abs(prev[activeStep] - pct) < 0.05) return prev
+          const n = [...prev]; n[activeStep] = pct; return n
+        })
       }
-      if (d.message === 'panda_ended' || d.message === 'panda_pause' && d.currentTime && d.duration && d.currentTime >= d.duration - 0.5) {
-        if (activeStepRef.current === 0 && !done[0]) {
-          setProgresses(prev => { const n = [...prev]; n[0] = 100; return n })
-          setDone(prev => { const n = [...prev]; n[0] = true; return n })
-          setTimeout(() => goTo(1), 1000)
-        }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStep])
+
+  // Mobile: lock orientation to landscape when video enters fullscreen
+  useEffect(() => {
+    function onFsChange() {
+      const inFs = !!document.fullscreenElement
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const so = screen.orientation as any
+      if (inFs && so?.lock) {
+        so.lock('landscape').catch(() => {})
+      } else if (!inFs && so?.unlock) {
+        try { so.unlock() } catch {}
       }
     }
-    window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    document.addEventListener('fullscreenchange', onFsChange)
+    document.addEventListener('webkitfullscreenchange', onFsChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange)
+      document.removeEventListener('webkitfullscreenchange', onFsChange)
+    }
   }, [])
 
   function goTo(idx: number) {
@@ -138,26 +174,45 @@ function PraticaSection() {
             <div className="prt-slider" style={{ transform: `translateX(-${activeStep * 100}%)` }}>
               {PRATICA_STEPS.map((s, i) => (
                 <div className="prt-slide" key={i}>
-                  {(s as Record<string, unknown>).panda && i === 0 ? (
-                    <iframe
-                      src={(s as Record<string, unknown>).panda as string}
-                      className="prt-player"
-                      style={{ border: 'none' }}
-                      allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : (
+                  <div className="prt-player prt-custom">
                     <video
                       ref={videoRefs[i]}
                       src={s.video}
                       onTimeUpdate={() => handleTimeUpdate(i)}
-                      onEnded={() => handleEnded(i)}
-                      controls
+                      onEnded={() => { setPlaying(p => { const n = [...p]; n[i] = false; return n }); handleEnded(i) }}
+                      onPlay={() => setPlaying(p => { const n = [...p]; n[i] = true; return n })}
+                      onPause={() => setPlaying(p => { const n = [...p]; n[i] = false; return n })}
+                      onClick={() => togglePlay(i)}
                       playsInline
                       preload="metadata"
-                      className="prt-player"
+                      className="prt-video-el"
                     />
-                  )}
+                    {!playing[i] && (
+                      <button className="prt-big-play" onClick={() => togglePlay(i)} aria-label="Play">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+                      </button>
+                    )}
+                    <div className="prt-ctrls">
+                      <button className="prt-ctrl-btn" onClick={() => togglePlay(i)} aria-label={playing[i] ? 'Pause' : 'Play'}>
+                        {playing[i] ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+                        )}
+                      </button>
+                      <div className="prt-bar" onClick={(e) => {
+                        const v = videoRefs[i].current; if (!v || !v.duration) return
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const pct = (e.clientX - rect.left) / rect.width
+                        v.currentTime = pct * v.duration
+                      }}>
+                        <div className="prt-bar-fill" style={{ width: `${progresses[i]}%` }} />
+                      </div>
+                      <button className="prt-ctrl-btn" onClick={() => toggleFs(i)} aria-label="Fullscreen">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -577,6 +632,17 @@ export default function LandingPage() {
         .prt-slider{display:flex;transition:transform .7s cubic-bezier(.16,1,.3,1)}
         .prt-slide{min-width:100%;position:relative;aspect-ratio:16/9}
         .prt-player{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+        .prt-custom{position:relative;width:100%;height:100%;overflow:hidden;border-radius:inherit}
+        .prt-video-el{width:100%;height:100%;object-fit:cover;display:block;background:#000;cursor:pointer}
+        .prt-big-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;background:linear-gradient(180deg,#FF7A1A 0%,#E8692A 100%);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 12px 32px rgba(255,106,0,.55),0 0 0 4px rgba(255,106,0,.12),inset 0 1px 0 rgba(255,255,255,.2);padding-left:4px;transition:transform .2s ease,box-shadow .2s ease;pointer-events:auto;z-index:3}
+        .prt-big-play:hover{transform:translate(-50%,-50%) scale(1.08);box-shadow:0 16px 40px rgba(255,106,0,.7),0 0 0 6px rgba(255,106,0,.14),inset 0 1px 0 rgba(255,255,255,.25)}
+        .prt-big-play:active{transform:translate(-50%,-50%) scale(.96)}
+        .prt-ctrls{position:absolute;left:0;right:0;bottom:0;padding:10px 14px;display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.7) 70%,rgba(0,0,0,.9) 100%);z-index:2;opacity:.95;transition:opacity .2s}
+        .prt-custom:hover .prt-ctrls{opacity:1}
+        .prt-ctrl-btn{background:transparent;border:none;padding:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:background .15s}
+        .prt-ctrl-btn:hover{background:rgba(255,255,255,.1)}
+        .prt-bar{flex:1;height:4px;background:rgba(255,255,255,.18);border-radius:3px;cursor:pointer;position:relative;overflow:hidden}
+        .prt-bar-fill{height:100%;background:linear-gradient(90deg,#FF7A1A,#FFB347);border-radius:3px;box-shadow:0 0 8px rgba(255,122,26,.5);will-change:width}
         .prt-connector{display:flex;justify-content:center;padding:10px 0}
         .prt-line{width:2px;height:36px;background:linear-gradient(180deg,rgba(255,140,0,.5),rgba(255,140,0,.1))}
         .prt-ring-wrap{position:relative;width:72px;height:72px;margin-bottom:16px}
@@ -823,7 +889,6 @@ export default function LandingPage() {
       <section style={{ padding: '70px 40px 90px', textAlign: 'center' }}>
         <div className="wrap" style={{ maxWidth: 600 }}>
           <div className="sc-top">
-            <span className="badge" style={{ marginBottom: 28 }}><span className="bdot" />Comece agora</span>
             <h2 className="title" style={{ marginBottom: 18 }}><span className="acc">Analise</span> antes de investir.</h2>
             <p style={{ fontSize: 16, color: '#444', marginBottom: 40, lineHeight: 1.85, fontWeight: 300 }}>Minere a oferta perfeita e receba analise completa em segundos</p>
             <a href="#preco" className="btn btn-orange-lg glow" style={{ display: 'inline-flex' }}>Analisar minha primeira oferta {'\u2192'}</a>

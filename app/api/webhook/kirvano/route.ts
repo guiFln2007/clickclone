@@ -25,9 +25,21 @@ function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
   return 'starter'
 }
 
+// Debug: keep last 10 webhook hits in memory
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const webhookHits: { ts: string; status: string; body: any; tokenMatch?: boolean }[] = []
+
+export async function GET() {
+  return Response.json({ count: webhookHits.length, hits: webhookHits })
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
+    const incomingToken = String(body.token || '') || req.headers.get('x-kirvano-secret') || ''
+    const tokenMatch = incomingToken === process.env.KIRVANO_SECRET
+    webhookHits.unshift({ ts: new Date().toISOString(), status: 'received', body, tokenMatch })
+    if (webhookHits.length > 10) webhookHits.length = 10
 
     // Valida token (obrigatorio — rejeita se KIRVANO_SECRET nao configurado)
     const kirvanoSecret = process.env.KIRVANO_SECRET
