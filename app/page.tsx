@@ -524,7 +524,8 @@ export default function LandingPage() {
         .plan-badge-premium{background:linear-gradient(135deg,#FF8C00,#FF6B00);color:#fff;border:none;box-shadow:0 4px 14px rgba(255,107,0,.35)}
         .pack-shine{background:linear-gradient(110deg,#FF8C00 10%,#FFE4B5 25%,#FFB347 40%,#FF8C00 60%,#FFE4B5 75%,#FF8C00 90%);background-size:300% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:transparent;animation:shine-slide 3.5s linear infinite;filter:drop-shadow(0 0 12px rgba(255,180,80,.4))}
         @keyframes shine-slide{0%{background-position:200% 0}100%{background-position:-100% 0}}
-        .price-c{background:rgba(255,255,255,.02);border:2px solid rgba(255,255,255,.07);border-radius:20px;padding:44px;position:relative;overflow:hidden;backdrop-filter:blur(14px);display:flex;flex-direction:column;height:100%;transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s ease,border-color .4s ease}
+        .price-c{background:rgba(255,255,255,.02);border:2px solid rgba(255,255,255,.07);border-radius:20px;padding:52px 44px;position:relative;overflow:hidden;backdrop-filter:blur(14px);display:flex;flex-direction:column;height:100%;min-height:620px;transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s ease,border-color .4s ease}
+        .price-c .pf{padding:14px 0;font-size:14.5px}
         .price-c:hover{transform:translateY(-6px) scale(1.025)}
         .price-c-premium:hover{box-shadow:0 0 0 1px rgba(255,228,181,.8),0 0 24px rgba(255,140,0,.85),0 0 64px rgba(255,140,0,.6),0 0 110px rgba(255,140,0,.35),inset 0 0 28px rgba(255,140,0,.12),0 28px 90px rgba(0,0,0,.6)}
         .price-c .pf:last-of-type{flex:0}
