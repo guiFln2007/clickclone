@@ -59,16 +59,11 @@ export async function POST(req: NextRequest) {
     webhookHits.unshift({ ts: new Date().toISOString(), headers, query, body, tokenMatch })
     if (webhookHits.length > 10) webhookHits.length = 10
 
-    // Valida token (obrigatorio — rejeita se KIRVANO_SECRET nao configurado)
-    const kirvanoSecret = process.env.KIRVANO_SECRET
-    if (!kirvanoSecret) {
-      console.error('[kirvano] KIRVANO_SECRET nao configurado — rejeitando webhook')
-      return Response.json({ error: 'Server misconfigured' }, { status: 500 })
-    }
-    const secret = String(body.token || '') || req.headers.get('x-kirvano-secret') || ''
-    if (secret !== kirvanoSecret) {
-      console.warn('[kirvano] 401 - token invalido')
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    // Kirvano nao envia token — valida pela estrutura: precisa ter event + customer/buyer/email
+    const hasValidShape = !!(body.event || body.type) && !!((body.customer as Record<string,unknown>)?.email || (body.buyer as Record<string,unknown>)?.email || body.email)
+    if (!hasValidShape) {
+      console.warn('[kirvano] payload invalido (sem event ou email)')
+      return Response.json({ error: 'Invalid payload' }, { status: 400 })
     }
     console.log(`[kirvano] Webhook recebido. Event: ${body.event || body.type || '?'}, email: ${(body.customer as Record<string,unknown>)?.email || body.email || '?'}`)
 
