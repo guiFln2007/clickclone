@@ -737,7 +737,7 @@ export default function LandingPage() {
                 </div>
                 <span className="plan-badge plan-badge-starter">Starter</span>
               </div>
-              {['10 an\u00e1lises por m\u00eas','10 minera\u00e7\u00f5es autom\u00e1ticas','Score completo da oferta','\u00c2ngulo + pontos fracos + pontos fortes','3 scripts de CTV por an\u00e1lise','Rastreamento de 5 ofertas','Atualiza\u00e7\u00e3o di\u00e1ria autom\u00e1tica','Suporte 24h via WhatsApp','Alertas de varia\u00e7\u00e3o','Hist\u00f3rico de 30 dias'].map(f => (
+              {['10 an\u00e1lises por m\u00eas','10 minera\u00e7\u00f5es por m\u00eas','5 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte 24h'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
               <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Come{'\u00e7'}ar agora {'\u2192'}</a>
@@ -752,7 +752,7 @@ export default function LandingPage() {
                 </div>
                 <span className="plan-badge plan-badge-premium">{'\u2605'} Mais popular</span>
               </div>
-              {['20 an\u00e1lises por m\u00eas (60 no trimestre)','20 minera\u00e7\u00f5es por m\u00eas (60 no trimestre)','Tudo do Starter Pack','Rastreamento de 10 ofertas','Alertas de novos an\u00fancios escalados','10 scripts de CTV por an\u00e1lise','Suporte VIP via WhatsApp','Acesso antecipado a updates','Hist\u00f3rico completo','Relat\u00f3rios de tend\u00eancia'].map(f => (
+              {['20 an\u00e1lises por m\u00eas','20 minera\u00e7\u00f5es por m\u00eas','10 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte priorit\u00e1rio'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
               <a href={PREMIUM_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Quero o Premium {'\u2192'}</a>
