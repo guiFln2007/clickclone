@@ -12,7 +12,7 @@ import { sendWelcomeEmail } from '@/lib/mailer'
 import { verifyAdminToken } from '@/lib/admin-jwt'
 
 async function requireAdmin(req: NextRequest) {
-  const token = req.cookies.get('admin_token')?.value
+  const token = req.cookies.get('cc_admin')?.value
   if (!token) return false
   try { await verifyAdminToken(token); return true } catch { return false }
 }
