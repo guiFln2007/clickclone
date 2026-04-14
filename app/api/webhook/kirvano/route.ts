@@ -27,7 +27,7 @@ function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
 
 // Debug: keep last 10 webhook hits in memory
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const webhookHits: { ts: string; status: string; body: any; tokenMatch?: boolean }[] = []
+const webhookHits: { ts: string; headers: Record<string, string>; query: Record<string, string>; body: any; tokenMatch?: boolean }[] = []
 
 export async function GET() {
   return Response.json({ count: webhookHits.length, hits: webhookHits })
@@ -36,9 +36,27 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const incomingToken = String(body.token || '') || req.headers.get('x-kirvano-secret') || ''
-    const tokenMatch = incomingToken === process.env.KIRVANO_SECRET
-    webhookHits.unshift({ ts: new Date().toISOString(), status: 'received', body, tokenMatch })
+    const headers: Record<string, string> = {}
+    req.headers.forEach((v, k) => { headers[k] = v })
+    const query: Record<string, string> = {}
+    req.nextUrl.searchParams.forEach((v, k) => { query[k] = v })
+
+    const expectedToken = process.env.KIRVANO_SECRET || ''
+    // Try every reasonable place the token might come in
+    const candidates = [
+      String(body.token || ''),
+      req.headers.get('x-kirvano-secret') || '',
+      req.headers.get('x-webhook-token') || '',
+      req.headers.get('x-webhook-secret') || '',
+      req.headers.get('x-secret') || '',
+      req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '',
+      req.nextUrl.searchParams.get('token') || '',
+      req.nextUrl.searchParams.get('secret') || '',
+    ]
+    const incomingToken = candidates.find(c => c === expectedToken) || candidates.find(c => c.length > 0) || ''
+    const tokenMatch = incomingToken === expectedToken && expectedToken.length > 0
+
+    webhookHits.unshift({ ts: new Date().toISOString(), headers, query, body, tokenMatch })
     if (webhookHits.length > 10) webhookHits.length = 10
 
     // Valida token (obrigatorio — rejeita se KIRVANO_SECRET nao configurado)
