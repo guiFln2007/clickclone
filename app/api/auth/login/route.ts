@@ -3,31 +3,8 @@ import bcrypt from 'bcryptjs'
 import { dbGetUserByEmail, dbSetHash } from '@/lib/db'
 import { signToken } from '@/lib/jwt'
 
-// Simple in-memory rate limiter (per IP, 5 attempts per 15 min)
-const loginAttempts = new Map<string, { count: number; resetAt: number }>()
-const MAX_ATTEMPTS = 5
-const WINDOW_MS = 15 * 60 * 1000
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const entry = loginAttempts.get(ip)
-  if (!entry || now > entry.resetAt) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS })
-    return true
-  }
-  if (entry.count >= MAX_ATTEMPTS) return false
-  entry.count++
-  return true
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
-
-    if (!checkRateLimit(ip)) {
-      return Response.json({ error: 'Muitas tentativas. Tente novamente em 15 minutos.' }, { status: 429 })
-    }
-
     const { email, password } = await req.json()
 
     if (!email || !password) {
