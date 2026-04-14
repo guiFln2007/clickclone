@@ -24,7 +24,7 @@ jobs:
         run: |
           response=$(curl -s -m 60 \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "https://clickclone.forbuy.shop/api/cron/check-radar?mode=list")
+            "https://ratoads.com.br/api/cron/check-radar?mode=list")
           echo "$response"
           # Extract ids using jq
           ids=$(echo "$response" | jq -r '.ids[].id' 2>/dev/null || echo "")
@@ -58,7 +58,7 @@ jobs:
             fi
             response=$(curl -s -w "\nHTTP:%{http_code}" -m 280 \
               -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-              "https://clickclone.forbuy.shop/api/cron/check-radar?id=$id${force_param}")
+              "https://ratoads.com.br/api/cron/check-radar?id=$id${force_param}")
 
             http=$(echo "$response" | tail -n1 | sed 's/HTTP://')
             body=$(echo "$response" | sed '$d')

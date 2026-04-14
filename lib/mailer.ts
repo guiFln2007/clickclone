@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-const BASE_URL = process.env.NEXT_PUBLIC_URL || 'https://clickclone.com.br'
+const BASE_URL = process.env.NEXT_PUBLIC_URL || 'https://ratoads.com.br'
 
 export async function sendWelcomeEmail(email: string, name: string, tempPassword: string) {
   if (!process.env.SMTP_USER) return // skip if not configured
@@ -18,22 +18,22 @@ export async function sendWelcomeEmail(email: string, name: string, tempPassword
   const firstName = name ? name.split(' ')[0] : ''
 
   await transporter.sendMail({
-    from: `"ClickClone" <${process.env.SMTP_USER}>`,
+    from: `"RatoAds" <${process.env.SMTP_USER}>`,
     to: email,
-    subject: 'Seu acesso ao ClickClone está pronto ⚡',
+    subject: 'Seu acesso ao RatoAds está pronto ⚡',
     html: `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Bem-vindo ao ClickClone</title>
+<title>Bem-vindo ao RatoAds</title>
 </head>
 <body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
   <div style="max-width:560px;margin:0 auto;padding:32px 16px">
 
     <!-- Logo -->
     <div style="text-align:center;margin-bottom:32px">
-      <img src="${BASE_URL}/logo.png" alt="ClickClone" height="32" style="height:32px;width:auto"/>
+      <img src="${BASE_URL}/logo.png" alt="RatoAds" height="32" style="height:32px;width:auto"/>
     </div>
 
     <!-- Card principal -->
@@ -46,7 +46,7 @@ export async function sendWelcomeEmail(email: string, name: string, tempPassword
           ${firstName ? `Olá, ${firstName}! 👋` : 'Bem-vindo! 👋'}
         </h1>
         <p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,.85)">
-          Sua conta no ClickClone foi criada. Use os dados abaixo para entrar.
+          Sua conta no RatoAds foi criada. Use os dados abaixo para entrar.
         </p>
       </div>
 
@@ -92,7 +92,7 @@ export async function sendWelcomeEmail(email: string, name: string, tempPassword
         <!-- CTA -->
         <a href="${BASE_URL}/login"
            style="display:block;text-align:center;background:#E8692A;color:#fff;padding:16px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px">
-          Entrar no ClickClone →
+          Entrar no RatoAds →
         </a>
 
       </div>

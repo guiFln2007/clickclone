@@ -130,15 +130,15 @@ export default function PlansPage() {
 
             <div className="plan-features">
               {(isPremium ? [
-                '15 an\u00e1lises por trimestre',
-                '15 minera\u00e7\u00f5es autom\u00e1ticas',
+                '20 an\u00e1lises por m\u00eas (60 no trimestre)',
+                '20 minera\u00e7\u00f5es por m\u00eas (60 no trimestre)',
                 'Rastreamento de 10 ofertas',
                 'Atualiza\u00e7\u00e3o di\u00e1ria autom\u00e1tica',
                 'Suporte VIP via WhatsApp',
                 'Hist\u00f3rico completo',
               ] : [
-                '5 an\u00e1lises por m\u00eas',
-                '5 minera\u00e7\u00f5es autom\u00e1ticas',
+                '10 an\u00e1lises por m\u00eas',
+                '10 minera\u00e7\u00f5es autom\u00e1ticas',
                 'Rastreamento de 5 ofertas',
                 'Atualiza\u00e7\u00e3o di\u00e1ria autom\u00e1tica',
                 'Suporte 24h via WhatsApp',

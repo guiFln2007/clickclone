@@ -127,8 +127,8 @@ export async function initDb() {
 
 // Plan definitions — single source of truth
 export const PLANS: Record<string, { analises: number; mineracoes: number; slots_radar: number; label: string; periodo: string; dias: number }> = {
-  starter: { analises: 5, mineracoes: 5, slots_radar: 5, label: 'Starter', periodo: 'mensal', dias: 30 },
-  premium: { analises: 15, mineracoes: 15, slots_radar: 10, label: 'Premium', periodo: 'trimestral', dias: 90 },
+  starter: { analises: 10, mineracoes: 10, slots_radar: 5, label: 'Starter', periodo: 'mensal', dias: 30 },
+  premium: { analises: 60, mineracoes: 60, slots_radar: 10, label: 'Premium', periodo: 'trimestral', dias: 90 },
 }
 
 export type User = {

@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: 'clickclone',
+    name: 'ratoads',
     script: 'server.js',
     env: {
       NODE_ENV: 'production',

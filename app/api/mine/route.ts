@@ -62,24 +62,6 @@ function setCachedRun(keyword: string, runId: string) {
   mineCache.set(key, { runId, createdAt: Date.now() })
 }
 
-// SAFEGUARD 3: Throttle por usuario — max 5 mineracoes a cada 1h
-const userMineHistory = new Map<number, number[]>() // userId -> timestamps
-const USER_MINE_LIMIT = 5
-const USER_MINE_WINDOW_MS = 60 * 60 * 1000 // 1 hora
-
-function checkUserMineLimit(userId: number): { allowed: boolean; remaining: number; resetInMin: number } {
-  const now = Date.now()
-  const history = (userMineHistory.get(userId) || []).filter(t => now - t < USER_MINE_WINDOW_MS)
-  if (history.length >= USER_MINE_LIMIT) {
-    const oldest = Math.min(...history)
-    const resetInMin = Math.ceil((USER_MINE_WINDOW_MS - (now - oldest)) / 60000)
-    return { allowed: false, remaining: 0, resetInMin }
-  }
-  history.push(now)
-  userMineHistory.set(userId, history)
-  return { allowed: true, remaining: USER_MINE_LIMIT - history.length, resetInMin: 0 }
-}
-
 type ApifyAd = {
   snapshot?: {
     page_id?: string | number
@@ -163,14 +145,6 @@ export async function POST(req: NextRequest) {
 
   const kw = keyword.trim()
 
-  // SAFEGUARD: throttle por usuario (5 mineracoes/hora)
-  const limit = checkUserMineLimit(userId)
-  if (!limit.allowed) {
-    return NextResponse.json({
-      error: `Limite de mineracoes atingido. Tente novamente em ${limit.resetInMin} min (max 5/hora)`
-    }, { status: 429 })
-  }
-
   // SAFEGUARD: cache de 6h por keyword
   const cachedRunId = getCachedRun(kw)
   if (cachedRunId) {
@@ -180,7 +154,7 @@ export async function POST(req: NextRequest) {
 
   // Decrementa quota de mineracao
   await dbDecrementMineracoes(userId)
-  console.log(`[Mine] Starting for keyword: "${kw}" (${limit.remaining} restantes na hora, ${(user.mineracoes ?? 1) - 1} mineracoes restantes)`)
+  console.log(`[Mine] Starting for keyword: "${kw}" (${(user.mineracoes ?? 1) - 1} mineracoes restantes)`)
 
   // 1ª tentativa: scraper local (Mac via Cloudflare Tunnel)
   if (SCRAPER_URL) {
