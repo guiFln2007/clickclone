@@ -78,9 +78,9 @@ export async function sendWelcomeEmail(email: string, name: string, tempPassword
           <div style="font-size:11px;font-weight:700;color:#444;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">Seu plano inclui</div>
           <div style="display:flex;flex-direction:column;gap:10px">
             ${[
-              ['⚡', '100 créditos de edição com IA'],
-              ['🔍', '10 análises de concorrentes'],
-              ['🚀', 'Geração ilimitada de páginas'],
+              ['🔍', 'Análise completa de ofertas escaladas'],
+              ['⚡', 'Mineração automática por palavra-chave'],
+              ['📊', 'Rastreamento diário de concorrentes'],
             ].map(([icon, text]) => `
             <div style="display:flex;align-items:center;gap:12px">
               <div style="width:32px;height:32px;border-radius:8px;background:#1a1a1a;border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${icon}</div>
