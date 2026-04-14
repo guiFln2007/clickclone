@@ -1,6 +1,10 @@
 import jwt from 'jsonwebtoken'
 
-const SECRET: string = process.env.JWT_SECRET ?? (() => { throw new Error('JWT_SECRET env var is required') })()
+function getSecret(): string {
+  const s = process.env.JWT_SECRET
+  if (!s) throw new Error('JWT_SECRET env var is required')
+  return s
+}
 
 export type JwtPayload = {
   sub: number   // user id
@@ -10,12 +14,12 @@ export type JwtPayload = {
 }
 
 export function signToken(payload: Omit<JwtPayload, 'iat' | 'exp'>): string {
-  return jwt.sign(payload, SECRET, { expiresIn: '7d' })
+  return jwt.sign(payload, getSecret(), { expiresIn: '7d' })
 }
 
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    return jwt.verify(token, SECRET) as unknown as JwtPayload
+    return jwt.verify(token, getSecret()) as unknown as JwtPayload
   } catch {
     return null
   }

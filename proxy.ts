@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 
-const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || (() => { throw new Error('JWT_SECRET env var is required') })()
-)
+function getSecret(): Uint8Array {
+  const s = process.env.JWT_SECRET
+  if (!s) throw new Error('JWT_SECRET env var is required')
+  return new TextEncoder().encode(s)
+}
 
-const ADMIN_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_SECRET || (() => { throw new Error('ADMIN_SECRET env var is required') })()
-)
+function getAdminSecret(): Uint8Array {
+  const s = process.env.ADMIN_SECRET
+  if (!s) throw new Error('ADMIN_SECRET env var is required')
+  return new TextEncoder().encode(s)
+}
 
 const PUBLIC_PATHS = ['/login', '/api/auth', '/api/webhook', '/_next', '/favicon']
 
@@ -40,7 +44,7 @@ export async function proxy(req: NextRequest) {
       return NextResponse.redirect(new URL('/admin/login', req.url))
     }
     try {
-      await jwtVerify(adminToken, ADMIN_SECRET)
+      await jwtVerify(adminToken, getAdminSecret())
       return addSecurityHeaders(NextResponse.next())
     } catch {
       if (pathname.startsWith('/api/admin')) {
@@ -75,7 +79,7 @@ export async function proxy(req: NextRequest) {
   }
 
   try {
-    const { payload } = await jwtVerify(token, SECRET)
+    const { payload } = await jwtVerify(token, getSecret())
     const requestHeaders = new Headers(req.headers)
     requestHeaders.set('x-user-id', String(payload.sub))
     requestHeaders.set('x-user-email', String(payload.email || ''))
