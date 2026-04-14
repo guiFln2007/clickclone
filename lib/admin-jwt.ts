@@ -1,16 +1,18 @@
 import { SignJWT, jwtVerify } from 'jose'
 
-const ADMIN_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_SECRET || (() => { throw new Error('ADMIN_SECRET env var is required') })()
-)
+function getSecret(): Uint8Array {
+  const s = process.env.ADMIN_SECRET
+  if (!s) throw new Error('ADMIN_SECRET env var is required')
+  return new TextEncoder().encode(s)
+}
 
 export async function signAdminToken(): Promise<string> {
   return new SignJWT({ role: 'admin' })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('12h')
-    .sign(ADMIN_SECRET)
+    .sign(getSecret())
 }
 
 export async function verifyAdminToken(token: string) {
-  return jwtVerify(token, ADMIN_SECRET)
+  return jwtVerify(token, getSecret())
 }
