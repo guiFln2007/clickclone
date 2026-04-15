@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const existing = await dbGetTrackedOffers(userId)
   const maxSlots = user.max_slots_radar ?? 5
   if (existing.length >= maxSlots) {
-    return NextResponse.json({ error: `Limite de ${maxSlots} ofertas no radar atingido. Remova uma oferta ou fa\u00e7a upgrade.` }, { status: 402 })
+    return NextResponse.json({ error: `Limite de ${maxSlots} ofertas no radar atingido. Adquirir Vers\u00e3o Completa.` }, { status: 402 })
   }
 
   // Extract numeric page_id from URL (only count numeric IDs as real page_ids for matching)

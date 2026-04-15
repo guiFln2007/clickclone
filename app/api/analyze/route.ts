@@ -989,7 +989,7 @@ export async function POST(req: NextRequest) {
     }
     if (user.analises <= 0) {
       return NextResponse.json({
-        error: 'Limite de análises atingido. Faça upgrade para continuar.',
+        error: 'Limite de análises atingido. Adquirir Versão Completa.',
         upgrade: true,
       }, { status: 402 })
     }

@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
 
   // Checa quota de mineracoes do plano
   if ((user.mineracoes ?? 0) <= 0) {
-    return NextResponse.json({ error: 'Limite de minera\u00e7\u00f5es atingido neste per\u00edodo. Fa\u00e7a upgrade ou aguarde a renova\u00e7\u00e3o.' }, { status: 402 })
+    return NextResponse.json({ error: 'Limite de minera\u00e7\u00f5es atingido. Adquirir Vers\u00e3o Completa.' }, { status: 402 })
   }
 
   const { keyword } = await req.json()
