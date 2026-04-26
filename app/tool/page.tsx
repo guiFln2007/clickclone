@@ -656,14 +656,14 @@ export default function ToolPage() {
             ))}
           </nav>
           <div className="header-right" ref={profileRef}>
-            <div className="header-saldo">{plano === 'premium' ? 'Premium' : 'Starter'}</div>
+            <div className="header-saldo">{plano === 'trial' ? 'Trial' : plano === 'premium' ? 'Premium' : 'Starter'}</div>
             <button className="header-avatar" onClick={() => setProfileOpen(o => !o)}>
               {userName ? userName[0].toUpperCase() : '?'}
             </button>
             {profileOpen && (
               <div className="profile-drop">
                 <div className="profile-name">{userName}</div>
-                <div className="profile-plan-badge">{plano === 'premium' ? 'Premium' : 'Starter'}</div>
+                <div className="profile-plan-badge" style={plano === 'trial' ? { background: 'rgba(16,185,129,.12)', color: '#10B981', borderColor: 'rgba(16,185,129,.25)' } : undefined}>{plano === 'trial' ? 'Trial' : plano === 'premium' ? 'Premium' : 'Starter'}</div>
                 <div className="profile-quotas">
                   <div className="pq-row"><span className="pq-label">An{'\u00e1'}lises</span><span className="pq-val">{analises ?? 0}/{maxAnalises}</span></div>
                   <div className="pq-row"><span className="pq-label">Minera{'\u00e7\u00f5'}es</span><span className="pq-val">{mineracoes ?? 0}/{maxMineracoes}</span></div>
@@ -681,6 +681,50 @@ export default function ToolPage() {
 
         {/* CONTENT */}
         <main className="content">
+
+          {/* TRIAL BANNER */}
+          {plano === 'trial' && (() => {
+            const diasRestantes = renovaEm ? Math.max(0, Math.ceil((new Date(renovaEm).getTime() - Date.now()) / 86400000)) : 30
+            const usouAnalise = analises === 0
+            const usouMineracao = mineracoes === 0
+            const urgente = diasRestantes <= 7
+            const expirado = diasRestantes === 0
+
+            const msgs = expirado
+              ? { title: 'Seu teste gratuito expirou', sub: 'Assine agora pra continuar analisando seus concorrentes.', color: '#ef4444', bg: 'rgba(239,68,68,.08)', border: 'rgba(239,68,68,.25)' }
+              : urgente
+              ? { title: `Faltam ${diasRestantes} dias pro seu teste acabar`, sub: 'Garanta seu plano antes de perder o acesso.', color: '#f59e0b', bg: 'rgba(245,158,11,.06)', border: 'rgba(245,158,11,.25)' }
+              : usouAnalise && usouMineracao
+              ? { title: 'Você usou toda sua cota do teste', sub: 'Desbloqueie 10 análises + 10 minerações com o Starter.', color: '#f59e0b', bg: 'rgba(245,158,11,.06)', border: 'rgba(245,158,11,.25)' }
+              : usouAnalise || usouMineracao
+              ? { title: `Sua ${usouAnalise ? 'análise' : 'mineração'} gratuita foi usada`, sub: 'Quer mais? O plano Starter dá 10x mais recursos.', color: '#10B981', bg: 'rgba(16,185,129,.06)', border: 'rgba(16,185,129,.25)' }
+              : { title: `Você está no teste grátis — ${diasRestantes} dias restantes`, sub: 'Explore o RatoAds! Assine quando quiser pra desbloquear mais.', color: '#10B981', bg: 'rgba(16,185,129,.06)', border: 'rgba(16,185,129,.25)' }
+
+            return (
+              <div style={{
+                margin: '0 auto 0', maxWidth: 1000, padding: '0 32px',
+              }}>
+                <div style={{
+                  background: msgs.bg, border: `1px solid ${msgs.border}`,
+                  borderRadius: 12, padding: '16px 24px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: 16, flexWrap: 'wrap', marginTop: 20,
+                }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: msgs.color, marginBottom: 2 }}>{msgs.title}</div>
+                    <div style={{ fontSize: 13, color: '#888', fontWeight: 400 }}>{msgs.sub}</div>
+                  </div>
+                  <a href="/settings/plans" style={{
+                    background: msgs.color, color: '#fff', padding: '10px 20px',
+                    borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: 'none',
+                    whiteSpace: 'nowrap', flexShrink: 0,
+                  }}>
+                    {expirado ? 'Assinar agora' : 'Ver planos'}
+                  </a>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* ── ABA ANALISE ── */}
           {activeTab === 'analise' && (

@@ -111,3 +111,90 @@ export async function sendWelcomeEmail(email: string, name: string, tempPassword
 </html>`,
   })
 }
+
+export async function sendTrialEmail(email: string, tempPassword: string) {
+  if (!process.env.SMTP_USER) return
+
+  await transporter.sendMail({
+    from: `"RatoAds" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: 'Seu teste grátis do RatoAds está ativo',
+    html: `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Teste Grátis - RatoAds</title>
+</head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 16px">
+
+    <div style="text-align:center;margin-bottom:32px">
+      <img src="${BASE_URL}/logo.png" alt="RatoAds" height="32" style="height:32px;width:auto"/>
+    </div>
+
+    <div style="background:#111;border:1px solid #222;border-radius:16px;overflow:hidden">
+
+      <div style="background:linear-gradient(135deg,#10B981 0%,#059669 100%);padding:32px 32px 28px">
+        <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.7);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Teste gratuito</div>
+        <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;line-height:1.2">
+          Seu acesso está pronto
+        </h1>
+        <p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,.85)">
+          Você tem <strong>30 dias</strong> para testar o RatoAds sem pagar nada.
+        </p>
+      </div>
+
+      <div style="padding:32px">
+
+        <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:20px;margin-bottom:24px">
+          <div style="font-size:11px;font-weight:700;color:#666;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">Suas credenciais</div>
+          <div style="margin-bottom:12px">
+            <div style="font-size:12px;color:#555;margin-bottom:4px">Login</div>
+            <div style="font-size:15px;color:#ccc;font-weight:500">${email}</div>
+          </div>
+          <div style="border-top:1px solid #222;padding-top:12px">
+            <div style="font-size:12px;color:#555;margin-bottom:4px">Senha temporária</div>
+            <div style="display:inline-block;background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 14px;font-family:monospace;font-size:18px;font-weight:700;color:#10B981;letter-spacing:2px">${tempPassword}</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:28px">
+          <div style="font-size:11px;font-weight:700;color:#444;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">Seu teste inclui</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${[
+              ['1x', 'Análise completa de oferta'],
+              ['1x', 'Mineração automática'],
+              ['1x', 'Slot de rastreamento'],
+            ].map(([n, text]) => `
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:32px;height:32px;border-radius:8px;background:#1a1a1a;border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#10B981;flex-shrink:0">${n}</div>
+              <span style="font-size:14px;color:#999">${text}</span>
+            </div>`).join('')}
+          </div>
+        </div>
+
+        <a href="${BASE_URL}/login"
+           style="display:block;text-align:center;background:#10B981;color:#fff;padding:16px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px">
+          Entrar no RatoAds →
+        </a>
+
+        <div style="background:#1a1500;border:1px solid #2a2000;border-radius:8px;padding:12px 16px;margin-top:20px">
+          <div style="font-size:13px;color:#b8860b">Gostou? Assine o Starter (R$57,90/mês) e desbloqueie 10 análises, 10 minerações e 5 slots de radar.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:24px">
+      <p style="font-size:12px;color:#333;margin:0 0 6px">
+        Dúvidas? Responda este email.
+      </p>
+      <a href="${BASE_URL}" style="font-size:12px;color:#555;text-decoration:none">${BASE_URL}</a>
+    </div>
+
+  </div>
+</body>
+</html>`,
+  })
+}
