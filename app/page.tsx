@@ -881,7 +881,7 @@ export default function LandingPage() {
                 </div>
                 <span className="plan-badge plan-badge-trial">Trial</span>
               </div>
-              {['1 an\u00e1lise completa','1 minera\u00e7\u00e3o autom\u00e1tica','1 slot de rastreamento','Scripts de CTV inclu\u00eddos','Sem cart\u00e3o de cr\u00e9dito'].map(f => (
+              {['3 an\u00e1lises completas','3 minera\u00e7\u00f5es autom\u00e1ticas','3 slots de rastreamento','Scripts de CTV inclu\u00eddos','Sem cart\u00e3o de cr\u00e9dito'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
               {!trialOpen ? (
@@ -921,7 +921,7 @@ export default function LandingPage() {
                 </div>
                 <span className="plan-badge plan-badge-starter">Starter</span>
               </div>
-              {['10 an\u00e1lises por m\u00eas','10 minera\u00e7\u00f5es por m\u00eas','5 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte 24h'].map(f => (
+              {['10 an\u00e1lises por m\u00eas','10 minera\u00e7\u00f5es por m\u00eas','10 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte 24h'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
               <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Come{'\u00e7'}ar agora {'\u2192'}</a>
@@ -936,7 +936,7 @@ export default function LandingPage() {
                 </div>
                 <span className="plan-badge plan-badge-premium">{'\u2605'} Mais popular</span>
               </div>
-              {['20 an\u00e1lises por m\u00eas','20 minera\u00e7\u00f5es por m\u00eas','10 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte priorit\u00e1rio'].map(f => (
+              {['20 an\u00e1lises por m\u00eas','20 minera\u00e7\u00f5es por m\u00eas','20 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte priorit\u00e1rio'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
               <a href={PREMIUM_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Quero o Premium {'\u2192'}</a>

@@ -518,9 +518,9 @@ function AdminUsersContent() {
                   <div>
                     <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Plano</label>
                     <select value={createForm.plano} onChange={(e) => setCreateForm(f => ({ ...f, plano: e.target.value }))} style={{ ...inputStyle, cursor: 'pointer' }}>
-                      <option value="trial">Trial (1/1/1)</option>
-                      <option value="starter">Starter (10/10/5)</option>
-                      <option value="premium">Premium (20/20/10)</option>
+                      <option value="trial">Trial (3/3/3)</option>
+                      <option value="starter">Starter (10/10/10)</option>
+                      <option value="premium">Premium (20/20/20)</option>
                     </select>
                   </div>
                   <div style={{ display: 'flex', gap: 10 }}>

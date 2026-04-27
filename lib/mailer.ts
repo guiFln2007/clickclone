@@ -20,6 +20,7 @@ function wrap(body: string) {
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
 <body style="margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;font-size:15px;line-height:1.7">
   <div style="max-width:520px;margin:0 auto;padding:32px 20px">
+    <p style="margin:0 0 24px"><img src="${BASE_URL}/logo.png" alt="RatoAds" height="28" style="height:28px;width:auto"/></p>
 ${body}
   </div>
 </body>
@@ -72,12 +73,12 @@ export async function sendTrialEmail(email: string, tempPassword: string) {
 
     <p>O que tá incluso no seu teste:</p>
     <ul style="padding-left:20px;color:#444">
-      <li>1 análise completa de oferta</li>
-      <li>1 mineração automática</li>
-      <li>1 slot de rastreamento</li>
+      <li>3 análises completas</li>
+      <li>3 minerações automáticas</li>
+      <li>3 slots de rastreamento</li>
     </ul>
 
-    <p style="color:#888;font-size:13px">Curtiu e quer mais? O plano Starter dá 10 análises, 10 minerações e 5 slots por R$57,90/mês.</p>
+    <p style="color:#888;font-size:13px">Curtiu e quer mais? O plano Starter dá 10 análises, 10 minerações e 10 slots por R$57,90/mês.</p>
 
     <p style="margin-top:32px;color:#888;font-size:13px">Qualquer dúvida, responde esse email.<br>
     &mdash; Equipe RatoAds</p>
@@ -95,7 +96,7 @@ export async function sendTrialDiscountEmail(email: string, reason: 'quota' | 'e
   }
 
   const intros: Record<string, string> = {
-    quota: 'Você usou toda sua cota gratuita do RatoAds. Se curtiu o que viu, agora imagina com <strong>10 análises, 10 minerações e 5 slots</strong> todo mês.',
+    quota: 'Você usou toda sua cota gratuita do RatoAds. Se curtiu o que viu, agora imagina com <strong>10 análises, 10 minerações e 10 slots</strong> todo mês.',
     expiring: 'Seu teste gratuito tá acabando. Não perde o ritmo — assine e continue espionando seus concorrentes sem pausa.',
     expired: 'Seu teste gratuito expirou, mas seus dados ainda tão aqui. Assine e volta de onde parou.',
   }
@@ -125,6 +126,33 @@ export async function sendTrialDiscountEmail(email: string, reason: 'quota' | 'e
   })
 }
 
+export async function sendTrialUpgradeEmail(email: string) {
+  if (!process.env.SMTP_USER) return
+
+  await transporter.sendMail({
+    from: `"RatoAds" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: 'Seu teste foi atualizado!',
+    html: wrap(`
+    <p>Boas novas! Atualizamos o plano de teste gratuito do RatoAds.</p>
+
+    <p>Agora você tem:</p>
+    <ul style="padding-left:20px;color:#444">
+      <li><strong>3 análises</strong> completas (era 1)</li>
+      <li><strong>3 minerações</strong> automáticas (era 1)</li>
+      <li><strong>3 slots</strong> de rastreamento (era 1)</li>
+    </ul>
+
+    <p>Se você já tinha usado sua cota, restauramos os créditos extras. Aproveita!</p>
+
+    <p><a href="${BASE_URL}/login" style="color:#E8692A;font-weight:bold">Entrar no RatoAds &rarr;</a></p>
+
+    <p style="margin-top:32px;color:#888;font-size:13px">Qualquer dúvida, responde esse email.<br>
+    &mdash; Equipe RatoAds</p>
+    `),
+  })
+}
+
 export async function sendBustedEmail(email: string) {
   if (!process.env.SMTP_USER) return
 
@@ -143,7 +171,7 @@ export async function sendBustedEmail(email: string) {
       <code style="background:#f3f3f3;padding:10px 24px;border-radius:6px;font-size:22px;font-weight:bold;color:#E8692A;letter-spacing:2px">DESCONTO10</code>
     </p>
 
-    <p>10 análises, 10 minerações, 5 slots de radar. Tudo por <strong>R$52,11/mês</strong>. Sem precisar ficar criando email novo toda hora.</p>
+    <p>10 análises, 10 minerações, 10 slots de radar. Tudo por <strong>R$52,11/mês</strong>. Sem precisar ficar criando email novo toda hora.</p>
 
     <p><a href="${STARTER_URL}" style="color:#E8692A;font-weight:bold">Quero o acesso completo &rarr;</a></p>
 
