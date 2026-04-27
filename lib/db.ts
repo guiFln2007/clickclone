@@ -412,7 +412,8 @@ export async function dbAdminGetUsers(search: string, offset: number, limit: num
   await initDb()
   const like = `%${search}%`
   const res = await db.execute({
-    sql: `SELECT u.id, u.email, u.name, u.plano, u.analises, u.creditos, u.ativo,
+    sql: `SELECT u.id, u.email, u.name, u.plano, u.analises, u.mineracoes, u.creditos, u.ativo,
+                 u.max_analises, u.max_mineracoes, u.max_slots_radar, u.renova_em,
                  u.kirvano_id, u.created_at, u.hash,
                  (SELECT MAX(al.created_at) FROM analyses_log al WHERE al.user_id = u.id) as last_analysis
           FROM users u
@@ -462,6 +463,22 @@ export async function dbAdminSetAtivo(userId: number, ativo: number): Promise<vo
     sql: "UPDATE users SET ativo = ?, plano = CASE WHEN ? = 1 THEN 'pro' ELSE 'inativo' END WHERE id = ?",
     args: [ativo, ativo, userId],
   })
+}
+
+export async function dbAdminUpdateUser(userId: number, updates: {
+  email?: string; name?: string; plano?: string; analises?: number; mineracoes?: number;
+  max_analises?: number; max_mineracoes?: number; max_slots_radar?: number;
+  creditos?: number; ativo?: number; renova_em?: string | null;
+}): Promise<void> {
+  await initDb()
+  const sets: string[] = []
+  const args: (string | number | null)[] = []
+  for (const [key, val] of Object.entries(updates)) {
+    if (val !== undefined) { sets.push(`${key} = ?`); args.push(val) }
+  }
+  if (sets.length === 0) return
+  args.push(userId)
+  await db.execute({ sql: `UPDATE users SET ${sets.join(', ')} WHERE id = ?`, args })
 }
 
 export async function dbAdminDeleteUser(userId: number): Promise<void> {

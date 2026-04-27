@@ -15,8 +15,15 @@ type AdminUser = {
   max_slots_radar: number
   creditos: number
   ativo: number
+  renova_em: string | null
   created_at: string
   last_analysis: string | null
+}
+
+type EditForm = {
+  email: string; name: string; plano: string;
+  analises: string; mineracoes: string; max_analises: string; max_mineracoes: string;
+  max_slots_radar: string; creditos: string; ativo: string; renova_em: string;
 }
 
 type Modal =
@@ -24,6 +31,7 @@ type Modal =
   | { type: 'delete'; user: AdminUser }
   | { type: 'reset'; user: AdminUser; tempPassword?: string }
   | { type: 'create' }
+  | { type: 'edit'; user: AdminUser }
 
 const LIMIT = 20
 
@@ -44,6 +52,7 @@ function AdminUsersContent() {
   const [actionLoading, setActionLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [createForm, setCreateForm] = useState({ email: '', name: '', analises: '5', mineracoes: '5', plano: 'starter' })
+  const [editForm, setEditForm] = useState<EditForm>({ email: '', name: '', plano: '', analises: '', mineracoes: '', max_analises: '', max_mineracoes: '', max_slots_radar: '', creditos: '', ativo: '1', renova_em: '' })
 
   const load = useCallback(async (s = search, p = page) => {
     setLoading(true)
@@ -113,6 +122,36 @@ function AdminUsersContent() {
       setActionLoading(false)
       await load()
       return
+    }
+
+    if (modal.type === 'edit') {
+      const res = await fetch(`/api/admin/users/${modal.user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          edit: {
+            email: editForm.email,
+            name: editForm.name || null,
+            plano: editForm.plano,
+            analises: Number(editForm.analises),
+            mineracoes: Number(editForm.mineracoes),
+            max_analises: Number(editForm.max_analises),
+            max_mineracoes: Number(editForm.max_mineracoes),
+            max_slots_radar: Number(editForm.max_slots_radar),
+            creditos: Number(editForm.creditos),
+            ativo: Number(editForm.ativo),
+            renova_em: editForm.renova_em || null,
+          },
+        }),
+      })
+      if (res.ok) {
+        showMsg(`Usuário ${editForm.email} atualizado`)
+      } else {
+        const data = await res.json()
+        showMsg(data.error || 'Erro ao atualizar')
+        setActionLoading(false)
+        return
+      }
     }
 
     if (modal.type === 'create') {
@@ -267,6 +306,16 @@ function AdminUsersContent() {
                   <td style={{ ...td, color: '#555', fontSize: 12 }}>{fmt(u.last_analysis)}</td>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      <button style={btn('#1a1a2e', '#a78bfa')} onClick={() => {
+                        setEditForm({
+                          email: u.email, name: u.name || '', plano: u.plano,
+                          analises: String(u.analises), mineracoes: String(u.mineracoes),
+                          max_analises: String(u.max_analises), max_mineracoes: String(u.max_mineracoes),
+                          max_slots_radar: String(u.max_slots_radar), creditos: String(u.creditos),
+                          ativo: String(u.ativo), renova_em: u.renova_em || '',
+                        })
+                        setModal({ type: 'edit', user: u })
+                      }}>Editar</button>
                       <button style={btn('#1a2a1e', '#4ade80')} onClick={() => { setActionVal(''); setModal({ type: 'analises', user: u }) }}>+An{'\u00e1'}lises</button>
                       <button style={btn('#1a1e2a', '#60a5fa')} onClick={() => { setActionVal(''); setModal({ type: 'mineracoes', user: u }) }}>+Minera{'\u00e7\u00f5'}es</button>
                       <button style={btn()} onClick={() => toggleAtivo(u)}>{u.ativo ? 'Desativar' : 'Ativar'}</button>
@@ -374,6 +423,82 @@ function AdminUsersContent() {
                   {modal.tempPassword}
                 </div>
                 <button onClick={() => setModal(null)} style={{ width: '100%', marginTop: 18, padding: '11px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, color: '#888', fontSize: 14, cursor: 'pointer' }}>Fechar</button>
+              </>
+            )}
+
+            {/* Edit user */}
+            {modal.type === 'edit' && (
+              <>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#a78bfa', margin: '0 0 18px' }}>Editar Usu{'\u00e1'}rio</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '60vh', overflowY: 'auto' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Email</label>
+                    <input type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Nome</label>
+                    <input type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} style={inputStyle} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Plano</label>
+                      <select value={editForm.plano} onChange={e => setEditForm(f => ({ ...f, plano: e.target.value }))} style={{ ...inputStyle, cursor: 'pointer' }}>
+                        <option value="trial">Trial</option>
+                        <option value="starter">Starter</option>
+                        <option value="premium">Premium</option>
+                        <option value="pro">Pro</option>
+                        <option value="inativo">Inativo</option>
+                      </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Status</label>
+                      <select value={editForm.ativo} onChange={e => setEditForm(f => ({ ...f, ativo: e.target.value }))} style={{ ...inputStyle, cursor: 'pointer' }}>
+                        <option value="1">Ativo</option>
+                        <option value="0">Inativo</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>An{'\u00e1'}lises</label>
+                      <input type="number" min={0} value={editForm.analises} onChange={e => setEditForm(f => ({ ...f, analises: e.target.value }))} style={inputStyle} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Max An{'\u00e1'}lises</label>
+                      <input type="number" min={0} value={editForm.max_analises} onChange={e => setEditForm(f => ({ ...f, max_analises: e.target.value }))} style={inputStyle} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Minera{'\u00e7\u00f5'}es</label>
+                      <input type="number" min={0} value={editForm.mineracoes} onChange={e => setEditForm(f => ({ ...f, mineracoes: e.target.value }))} style={inputStyle} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Max Minera{'\u00e7\u00f5'}es</label>
+                      <input type="number" min={0} value={editForm.max_mineracoes} onChange={e => setEditForm(f => ({ ...f, max_mineracoes: e.target.value }))} style={inputStyle} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Slots Radar</label>
+                      <input type="number" min={0} value={editForm.max_slots_radar} onChange={e => setEditForm(f => ({ ...f, max_slots_radar: e.target.value }))} style={inputStyle} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Cr{'\u00e9'}ditos</label>
+                      <input type="number" min={0} value={editForm.creditos} onChange={e => setEditForm(f => ({ ...f, creditos: e.target.value }))} style={inputStyle} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Renova em</label>
+                    <input type="datetime-local" value={editForm.renova_em ? editForm.renova_em.slice(0, 16) : ''} onChange={e => setEditForm(f => ({ ...f, renova_em: e.target.value ? new Date(e.target.value).toISOString() : '' }))} style={inputStyle} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+                  <button onClick={doAction} disabled={actionLoading} style={{ flex: 1, padding: '11px', background: '#7c3aed', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                    {actionLoading ? 'Salvando...' : 'Salvar'}
+                  </button>
+                  <button onClick={() => setModal(null)} style={{ flex: 1, padding: '11px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, color: '#888', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+                </div>
               </>
             )}
 

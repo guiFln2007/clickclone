@@ -5,6 +5,7 @@ import {
   dbAdminAddCreditos,
   dbAdminSetAtivo,
   dbAdminDeleteUser,
+  dbAdminUpdateUser,
   dbGetUserById,
   dbSetHash,
 } from '@/lib/db'
@@ -25,6 +26,22 @@ export async function PATCH(
   const { id: idStr } = await context.params
   const id = Number(idStr)
   const body = await req.json()
+
+  // Full edit mode
+  if (body.edit) {
+    const updates: Record<string, string | number | null> = {}
+    const fields = ['email', 'name', 'plano', 'analises', 'mineracoes', 'max_analises', 'max_mineracoes', 'max_slots_radar', 'creditos', 'ativo', 'renova_em'] as const
+    for (const f of fields) {
+      if (body.edit[f] !== undefined) {
+        updates[f] = body.edit[f]
+      }
+    }
+    await dbAdminUpdateUser(id, updates)
+    const user = await dbGetUserById(id)
+    if (!user) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+    const { hash: _h, ...safeUser } = user
+    return NextResponse.json({ user: safeUser })
+  }
 
   if (body.addAnalises) await dbAdminAddAnalises(id, Number(body.addAnalises))
   if (body.addMineracoes) {
