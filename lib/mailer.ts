@@ -268,8 +268,13 @@ export async function sendTrialDiscountEmail(email: string, reason: 'quota' | 'e
 
         <a href="${STARTER_URL}"
            style="display:block;text-align:center;background:#E8692A;color:#fff;padding:16px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px">
-          Garantir 10% de desconto →
+          Assinar o Starter →
         </a>
+
+        <div style="background:#0a0a0a;border:1px solid #333;border-radius:10px;padding:16px;margin-top:16px;text-align:center">
+          <div style="font-size:12px;color:#666;margin-bottom:6px">Use o cupom no checkout:</div>
+          <div style="font-family:monospace;font-size:22px;font-weight:800;color:#E8692A;letter-spacing:3px">DESCONTO10</div>
+        </div>
 
         <p style="text-align:center;font-size:12px;color:#333;margin-top:14px">
           Oferta válida por tempo limitado
