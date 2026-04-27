@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
   const { keyword } = await req.json()
   const minAnuncios = 3
-  const minDias = 10
+  const minDias = 5
   if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
   const kw = keyword.trim()
@@ -194,7 +194,7 @@ export async function GET(req: NextRequest) {
 
   const runId = req.nextUrl.searchParams.get('runId')
   const minAnuncios = 10
-  const minDias = 10
+  const minDias = 5
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
 
   // So bloqueia redes sociais como landing (sem bio links, sem expert filter)
@@ -240,8 +240,8 @@ export async function GET(req: NextRequest) {
         // Score recalibrado pra refletir o novo modelo de count (que e um floor)
         // Volume: 30+ = excelente, 20+ = bom, 15+ = ok, 10+ = limite
         const volPts = p.total_anuncios >= 30 ? 4 : p.total_anuncios >= 20 ? 3 : p.total_anuncios >= 15 ? 2 : p.total_anuncios >= 10 ? 1 : 0
-        // Tempo: 60+ dias = excelente, 30+ = bom, 15+ = ok, 10+ = limite
-        const tempoPts = p.dias_rodando === null ? 1 : p.dias_rodando >= 60 ? 4 : p.dias_rodando >= 30 ? 3 : p.dias_rodando >= 15 ? 2 : p.dias_rodando >= 10 ? 1 : 0
+        // Tempo: 60+ dias = excelente, 30+ = bom, 15+ = ok, 5+ = limite
+        const tempoPts = p.dias_rodando === null ? 1 : p.dias_rodando >= 60 ? 4 : p.dias_rodando >= 30 ? 3 : p.dias_rodando >= 15 ? 2 : p.dias_rodando >= 5 ? 1 : 0
         // Score 1-10: (volPts + tempoPts) * 10 / 8 (max=8)
         const score = Math.max(1, Math.min(10, Math.round((volPts + tempoPts) * 10 / 8)))
 
@@ -266,7 +266,7 @@ export async function GET(req: NextRequest) {
       .filter(p => {
         // Minimo: 10 anuncios ativos
         if (p.total_anuncios < minAnuncios) return false
-        // Minimo: 10 dias rodando
+        // Minimo: 5 dias rodando
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
         // Tem que ter landing
         const url = (p.landing_url || '').toLowerCase()
