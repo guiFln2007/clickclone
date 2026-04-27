@@ -122,6 +122,9 @@ export async function initDb() {
     try { await db.execute(sql) } catch { /* column already exists */ }
   }
 
+  // Migration: track trial nurture emails sent
+  try { await db.execute('ALTER TABLE users ADD COLUMN trial_email_sent TEXT') } catch { /* exists */ }
+
   initialized = true
 }
 
@@ -147,6 +150,7 @@ export type User = {
   ativo: number
   kirvano_id: string | null
   renova_em: string | null
+  trial_email_sent: string | null
   created_at: string
 }
 
@@ -175,6 +179,7 @@ function rowToUser(row: Record<string, unknown>): User {
     ativo: row.ativo as number,
     kirvano_id: (row.kirvano_id as string) ?? null,
     renova_em: (row.renova_em as string) ?? null,
+    trial_email_sent: (row.trial_email_sent as string) ?? null,
     created_at: row.created_at as string,
   }
 }
@@ -462,6 +467,29 @@ export async function dbAdminSetAtivo(userId: number, ativo: number): Promise<vo
   await db.execute({
     sql: "UPDATE users SET ativo = ?, plano = CASE WHEN ? = 1 THEN 'pro' ELSE 'inativo' END WHERE id = ?",
     args: [ativo, ativo, userId],
+  })
+}
+
+// ── Trial nurture ────────────────────────────────────────────────────────────
+
+export async function dbGetTrialUsersForNurture(): Promise<User[]> {
+  await initDb()
+  const res = await db.execute({
+    sql: `SELECT * FROM users WHERE plano = 'trial' AND ativo = 1`,
+    args: [],
+  })
+  return res.rows.map(r => rowToUser(r as Record<string, unknown>))
+}
+
+export async function dbMarkTrialEmail(userId: number, emailType: string): Promise<void> {
+  await initDb()
+  // Append to comma-separated list
+  await db.execute({
+    sql: `UPDATE users SET trial_email_sent = CASE
+            WHEN trial_email_sent IS NULL THEN ?
+            ELSE trial_email_sent || ',' || ?
+          END WHERE id = ?`,
+    args: [emailType, emailType, userId],
   })
 }
 
