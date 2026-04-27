@@ -125,6 +125,9 @@ export async function initDb() {
   // Migration: track trial nurture emails sent
   try { await db.execute('ALTER TABLE users ADD COLUMN trial_email_sent TEXT') } catch { /* exists */ }
 
+  // Migration: track trial signup IP
+  try { await db.execute('ALTER TABLE users ADD COLUMN trial_ip TEXT') } catch { /* exists */ }
+
   initialized = true
 }
 
@@ -471,6 +474,20 @@ export async function dbAdminSetAtivo(userId: number, ativo: number): Promise<vo
 }
 
 // ── Trial nurture ────────────────────────────────────────────────────────────
+
+export async function dbCheckTrialIp(ip: string): Promise<boolean> {
+  await initDb()
+  const res = await db.execute({
+    sql: "SELECT COUNT(*) as n FROM users WHERE trial_ip = ? AND plano = 'trial'",
+    args: [ip],
+  })
+  return Number(res.rows[0].n) > 0
+}
+
+export async function dbSetTrialIp(email: string, ip: string): Promise<void> {
+  await initDb()
+  await db.execute({ sql: 'UPDATE users SET trial_ip = ? WHERE email = ?', args: [ip, email] })
+}
 
 export async function dbGetTrialUsersForNurture(): Promise<User[]> {
   await initDb()

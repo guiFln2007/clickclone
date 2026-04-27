@@ -293,3 +293,69 @@ export async function sendTrialDiscountEmail(email: string, reason: 'quota' | 'e
 </html>`,
   })
 }
+
+export async function sendBustedEmail(email: string) {
+  if (!process.env.SMTP_USER) return
+
+  await transporter.sendMail({
+    from: `"RatoAds" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: 'Hahaha te peguei',
+    html: `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+</head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 16px">
+
+    <div style="text-align:center;margin-bottom:32px">
+      <img src="${BASE_URL}/logo.png" alt="RatoAds" height="32" style="height:32px;width:auto"/>
+    </div>
+
+    <div style="background:#111;border:1px solid #222;border-radius:16px;overflow:hidden">
+
+      <div style="background:linear-gradient(135deg,#8B5CF6 0%,#6D28D9 100%);padding:32px 32px 28px">
+        <h1 style="margin:0;font-size:32px;font-weight:800;color:#fff;line-height:1.2">
+          Gostou da ferramenta, hein? haha
+        </h1>
+      </div>
+
+      <div style="padding:32px">
+
+        <p style="font-size:15px;color:#999;line-height:1.8;margin:0 0 20px">
+          Relaxa, sem julgamento aqui. Se tu t\u00e1 tentando criar outra conta \u00e9 porque curtiu o RatoAds de verdade \u2014 e isso me deixa feliz.
+        </p>
+
+        <p style="font-size:15px;color:#999;line-height:1.8;margin:0 0 24px">
+          Mas em vez de ficar criando email novo, que tal desbloquear tudo de uma vez? Deixei um cupom especial pra voc\u00ea:
+        </p>
+
+        <div style="background:#0a0a0a;border:1px solid #333;border-radius:10px;padding:16px;margin-bottom:20px;text-align:center">
+          <div style="font-size:12px;color:#666;margin-bottom:6px">Cupom exclusivo:</div>
+          <div style="font-family:monospace;font-size:22px;font-weight:800;color:#E8692A;letter-spacing:3px">DESCONTO10</div>
+          <div style="font-size:13px;color:#555;margin-top:8px">10% de desconto no Starter</div>
+        </div>
+
+        <p style="font-size:14px;color:#888;line-height:1.7;margin:0 0 24px">
+          10 an\u00e1lises, 10 minera\u00e7\u00f5es, 5 slots de radar. Tudo por <strong style="color:#fff">R$52,11/m\u00eas</strong>. Sem precisar ficar criando email novo toda hora.
+        </p>
+
+        <a href="${STARTER_URL}"
+           style="display:block;text-align:center;background:#E8692A;color:#fff;padding:16px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px">
+          Quero o acesso completo \u2192
+        </a>
+
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:24px">
+      <p style="font-size:12px;color:#333;margin:0">Qualquer coisa, responde esse email que a gente se fala.</p>
+    </div>
+
+  </div>
+</body>
+</html>`,
+  })
+}
