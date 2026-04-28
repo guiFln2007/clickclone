@@ -39,49 +39,49 @@ async function fetchPageText(url: string): Promise<string> {
   }
 }
 
-const SYSTEM_PROMPT_PHASE2 = `Você é um analista de funis de alta conversão especializado no mercado brasileiro de infoprodutos low ticket.
+const SYSTEM_PROMPT_PHASE2 = `Você é um especialista em construir funis de vendas de alta conversão no mercado brasileiro de infoprodutos low ticket.
 
-Analise o texto da página de destino e retorne APENAS o JSON abaixo, sem texto antes ou depois:
+Sua tarefa: baseado na análise dos criativos (Fase 1) e no texto da página do concorrente, gere um PROMPT PRONTO para o usuário colar no Lovable/Bolt e ter o funil completo criado automaticamente.
+
+Retorne APENAS o JSON abaixo, sem texto antes ou depois:
 
 {
   "url_analisada": "...",
   "tipo_de_funil": "página de vendas | quiz | vsl | freemium | typebot | híbrido",
-  "promessa_central": "a promessa principal da página em 1-2 frases",
-  "pontos_fortes_pagina": [
-    "ponto forte 1 — o que funciona bem na página",
-    "ponto forte 2",
-    "ponto forte 3"
-  ],
-  "pontos_fracos_pagina": [
-    { "problema": "descrição do problema", "impacto": "alto | médio | baixo" },
-    { "problema": "...", "impacto": "..." }
-  ],
-  "o_que_melhorar_pagina": [
-    "sugestão concreta de melhoria 1",
-    "sugestão concreta de melhoria 2",
-    "sugestão concreta de melhoria 3"
-  ],
-  "analise_de_copy": {
-    "mecanismo_de_dor": "qual dor é explorada e como",
-    "como_comunica_garantia": "como a garantia é apresentada",
-    "linguagem": "formal | informal | técnica | emocional",
-    "palavras_gatilho": ["palavra1", "palavra2", "palavra3"],
-    "gap_anuncio_pagina": "diferença entre o que os anúncios prometem e o que a página entrega"
-  }
+  "promessa_central": "a promessa principal modelada em 1-2 frases",
+  "prompt_lovable": "O PROMPT COMPLETO AQUI — veja regras abaixo",
+  "estrutura_funil": ["Etapa 1: descrição curta", "Etapa 2: ...", "Etapa 3: ..."],
+  "diferenciais_aplicados": ["O que foi melhorado em relação ao concorrente 1", "Melhoria 2", "Melhoria 3"]
 }
 
-REGRAS:
-- pontos_fortes_pagina: mínimo 3 itens, máximo 6 — seja específico sobre o que funciona
-- pontos_fracos_pagina: rankeados por impacto (alto primeiro), com descrição acionável
-- o_que_melhorar_pagina: sugestões concretas e específicas, não genéricas
-- promessa_central: extraia a promessa EXATA que a página faz ao visitante
+REGRAS PARA O prompt_lovable:
+- Deve ser um prompt COMPLETO e DETALHADO que o usuário cola direto no Lovable ou Bolt.new
+- O prompt deve instruir a criação de um funil de vendas COMPLETO com:
+  1. Página de vendas responsiva com headline, subheadline, seções de benefícios, prova social, FAQ, garantia e CTA
+  2. Se o concorrente usa quiz/typebot, incluir o fluxo de quiz antes da página de vendas
+  3. Cores, fontes e tom de voz definidos no prompt
+  4. Copy completa de cada seção (não genérica — baseada no nicho e ângulo do concorrente)
+  5. Seções de urgência/escassez se o concorrente usar
+- O prompt deve MODELAR o que funciona do concorrente mas CORRIGIR os pontos fracos identificados na Fase 1
+- Usar o ângulo dominante e os gatilhos que o concorrente usa pra vender
+- A copy deve ser em português BR, tom informal/emocional (padrão low ticket)
+- NÃO incluir preços ou links de checkout — o usuário preenche depois
+- O prompt deve ter no mínimo 800 palavras para ser detalhado o suficiente
+- Incluir instruções de design: cores sugeridas, estilo visual, mobile-first
+
+REGRAS PARA estrutura_funil:
+- Liste as etapas do funil na ordem que o visitante percorre
+- Ex: ["Quiz de 5 perguntas com barra de progresso", "Página de resultado personalizado", "Página de vendas com VSL e depoimentos", "Checkout com order bump"]
+
+REGRAS PARA diferenciais_aplicados:
+- Liste 3-5 melhorias concretas que o funil gerado tem em relação ao concorrente
+- Baseado nos pontos fracos e "o que corrigir" da Fase 1
 
 TRATAMENTO DE PÁGINA INACESSÍVEL:
 Se o conteúdo da página for "PAGINA_VAZIA_OU_BLOQUEADA" ou "ERRO_AO_ACESSAR_PAGINA":
-- Informe no campo promessa_central: "Página não pôde ser acessada diretamente"
-- Analise APENAS o que é possível inferir pela URL e pelo contexto dos anúncios da Fase 1
-- Não invente dados da página — baseie-se exclusivamente nos textos dos anúncios
-- Ainda assim preencha todos os campos com o que for possível inferir`
+- Gere o prompt baseado APENAS nos dados dos anúncios da Fase 1
+- Use o ângulo dominante, nicho e gatilhos para construir o funil
+- Ainda assim gere um prompt completo e funcional`
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()
@@ -114,28 +114,28 @@ export async function POST(req: NextRequest) {
         const { url, phase1Report } = await req.json()
         if (!url) throw new Error('URL não fornecida')
 
-        send({ type: 'progress', text: '📄 Extraindo texto da página de destino...' })
+        send({ type: 'progress', text: '\uD83D\uDD0D Escaneando p\u00e1gina do concorrente...' })
 
         const pageText = await fetchPageText(url)
 
         send({ type: 'progress', text: pageText.length > 100
-          ? `✅ ${pageText.length} caracteres extraídos`
-          : '⚠️ Pouco texto extraído — analisando com dados dos anúncios' })
+          ? `\u2705 P\u00e1gina escaneada (${pageText.length} chars)`
+          : '\u26A0\uFE0F P\u00e1gina bloqueada \u2014 gerando com dados dos an\u00fancios' })
 
-        send({ type: 'progress', text: '🧠 Analisando página...' })
+        send({ type: 'progress', text: '\uD83E\uDDE0 Gerando prompt do funil...' })
 
         const Anthropic = (await import('@anthropic-ai/sdk')).default
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-        const prompt = `URL: ${url}
+        const prompt = `URL DO CONCORRENTE: ${url}
 
-RELATÓRIO FASE 1:
+RELAT\u00d3RIO FASE 1 (an\u00e1lise dos criativos):
 ${JSON.stringify(phase1Report, null, 2)}
 
-TEXTO DA PÁGINA DE DESTINO (primeiros 8000 caracteres):
-${pageText || '(página não acessível — analise com base nos dados dos anúncios)'}
+TEXTO DA P\u00c1GINA DE DESTINO DO CONCORRENTE (primeiros 15000 caracteres):
+${pageText || '(p\u00e1gina n\u00e3o acess\u00edvel \u2014 gere o prompt com base nos dados dos an\u00fancios)'}
 
-Analise a página de destino e retorne o JSON estruturado.`
+Gere o prompt pronto para Lovable/Bolt com o funil completo modelado a partir deste concorrente. Retorne o JSON estruturado.`
 
         let rawText = ''
         let lastErr: Error | null = null
@@ -143,7 +143,7 @@ Analise a página de destino e retorne o JSON estruturado.`
           try {
             const response = await client.messages.create({
               model: 'claude-sonnet-4-6',
-              max_tokens: 6000,
+              max_tokens: 12000,
               system: SYSTEM_PROMPT_PHASE2,
               messages: [{ role: 'user', content: prompt }],
             })

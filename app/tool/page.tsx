@@ -124,11 +124,10 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
   const angulosNaoExplorados: string[] = phase1.angulos_nao_explorados || []
 
   // Phase 2 data
-  const promessaCentral: string = phase2.promessa_central || phase2.analise_de_copy?.promessa_central || ''
-  const fortesPage: string[] = phase2.pontos_fortes_pagina || phase2.elementos_que_funcionam || []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fracosPage: { problema: string; impacto: string }[] = phase2.pontos_fracos_pagina || phase2.pontos_fracos || []
-  const melhorarPage: string[] = phase2.o_que_melhorar_pagina || []
+  const promptLovable: string = phase2.prompt_lovable || ''
+  const estruturaFunil: string[] = phase2.estrutura_funil || []
+  const diferenciaisAplicados: string[] = phase2.diferenciais_aplicados || []
+  const [promptCopied, setPromptCopied] = useState(false)
   const r = 40, circ = 2 * Math.PI * r, dash = (score / 10) * circ
   const verdict = score >= 9 ? { label: 'Oportunidade Excelente', cls: 'vrd-green' }
     : score >= 7 ? { label: 'Vale Entrar', cls: 'vrd-green' }
@@ -196,14 +195,38 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
           </div>
         )}
 
-        {/* ══ BLOCO 3 — P{'\u00C1'}GINA DE DESTINO ══ */}
+        {/* ══ BLOCO 3 — PROMPT LOVABLE/BOLT ══ */}
         <div className="rpt-divider" />
-        <div className="rpt-sec-title">AN{'\u00C1'}LISE DA P{'\u00C1'}GINA DE DESTINO <span className="rpt-sec-count">{phase2.tipo_de_funil || ''}</span></div>
+        <div className="rpt-sec-title">PROMPT PRONTO {'\u2014'} LOVABLE / BOLT <span className="rpt-sec-count">{phase2.tipo_de_funil || ''}</span></div>
 
-        {promessaCentral && <div className="rpt-card rpt-card-orange"><div className="rpt-card-lbl">PROMESSA CENTRAL</div><div className="rpt-highlight-val">{promessaCentral}</div></div>}
-        {fortesPage.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">PONTOS FORTES DA P{'\u00C1'}GINA</div><div className="rpt-list">{fortesPage.map((p, i) => <div key={i} className="rpt-list-item strong"><span className="ic">{'\u2713'}</span><span>{typeof p === 'string' ? p : ''}</span></div>)}</div></div>}
-        {fracosPage.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">PONTOS FRACOS DA P{'\u00C1'}GINA</div><div className="rpt-pontos-fracos">{fracosPage.map((pf, i) => <div key={i} className="rpt-pf-item"><div className="rpt-pf-header"><div className="rpt-pf-rank">#{i + 1}</div><div className="rpt-pf-prob">{typeof pf === 'string' ? pf : pf.problema}</div>{typeof pf !== 'string' && pf.impacto && <span className={`rpt-pf-impact ${pf.impacto.toLowerCase()}`}>{pf.impacto}</span>}</div></div>)}</div></div>}
-        {melhorarPage.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">O QUE MELHORAR</div><div className="rpt-list">{melhorarPage.map((m, i) => <div key={i} className="rpt-list-item info"><span className="ic">{'\u2192'}</span><span>{m}</span></div>)}</div></div>}
+        {estruturaFunil.length > 0 && (
+          <div className="rpt-card">
+            <div className="rpt-card-lbl">ESTRUTURA DO FUNIL</div>
+            <div className="rpt-list">{estruturaFunil.map((e, i) => <div key={i} className="rpt-list-item info"><span className="ic" style={{ color: '#FF6B00', fontWeight: 800 }}>{i + 1}.</span><span>{e}</span></div>)}</div>
+          </div>
+        )}
+
+        {diferenciaisAplicados.length > 0 && (
+          <div className="rpt-card rpt-card-orange">
+            <div className="rpt-card-lbl">MELHORIAS EM RELA{'\u00C7\u00C3'}O AO CONCORRENTE</div>
+            <div className="rpt-list">{diferenciaisAplicados.map((d, i) => <div key={i} className="rpt-list-item strong"><span className="ic">{'\u2713'}</span><span>{d}</span></div>)}</div>
+          </div>
+        )}
+
+        {promptLovable && (
+          <div className="rpt-card" style={{ position: 'relative' }}>
+            <div className="rpt-card-lbl" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>PROMPT {'\u2014'} COPIE E COLE NO LOVABLE</span>
+              <button
+                onClick={() => { navigator.clipboard.writeText(promptLovable); setPromptCopied(true); setTimeout(() => setPromptCopied(false), 2000) }}
+                style={{ background: promptCopied ? '#10B981' : '#FF6B00', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background .2s' }}
+              >
+                {promptCopied ? '\u2713 Copiado!' : 'Copiar prompt'}
+              </button>
+            </div>
+            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12.5, lineHeight: 1.7, color: '#ccc', background: 'rgba(0,0,0,.3)', padding: 16, borderRadius: 8, maxHeight: 400, overflowY: 'auto', marginTop: 10, border: '1px solid rgba(255,255,255,.06)' }}>{promptLovable}</pre>
+          </div>
+        )}
 
         {/* ══ BLOCO 4 — AN{'\u00C1'}LISE GERAL ══ */}
         <div className="rpt-divider" />
@@ -216,6 +239,10 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
 
       {/* CTA STICKY */}
       <div className="report-cta-sticky">
+        <button className="cta-pdf-btn" onClick={() => window.print()}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Baixar PDF
+        </button>
         <button className="cta-radar-btn" onClick={handleSave} disabled={saving}>
           {saving ? <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Salvando...</>
           : <><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg> Salvar no Radar</>}
@@ -371,7 +398,7 @@ export default function ToolPage() {
 
       const landingUrl = (p1 as Record<string, unknown>).landing_url as string
       if (!landingUrl) throw new Error('URL da pagina nao encontrada')
-      setTermLines(prev => [...prev, { text: '> Analisando pagina de destino...', type: 'wait' }])
+      setTermLines(prev => [...prev, { text: '> Gerando prompt do funil...', type: 'wait' }])
 
       const res2 = await fetch('/api/phase2', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ url: landingUrl, phase1Report: p1 }) })
       if (res2.status === 402) { setUpgradeModal(true); return }
@@ -381,14 +408,14 @@ export default function ToolPage() {
       await readSSE(res2, ev => {
         if (ev.type === 'error') throw new Error(ev.message as string)
         if (ev.type === 'progress') { setTermLines(prev => [...prev, { text: `> ${ev.text}`, type: 'wait' }]); setDashProgress(75) }
-        if (ev.type === 'done') { p2 = ev.report as Record<string, unknown>; shots = (ev.screenshots as string[]) || []; setTermLines(prev => [...prev, { text: '\u2713 Fase 2 concluida', type: 'done' }]); setDashProgress(100); return true }
+        if (ev.type === 'done') { p2 = ev.report as Record<string, unknown>; shots = (ev.screenshots as string[]) || []; setTermLines(prev => [...prev, { text: '\u2713 Prompt do funil pronto', type: 'done' }]); setDashProgress(100); return true }
         return false
       })
       if (!p2) throw new Error('Fase 2 nao retornou relatorio')
       setPhase2Report(p2); setPhase2Screenshots(shots)
 
       // Save to history
-      const promessa = ((p2 as Record<string, unknown>).analise_de_copy as Record<string, string> | undefined)?.promessa_central?.split(' ').slice(0, 5).join(' ') || ''
+      const promessa = ((p2 as Record<string, unknown>).promessa_central as string)?.split(' ').slice(0, 5).join(' ') || ''
       const record: SavedAnalysis = { id: Date.now().toString(), name: promessa || ((p1 as Record<string, unknown>).angulo_dominante as string) || 'Oferta', score: Number((p1 as Record<string, unknown>).nota_entrada && ((p1 as Record<string, unknown>).nota_entrada as Record<string, number>).score) || 0, url, phase1: p1 as Record<string, unknown>, phase2: p2 as Record<string, unknown>, screenshots: shots.slice(0, 2), createdAt: Date.now() }
       const updated = [record, ...savedAnalyses.filter(a => a.url !== url)].slice(0, 20)
       setSavedAnalyses(updated); localStorage.setItem('cc_analyses', JSON.stringify(updated))
@@ -691,14 +718,14 @@ export default function ToolPage() {
             const expirado = diasRestantes === 0
 
             const msgs = expirado
-              ? { title: 'Seu teste gratuito expirou', sub: 'Assine agora pra continuar analisando seus concorrentes.', color: '#ef4444', bg: 'rgba(239,68,68,.08)', border: 'rgba(239,68,68,.25)' }
+              ? { title: 'Seu teste gratuito expirou', sub: 'Assine agora pra continuar minerando.', color: '#ef4444', bg: 'rgba(239,68,68,.08)', border: 'rgba(239,68,68,.25)' }
               : urgente
               ? { title: `Faltam ${diasRestantes} dias pro seu teste acabar`, sub: 'Garanta seu plano antes de perder o acesso.', color: '#f59e0b', bg: 'rgba(245,158,11,.06)', border: 'rgba(245,158,11,.25)' }
-              : usouAnalise && usouMineracao
-              ? { title: 'Você usou toda sua cota do teste', sub: 'Desbloqueie 10 análises + 10 minerações com o Starter.', color: '#f59e0b', bg: 'rgba(245,158,11,.06)', border: 'rgba(245,158,11,.25)' }
-              : usouAnalise || usouMineracao
-              ? { title: `Sua ${usouAnalise ? 'análise' : 'mineração'} gratuita foi usada`, sub: 'Quer mais? O plano Starter dá 10x mais recursos.', color: '#10B981', bg: 'rgba(16,185,129,.06)', border: 'rgba(16,185,129,.25)' }
-              : { title: `Você está no teste grátis — ${diasRestantes} dias restantes`, sub: 'Explore o RatoAds! Assine quando quiser pra desbloquear mais.', color: '#10B981', bg: 'rgba(16,185,129,.06)', border: 'rgba(16,185,129,.25)' }
+              : usouMineracao
+              ? { title: 'Suas minera\u00e7\u00f5es gratuitas acabaram', sub: 'Desbloqueie 10 minera\u00e7\u00f5es + 10 an\u00e1lises com o Starter.', color: '#f59e0b', bg: 'rgba(245,158,11,.06)', border: 'rgba(245,158,11,.25)' }
+              : usouAnalise
+              ? { title: 'Suas an\u00e1lises gratuitas acabaram', sub: 'Quer mais? O plano Starter d\u00e1 10x mais recursos.', color: '#f59e0b', bg: 'rgba(245,158,11,.06)', border: 'rgba(245,158,11,.25)' }
+              : { title: `Voc\u00ea est\u00e1 no teste gr\u00e1tis \u2014 ${diasRestantes} dias restantes`, sub: 'Explore o RatoAds! Assine quando quiser pra desbloquear mais.', color: '#10B981', bg: 'rgba(16,185,129,.06)', border: 'rgba(16,185,129,.25)' }
 
             return (
               <div style={{
@@ -1051,11 +1078,34 @@ export default function ToolPage() {
       {/* Upgrade modal */}
       {upgradeModal && (
         <div className="modal-overlay" onClick={() => setUpgradeModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 10 }}>Limite atingido</h2>
-            <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>Assine o Pro para continuar analisando.</p>
-            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noreferrer" className="mine-btn" style={{ width: '100%', textAlign: 'center', textDecoration: 'none', display: 'block' }}>Assinar &rarr;</a>
-            <button className="btn-outline" style={{ width: '100%', marginTop: 8 }} onClick={() => setUpgradeModal(false)}>Fechar</button>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420, padding: '36px 32px' }}>
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>{'\uD83D\uDEA8'}</div>
+              <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Seus cr{'\u00e9'}ditos acabaram</h2>
+              <p style={{ color: '#a1a1aa', fontSize: 14, lineHeight: 1.7 }}>
+                Voc{'\u00ea'} usou todas as suas minera{'\u00e7\u00f5'}es e an{'\u00e1'}lises do teste.
+                <br />Desbloqueie <strong style={{ color: '#FF6B00' }}>10x mais</strong> com o Starter.
+              </p>
+            </div>
+            <div style={{ background: 'rgba(255,107,0,.06)', border: '1px solid rgba(255,107,0,.2)', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 13, color: '#a1a1aa' }}>Minera{'\u00e7\u00f5'}es</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#FF6B00' }}>10/m{'\u00ea'}s</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 13, color: '#a1a1aa' }}>An{'\u00e1'}lises completas</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#FF6B00' }}>10/m{'\u00ea'}s</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 13, color: '#a1a1aa' }}>Slots de rastreamento</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#FF6B00' }}>10</span>
+              </div>
+            </div>
+            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noreferrer" className="mine-btn" style={{ width: '100%', textAlign: 'center', textDecoration: 'none', display: 'block', padding: '16px 24px', fontSize: 15, fontWeight: 800 }}>
+              Desbloquear por R$57,90/m{'\u00ea'}s {'\u2192'}
+            </a>
+            <p style={{ textAlign: 'center', fontSize: 11, color: '#52525b', marginTop: 10 }}>Cancele quando quiser {'\u00b7'} Acesso imediato</p>
+            <button className="btn-outline" style={{ width: '100%', marginTop: 8 }} onClick={() => setUpgradeModal(false)}>Agora n{'\u00e3'}o</button>
           </div>
         </div>
       )}
@@ -1712,9 +1762,12 @@ body::after{
 .report-subtitle{font-size:11px;color:#3f3f46;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
 .report-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:28px 24px;max-width:940px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:32px}
 .report-body>*{max-width:100%}
-.report-cta-sticky{position:sticky;bottom:0;background:linear-gradient(transparent,#09090b 40%);padding:24px;display:flex;justify-content:center;z-index:10}
+.report-cta-sticky{position:sticky;bottom:0;background:linear-gradient(transparent,#09090b 40%);padding:24px;display:flex;justify-content:center;gap:12px;z-index:10;flex-wrap:wrap}
+.cta-pdf-btn{padding:14px 32px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;justify-content:center}
+.cta-pdf-btn:hover{background:rgba(255,255,255,.12);transform:translateY(-1px)}
 .cta-radar-btn{padding:16px 48px;background:#FF6B00;border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;width:100%;max-width:400px;justify-content:center}
 .cta-radar-btn:hover{background:#e05e00;transform:translateY(-1px)}
+@media print{body *{visibility:hidden}.report-wrap,.report-wrap *{visibility:visible}.report-wrap{position:absolute;left:0;top:0;width:100%;background:#fff;color:#111;padding:20px}.report-cta-sticky,.report-topbar{display:none!important}.rpt-card{border-color:#ddd!important;background:#fafafa!important}.nota-card{background:#f5f5f5!important;color:#111!important}pre{background:#f0f0f0!important;color:#333!important;border-color:#ddd!important}}
 
 /* Nota card */
 .nota-card{border-radius:16px;padding:28px 32px;border:1px solid rgba(255,255,255,.06)}

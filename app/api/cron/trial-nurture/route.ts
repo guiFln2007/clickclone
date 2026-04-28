@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { dbGetTrialUsersForNurture, dbMarkTrialEmail } from '@/lib/db'
-import { sendTrialDiscountEmail } from '@/lib/mailer'
+import { sendTrialDiscountEmail, sendTrialEngageEmail } from '@/lib/mailer'
 
 export const maxDuration = 60
 
@@ -19,19 +19,31 @@ export async function GET(req: NextRequest) {
     const diasRestantes = user.renova_em
       ? Math.max(0, Math.ceil((new Date(user.renova_em).getTime() - Date.now()) / 86400000))
       : 30
+    const horasDesdeCriacao = (Date.now() - new Date(user.created_at).getTime()) / 3600000
 
-    const cotaZerada = user.analises === 0 && user.mineracoes === 0
+    const mineracaoZerada = user.mineracoes === 0
+    const analiseZerada = user.analises === 0
+    const algumaCotaZerada = mineracaoZerada || analiseZerada
+    const naoUsouNada = user.analises === user.max_analises && user.mineracoes === user.max_mineracoes
 
     try {
-      // 1. Cota zerada — manda email de quota (uma vez)
-      if (cotaZerada && !alreadySent.includes('quota')) {
+      // 0. D1 — criou conta h\u00e1 24h+ e n\u00e3o usou NADA (nem minera\u00e7\u00e3o nem an\u00e1lise)
+      if (naoUsouNada && horasDesdeCriacao >= 24 && !alreadySent.includes('engage')) {
+        await sendTrialEngageEmail(user.email)
+        await dbMarkTrialEmail(user.id, 'engage')
+        sent.push(`${user.email}:engage`)
+        continue
+      }
+
+      // 1. Qualquer cota zerada (minera\u00e7\u00e3o OU an\u00e1lise) — email de quota
+      if (algumaCotaZerada && !alreadySent.includes('quota')) {
         await sendTrialDiscountEmail(user.email, 'quota')
         await dbMarkTrialEmail(user.id, 'quota')
         sent.push(`${user.email}:quota`)
         continue
       }
 
-      // 2. Faltam 3 dias ou menos — manda email de expiring (uma vez)
+      // 2. Faltam 3 dias ou menos — email de urg\u00eancia
       if (diasRestantes <= 3 && diasRestantes > 0 && !alreadySent.includes('expiring')) {
         await sendTrialDiscountEmail(user.email, 'expiring')
         await dbMarkTrialEmail(user.id, 'expiring')
@@ -39,7 +51,7 @@ export async function GET(req: NextRequest) {
         continue
       }
 
-      // 3. Expirou — manda email de expired (uma vez)
+      // 3. Expirou — \u00faltima chance
       if (diasRestantes === 0 && !alreadySent.includes('expired')) {
         await sendTrialDiscountEmail(user.email, 'expired')
         await dbMarkTrialEmail(user.id, 'expired')

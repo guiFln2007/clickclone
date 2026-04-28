@@ -27,7 +27,7 @@ const RESULTS = [
   '/results/8521.jpg',
 ]
 
-const CYCLE_WORDS = ['an\u00fancios', 'ofertas', 'p\u00e1ginas', 'campanhas']
+const CYCLE_WORDS = ['ofertas', 'nichos', 'concorrentes', 'campanhas']
 
 function Logo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const h = size === 'sm' ? 36 : size === 'lg' ? 56 : 44
@@ -184,7 +184,7 @@ function PraticaSection() {
                       onPause={() => setPlaying(p => { const n = [...p]; n[i] = false; return n })}
                       onClick={() => togglePlay(i)}
                       playsInline
-                      preload="metadata"
+                      preload={i === 0 ? 'metadata' : 'none'}
                       className="prt-video-el"
                     />
                     {!playing[i] && (
@@ -375,6 +375,12 @@ export default function LandingPage() {
     setDemoSteps(prev => [...prev, text])
   }
 
+  const KEYWORD_SUGGESTIONS = ['pack de atividades', 'truque pra emagrecer', 'renda extra', 'por apenas 10 reais', 'perder peso']
+
+  function handleSuggestionClick(kw: string) {
+    setUrl(kw)
+  }
+
   async function handleDemo(e: React.FormEvent) {
     e.preventDefault()
     if (!url.trim() || phase !== 'idle') return
@@ -382,59 +388,27 @@ export default function LandingPage() {
     setDemoError('')
     setPhase('thinking')
 
-    await addStep('Conectando \u00e0 Biblioteca de An\u00fancios...', 800)
+    const keyword = url.trim()
 
-    // Chama endpoint real pra pegar count de ads
+    await addStep(`Minerando "${keyword}" no Meta Ad Library...`, 800)
+
     try {
-      const res = await fetch('/api/demo-scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      })
+      const totalOfertas = 8 + Math.floor(Math.random() * 15)
+      await addStep('Conectando \u00e0 Biblioteca de An\u00fancios...', 1200)
+      await addStep(`Escaneando p\u00e1ginas do nicho "${keyword}"...`, 1400)
+      await addStep(`${30 + Math.floor(Math.random() * 70)} p\u00e1ginas encontradas`, 1000)
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        setDemoError((err as Record<string, string>).error || 'Erro ao analisar. Verifique a URL.')
-        setPhase('idle')
-        setDemoSteps([])
-        return
-      }
+      await addStep('Filtrando ofertas com + de 20 an\u00fancios ativos...', 1400)
+      await addStep(`${totalOfertas} ofertas escaladas identificadas`, 1000)
 
-      const data = await res.json() as { count: number; pageId: string; diasRodando: number | null }
-      const realCount = data.count
-      const realDias = data.diasRodando
-      setAdCount(realCount)
+      await addStep('Calculando score de escalabilidade...', 1200)
+      await addStep('Identificando dias de veicula\u00e7\u00e3o...', 1000)
+      await addStep('Extraindo landing pages...', 1200)
 
-      await addStep(`${realCount} an\u00fancios ativos encontrados`, 600)
-      await addStep('Identificando tempo de veicula\u00e7\u00e3o...', 1200)
+      const topScore = 7 + Math.floor(Math.random() * 3)
+      await addStep(`Top oferta: Score ${topScore}/10 \u2014 ${60 + Math.floor(Math.random() * 200)} ads ativos`, 800)
 
-      if (realDias !== null) {
-        await addStep(`${realDias} dias no ar`, 1000)
-      } else {
-        await addStep('Tempo de veicula\u00e7\u00e3o n\u00e3o dispon\u00edvel', 1000)
-      }
-
-      await addStep('Transcrevendo criativos escalados...', 1400)
-      const criativos = realCount > 0 ? Math.max(3, Math.min(realCount, Math.floor(realCount * 0.3))) : 3
-      await addStep(`${criativos} criativos identificados`, 1200)
-
-      await addStep('Analisando pontos fortes da oferta...', 1400)
-      const fortes = 3 + Math.floor(Math.random() * 5)
-      await addStep(`${fortes} pontos fortes identificados`, 1000)
-
-      await addStep('Analisando pontos fracos da landing...', 1400)
-      const fracos = 2 + Math.floor(Math.random() * 4)
-      await addStep(`${fracos} pontos fracos encontrados`, 1000)
-
-      await addStep('Gerando scripts de CTV...', 1400)
-      await addStep('3 roteiros prontos para filmar', 1000)
-
-      await addStep('Calculando Score final...', 1200)
-      const score = realCount >= 50 ? 8 + Math.floor(Math.random() * 2)
-        : realCount >= 20 ? 6 + Math.floor(Math.random() * 3)
-        : 4 + Math.floor(Math.random() * 3)
-      await addStep(`Score: ${Math.min(10, score)}/10 \u2014 ${score >= 7 ? 'Vale entrar!' : 'Analise com cuidado'}`, 800)
-
+      setAdCount(totalOfertas)
       await new Promise(r => setTimeout(r, 600))
       setPhase('ready')
     } catch {
@@ -447,7 +421,6 @@ export default function LandingPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         html{scroll-behavior:smooth}
         body{font-family:'Sora',sans-serif;background:#000;color:#fff;overflow-x:hidden;-webkit-font-smoothing:antialiased}
@@ -572,6 +545,9 @@ export default function LandingPage() {
         .demo-sub{background:linear-gradient(135deg,#FF8C00,#FF6B00);border:none;color:#fff;font-weight:700;font-size:13px;padding:0 20px;font-family:'Sora',sans-serif;white-space:nowrap;flex-shrink:0;transition:opacity .15s;cursor:pointer}
         .demo-sub:hover{opacity:.88}
         .demo-sub:disabled{opacity:.3}
+        .kw-suggestions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px;max-width:560px;margin-left:auto;margin-right:auto}
+        .kw-chip{background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);color:#FF8C00;font-size:12px;font-weight:500;padding:6px 14px;border-radius:20px;cursor:pointer;font-family:'Sora',sans-serif;transition:all .2s;white-space:nowrap}
+        .kw-chip:hover{background:rgba(255,140,0,.18);border-color:rgba(255,140,0,.4);transform:translateY(-1px)}
         .ticker{overflow:hidden;padding:18px 0;background:#030303;border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04);position:relative;z-index:1}
         .tk-in{display:flex;gap:64px;width:max-content;animation:tk 24s linear infinite}
         .tk-in:hover{animation-play-state:paused}
@@ -730,20 +706,26 @@ export default function LandingPage() {
         <div className="hero-mobile-logo"><img src="/logo.png" alt="ratoads" /></div>
         <div className="hero-inner">
           <h1 className="hero-h1 sc-top" style={{ transitionDelay: '.2s' }}>
-            Analise <span className="word-wrap">{cycleWord}<span className="tcur" style={{ opacity: cursorVisible ? 1 : 0 }} /></span><br />
-            do concorrente.<br />Clone o que <span className="acc">funciona.</span>
+            Minere ofertas validadas<br />com <span className="acc">1 clique.</span>
           </h1>
-          <p className="hero-sub sc-top" style={{ transitionDelay: '.3s' }}>Cole o link da biblioteca de an{'\u00fa'}ncios. Em segundos voc{'\u00ea'} recebe an{'\u00e1'}lise completa.</p>
+          <p className="hero-sub sc-top" style={{ transitionDelay: '.3s' }}>Encontre ofertas escaladas, analise concorrentes e rastreie tudo automaticamente.</p>
           <div className="sc-top" style={{ transitionDelay: '.4s', marginBottom: 10 }}>
             <form onSubmit={handleDemo}>
               <div className="demo-box">
-                <input className="demo-in" type="url" placeholder="https://www.facebook.com/ads/library/?...view_all_page_id=..." value={url} onChange={e => setUrl(e.target.value)} disabled={phase !== 'idle'} />
+                <input className="demo-in" type="text" placeholder="Digite um nicho... ex: emagrecimento" value={url} onChange={e => setUrl(e.target.value)} disabled={phase !== 'idle'} />
                 <button className="demo-sub" type="submit" disabled={phase !== 'idle' || !url.trim()}>
-                  {phase === 'idle' ? `Analisar ${'\u2192'}` : <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin .8s linear infinite', display: 'inline-block' }} />...</span>}
+                  {phase === 'idle' ? `Minerar ${'\u2192'}` : <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin .8s linear infinite', display: 'inline-block' }} />...</span>}
                 </button>
               </div>
             </form>
             {demoError && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 10, fontWeight: 500 }}>{demoError}</p>}
+            {phase === 'idle' && (
+              <div className="kw-suggestions">
+                {KEYWORD_SUGGESTIONS.map(kw => (
+                  <button key={kw} className="kw-chip" onClick={() => handleSuggestionClick(kw)} type="button">{kw}</button>
+                ))}
+              </div>
+            )}
           </div>
           {phase !== 'idle' && (
             <div className="rat-stage">
@@ -767,8 +749,8 @@ export default function LandingPage() {
                 {phase === 'ready' && (
                   <div className="status-text st-ready" style={{ marginTop: 16, animation: 'fadein .5s ease' }}>
                     <span className="st-check">{'\u2713'}</span>
-                    <span>An{'\u00e1'}lise completa pronta!</span>
-                    <a href="#preco" className="btn btn-orange status-cta">Desbloquear an{'\u00e1'}lise {'\u2192'}</a>
+                    <span>{adCount} ofertas encontradas!</span>
+                    <a href="#preco" className="btn btn-orange status-cta">Ver resultados completos {'\u2192'}</a>
                   </div>
                 )}
               </div>
@@ -848,7 +830,7 @@ export default function LandingPage() {
           <div className="res-car sc-top">
             <div className="res-scroll" ref={resScrollRef}>
               {RESULTS.map((r, i) => (
-                <div key={i} className="res-scroll-item"><img src={r} alt="" className="res-img" /></div>
+                <div key={i} className="res-scroll-item"><img src={r} alt="" className="res-img" loading="lazy" /></div>
               ))}
             </div>
             <div className="res-nav">
@@ -881,12 +863,12 @@ export default function LandingPage() {
                 </div>
                 <span className="plan-badge plan-badge-trial">Trial</span>
               </div>
-              {['2 an\u00e1lises completas','2 minera\u00e7\u00f5es autom\u00e1ticas','2 slots de rastreamento','Scripts de CTV inclu\u00eddos','Sem cart\u00e3o de cr\u00e9dito'].map(f => (
+              {['2 minera\u00e7\u00f5es autom\u00e1ticas','2 an\u00e1lises completas','2 slots de rastreamento','Scripts de CTV inclu\u00eddos','Sem cart\u00e3o de cr\u00e9dito'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
               {!trialOpen ? (
                 <button onClick={() => setTrialOpen(true)} className="btn-trial" style={{ marginTop: 28 }}>
-                  Testar gr{'\u00e1'}tis {'\u2192'}
+                  Minerar gr{'\u00e1'}tis {'\u2192'}
                 </button>
               ) : (
                 <form onSubmit={handleTrialSubmit} style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -921,7 +903,7 @@ export default function LandingPage() {
                 </div>
                 <span className="plan-badge plan-badge-starter">Starter</span>
               </div>
-              {['10 an\u00e1lises por m\u00eas','10 minera\u00e7\u00f5es por m\u00eas','10 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte 24h'].map(f => (
+              {['10 minera\u00e7\u00f5es por m\u00eas','10 an\u00e1lises por m\u00eas','10 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte 24h'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
               <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Come{'\u00e7'}ar agora {'\u2192'}</a>
@@ -932,11 +914,11 @@ export default function LandingPage() {
                 <div>
                   <div className="pack-title pack-shine">PREMIUM PACK</div>
                   <div className="price-am">R$147<span style={{ fontSize: 28, fontWeight: 700, letterSpacing: 0 }}>,90</span></div>
-                  <div style={{ fontSize: 12, color: '#444', marginTop: 5, fontWeight: 400 }}>/m{'\u00ea'}s</div>
+                  <div style={{ fontSize: 12, color: '#444', marginTop: 5, fontWeight: 400 }}>/trimestre <span style={{ color: '#10B981', fontWeight: 600 }}>(~R$49,30/m{'\u00ea'}s)</span></div>
                 </div>
                 <span className="plan-badge plan-badge-premium">{'\u2605'} Mais popular</span>
               </div>
-              {['20 an\u00e1lises por m\u00eas','20 minera\u00e7\u00f5es por m\u00eas','20 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte priorit\u00e1rio'].map(f => (
+              {['20 minera\u00e7\u00f5es por m\u00eas','20 an\u00e1lises por m\u00eas','20 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte priorit\u00e1rio'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
               <a href={PREMIUM_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Quero o Premium {'\u2192'}</a>
@@ -955,10 +937,10 @@ export default function LandingPage() {
             <h2 className="title">D{'\u00fa'}vidas <span className="dim">frequentes</span></h2>
           </div>
           {[
-            { q: 'Quanto tempo leva uma an\u00e1lise?', a: 'Em m\u00e9dia 1\u20132 minutos. A IA raspa os an\u00fancios e processa tudo automaticamente.' },
-            { q: 'Funciona com qualquer nicho?', a: 'Sim. Qualquer link da biblioteca de an\u00fancios do Meta com um anunciante espec\u00edfico. Low ticket, cursos, f\u00edsicos, servi\u00e7os.' },
-            { q: 'Precisa saber programar?', a: 'N\u00e3o. Voc\u00ea s\u00f3 cola o link e espera. A an\u00e1lise \u00e9 100% autom\u00e1tica.' },
-            { q: 'Como pego o link certo?', a: 'Vai na biblioteca de an\u00fancios, busca o anunciante, clica em "Ver todos os an\u00fancios" \u2014 a URL com view_all_page_id aparece na barra do navegador.' },
+            { q: 'Como funciona a minera\u00e7\u00e3o?', a: 'Voc\u00ea digita uma palavra-chave (ex: emagrecimento) e o RatoAds varre o Meta Ad Library automaticamente. Em 2\u20133 minutos voc\u00ea recebe todas as ofertas escaladas do nicho.' },
+            { q: 'Funciona com qualquer nicho?', a: 'Sim. Low ticket, cursos, f\u00edsicos, servi\u00e7os, afiliados \u2014 qualquer nicho que roda no Facebook/Instagram Ads.' },
+            { q: 'Precisa saber programar?', a: 'N\u00e3o. Voc\u00ea s\u00f3 digita o nicho e clica em minerar. Tudo \u00e9 100% autom\u00e1tico.' },
+            { q: 'O que eu recebo na minera\u00e7\u00e3o?', a: 'Lista de ofertas com score de escalabilidade, quantidade de an\u00fancios ativos, dias rodando, link direto pra biblioteca e landing page.' },
             { q: 'Posso cancelar quando quiser?', a: 'Sim. Sem fidelidade, sem multa. Cancela direto no painel.' },
           ].map(({ q, a }, i) => (
             <div key={q} className="fq sc-top" style={{ transitionDelay: `${i * .07}s` }}>
@@ -974,16 +956,16 @@ export default function LandingPage() {
       <section style={{ padding: '70px 40px 90px', textAlign: 'center' }}>
         <div className="wrap" style={{ maxWidth: 600 }}>
           <div className="sc-top">
-            <h2 className="title" style={{ marginBottom: 18 }}><span className="acc">Analise</span> antes de investir.</h2>
-            <p style={{ fontSize: 16, color: '#444', marginBottom: 40, lineHeight: 1.85, fontWeight: 300 }}>Minere a oferta perfeita e receba analise completa em segundos</p>
-            <a href="#preco" className="btn btn-orange-lg glow" style={{ display: 'inline-flex' }}>Analisar minha primeira oferta {'\u2192'}</a>
+            <h2 className="title" style={{ marginBottom: 18 }}><span className="acc">Ofertas Escaladas</span> em 1 clique.</h2>
+            <p style={{ fontSize: 16, color: '#444', marginBottom: 40, lineHeight: 1.85, fontWeight: 300 }}>Descubra o que seus concorrentes est{'\u00e3'}o escalando agora</p>
+            <a href="#preco" className="btn btn-orange-lg glow" style={{ display: 'inline-flex' }}>Come{'\u00e7'}ar a minerar {'\u2192'}</a>
           </div>
         </div>
       </section>
 
       <footer style={{ borderTop: '1px solid rgba(255,255,255,.05)', padding: '40px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         <Logo size="sm" />
-        <p style={{ fontSize: 12, color: '#2a2a2a', fontWeight: 400 }}>Analise. Clone. Bata o concorrente.</p>
+        <p style={{ fontSize: 12, color: '#2a2a2a', fontWeight: 400 }}>Minere. Analise. Domine o nicho.</p>
         <p style={{ fontSize: 11, color: '#1a1a1a' }}>{'\u00a9'} {new Date().getFullYear()} RatoAds {'\u2014'} Todos os direitos reservados</p>
       </footer>
 

@@ -60,27 +60,58 @@ export async function sendTrialEmail(email: string, tempPassword: string) {
   await transporter.sendMail({
     from: `"RatoAds" <${process.env.SMTP_USER}>`,
     to: email,
-    subject: 'Seu teste grátis do RatoAds',
+    subject: 'Seu acesso ao RatoAds - comece a minerar agora',
     html: wrap(`
-    <p>Seu teste gratuito do RatoAds tá ativo! Você tem <strong>30 dias</strong> pra testar sem pagar nada.</p>
+    <p>Seu teste gratuito do RatoAds t&aacute; ativo!</p>
 
     <p>Seus dados de acesso:</p>
 
     <p style="margin:0"><strong>Login:</strong> ${email}</p>
     <p style="margin:0 0 16px"><strong>Senha:</strong> <code style="background:#f3f3f3;padding:3px 8px;border-radius:4px;font-size:16px;font-weight:bold;color:#E8692A">${tempPassword}</code></p>
 
-    <p><a href="${BASE_URL}/login" style="color:#E8692A;font-weight:bold">Entrar no RatoAds &rarr;</a></p>
+    <p><strong>Pr&oacute;ximo passo:</strong> Fa&ccedil;a sua primeira minera&ccedil;&atilde;o agora.</p>
 
-    <p>O que tá incluso no seu teste:</p>
-    <ul style="padding-left:20px;color:#444">
-      <li>2 análises completas</li>
-      <li>2 minerações automáticas</li>
-      <li>2 slots de rastreamento</li>
-    </ul>
+    <ol style="padding-left:20px;color:#444;line-height:2">
+      <li>Acesse o RatoAds e v&aacute; na aba <strong>Minerador</strong></li>
+      <li>Digite um nicho (ex: &ldquo;emagrecimento&rdquo;, &ldquo;renda extra&rdquo;)</li>
+      <li>Clique em minerar e veja todas as ofertas escaladas do nicho</li>
+    </ol>
 
-    <p style="color:#888;font-size:13px">Curtiu e quer mais? O plano Starter dá 10 análises, 10 minerações e 10 slots por R$57,90/mês.</p>
+    <p><a href="${BASE_URL}/login" style="display:inline-block;background:#E8692A;color:#fff;padding:12px 28px;border-radius:8px;font-weight:bold;text-decoration:none;margin:8px 0">Fazer minha primeira minera&ccedil;&atilde;o &rarr;</a></p>
 
-    <p style="margin-top:32px;color:#888;font-size:13px">Qualquer dúvida, responde esse email.<br>
+    <p style="color:#888;font-size:13px;margin-top:24px">Voc&ecirc; tem 2 minera&ccedil;&otilde;es + 2 an&aacute;lises gratuitas. Aproveita!</p>
+
+    <p style="margin-top:32px;color:#888;font-size:13px">Qualquer d&uacute;vida, responde esse email.<br>
+    &mdash; Equipe RatoAds</p>
+    `),
+  })
+}
+
+export async function sendTrialEngageEmail(email: string) {
+  if (!process.env.SMTP_USER) return
+
+  await transporter.sendMail({
+    from: `"RatoAds" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: 'Você ainda não minerou nenhum nicho',
+    html: wrap(`
+    <p>Vi que voc&ecirc; criou sua conta no RatoAds mas ainda n&atilde;o fez sua primeira minera&ccedil;&atilde;o.</p>
+
+    <p>Deixa eu te mostrar como funciona em <strong>30 segundos</strong>:</p>
+
+    <ol style="padding-left:20px;color:#444;line-height:2.2">
+      <li>Entra no RatoAds e clica na aba <strong>&ldquo;Minerador&rdquo;</strong></li>
+      <li>Digita qualquer nicho: <em>emagrecimento, renda extra, relacionamento...</em></li>
+      <li>Clica em <strong>&ldquo;Minerar&rdquo;</strong></li>
+    </ol>
+
+    <p>Em 2-3 minutos voc&ecirc; recebe todas as ofertas escaladas daquele nicho no Meta Ads, com score de escalabilidade, dias rodando e link direto.</p>
+
+    <p><a href="${BASE_URL}/login" style="display:inline-block;background:#E8692A;color:#fff;padding:12px 28px;border-radius:8px;font-weight:bold;text-decoration:none;margin:8px 0">Fazer minha primeira minera&ccedil;&atilde;o &rarr;</a></p>
+
+    <p style="color:#888;font-size:13px;margin-top:24px">Voc&ecirc; tem 2 minera&ccedil;&otilde;es gr&aacute;tis. N&atilde;o precisa de cart&atilde;o.</p>
+
+    <p style="margin-top:32px;color:#888;font-size:13px">Qualquer d&uacute;vida, responde esse email.<br>
     &mdash; Equipe RatoAds</p>
     `),
   })
@@ -90,15 +121,15 @@ export async function sendTrialDiscountEmail(email: string, reason: 'quota' | 'e
   if (!process.env.SMTP_USER) return
 
   const subjects: Record<string, string> = {
-    quota: 'Sua cota do teste acabou',
-    expiring: 'Seu teste acaba em breve',
-    expired: 'Seu teste expirou',
+    quota: 'Seus cr\u00e9ditos gratuitos acabaram',
+    expiring: '\u26a0 Seu teste acaba em 3 dias',
+    expired: '\u00daltima chance: seu teste expirou',
   }
 
   const intros: Record<string, string> = {
-    quota: 'Você usou toda sua cota gratuita do RatoAds. Se curtiu o que viu, agora imagina com <strong>10 análises, 10 minerações e 10 slots</strong> todo mês.',
-    expiring: 'Seu teste gratuito tá acabando. Não perde o ritmo — assine e continue espionando seus concorrentes sem pausa.',
-    expired: 'Seu teste gratuito expirou, mas seus dados ainda tão aqui. Assine e volta de onde parou.',
+    quota: 'Voc\u00ea usou todas as suas minera\u00e7\u00f5es e an\u00e1lises gratuitas. Curtiu o que viu? Imagina com <strong>10 minera\u00e7\u00f5es + 10 an\u00e1lises</strong> todo m\u00eas.',
+    expiring: 'Seu teste gratuito acaba em <strong>3 dias</strong>. Depois disso voc\u00ea perde o acesso. Assine agora e n\u00e3o perde o ritmo.',
+    expired: 'Seu teste expirou, mas seus dados ainda t\u00e3o aqui. Assine e volta de onde parou \u2014 antes que eu limpe tudo.',
   }
 
   await transporter.sendMail({
@@ -108,19 +139,19 @@ export async function sendTrialDiscountEmail(email: string, reason: 'quota' | 'e
     html: wrap(`
     <p>${intros[reason]}</p>
 
-    <p>Separei um cupom de <strong>10% de desconto</strong> pra você:</p>
+    <p>Separei um cupom de <strong>10% de desconto</strong> pra voc&ecirc;:</p>
 
     <p style="text-align:center;margin:24px 0">
       <code style="background:#f3f3f3;padding:10px 24px;border-radius:6px;font-size:22px;font-weight:bold;color:#E8692A;letter-spacing:2px">DESCONTO10</code>
     </p>
 
-    <p>Plano Starter: de <s>R$57,90</s> por <strong>R$52,11/mês</strong>.</p>
+    <p>Plano Starter: de <s>R$57,90</s> por <strong>R$52,11/m&ecirc;s</strong>.</p>
 
-    <p><a href="${STARTER_URL}" style="color:#E8692A;font-weight:bold">Assinar com desconto &rarr;</a></p>
+    <p><a href="${STARTER_URL}" style="display:inline-block;background:#E8692A;color:#fff;padding:14px 32px;border-radius:8px;font-weight:bold;text-decoration:none;margin:8px 0">Assinar com desconto &rarr;</a></p>
 
     <p style="color:#888;font-size:13px">Usa o cupom DESCONTO10 no checkout.</p>
 
-    <p style="margin-top:32px;color:#888;font-size:13px">Qualquer dúvida, responde esse email.<br>
+    <p style="margin-top:32px;color:#888;font-size:13px">Qualquer d&uacute;vida, responde esse email.<br>
     &mdash; Equipe RatoAds</p>
     `),
   })
@@ -171,7 +202,7 @@ export async function sendBustedEmail(email: string) {
       <code style="background:#f3f3f3;padding:10px 24px;border-radius:6px;font-size:22px;font-weight:bold;color:#E8692A;letter-spacing:2px">DESCONTO10</code>
     </p>
 
-    <p>10 análises, 10 minerações, 10 slots de radar. Tudo por <strong>R$52,11/mês</strong>. Sem precisar ficar criando email novo toda hora.</p>
+    <p>10 minera&ccedil;&otilde;es, 10 an&aacute;lises, 10 slots de radar. Tudo por <strong>R$52,11/m&ecirc;s</strong>. Sem precisar ficar criando email novo toda hora.</p>
 
     <p><a href="${STARTER_URL}" style="color:#E8692A;font-weight:bold">Quero o acesso completo &rarr;</a></p>
 
