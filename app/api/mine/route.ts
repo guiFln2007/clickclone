@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbGetUserById, dbDecrementMineracoes } from '@/lib/db'
+import { dbGetUserById, dbDecrementMineracoes, dbLogActivity } from '@/lib/db'
 
 const SCRAPER_URL = process.env.SCRAPER_URL || ''
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
 
   // Decrementa quota de mineracao
   await dbDecrementMineracoes(userId)
+  await dbLogActivity(userId, 'mine', { keyword: kw })
   console.log(`[Mine] Starting for keyword: "${kw}" (${(user.mineracoes ?? 1) - 1} mineracoes restantes)`)
 
   // 1ª tentativa: scraper local (Mac via Cloudflare Tunnel)

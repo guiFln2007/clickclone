@@ -9,6 +9,7 @@ import {
   dbLogAnalysis,
   dbGetCachedAnalysis,
   dbSaveCachedAnalysis,
+  dbLogActivity,
 } from '@/lib/db'
 
 export const maxDuration = 300
@@ -1031,6 +1032,7 @@ export async function POST(req: NextRequest) {
             const analysis = JSON.parse(cached.analysis)
             // Cache hit — não debita créditos do usuário
             await dbLogAnalysis(userId, ip)
+            if (userId) await dbLogActivity(userId, 'analyze', { url, page_id: pageId, cached: true })
             let newAnalises: number | undefined
             if (userId) {
               const updatedUser = await dbGetUserById(userId)
@@ -1306,6 +1308,7 @@ PROIBIDO:
           await dbIncrementFreeAnalises(ip, sessionId)
         }
         await dbLogAnalysis(userId, ip)
+        if (userId) await dbLogActivity(userId, 'analyze', { url, page_id: pageId })
 
         // Salva no cache para evitar chamadas repetidas em 24h
         if (pageId) {

@@ -156,7 +156,7 @@ export default function PlansPage() {
               <div className="upgrade-sub">
                 Fa{'\u00e7'}a upgrade pro <strong style={{ color: '#FF8C00' }}>Premium</strong> e tenha 3x mais an{'\u00e1'}lises, minera{'\u00e7\u00f5'}es e slots de rastreamento.
               </div>
-              <a href={PREMIUM_URL} target="_blank" rel="noopener noreferrer" className="btn-upgrade">
+              <a href={PREMIUM_URL} target="_blank" rel="noopener noreferrer" className="btn-upgrade" onClick={() => { fetch('/api/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'checkout_click', details: { from: 'plans_page', plan: 'premium' } }) }).catch(() => {}) }}>
                 Fazer upgrade {'\u2192'} R$147,90/tri
               </a>
             </div>
@@ -167,7 +167,7 @@ export default function PlansPage() {
             <div className="upgrade-card">
               <div className="upgrade-title">Reativar RatoAds</div>
               <div className="upgrade-sub">Seu plano expirou. Reative pra continuar minerando e analisando ofertas.</div>
-              <a href={STARTER_URL} target="_blank" rel="noopener noreferrer" className="btn-upgrade">
+              <a href={STARTER_URL} target="_blank" rel="noopener noreferrer" className="btn-upgrade" onClick={() => { fetch('/api/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'checkout_click', details: { from: 'plans_page', plan: 'starter' } }) }).catch(() => {}) }}>
                 Reativar Starter {'\u2192'} R$57,90/m{'\u00ea'}s
               </a>
             </div>

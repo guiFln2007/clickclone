@@ -32,6 +32,14 @@ type Modal =
   | { type: 'reset'; user: AdminUser; tempPassword?: string }
   | { type: 'create' }
   | { type: 'edit'; user: AdminUser }
+  | { type: 'activity'; user: AdminUser }
+
+type ActivityItem = {
+  id: number
+  action: string
+  details: string | null
+  created_at: string
+}
 
 const LIMIT = 20
 
@@ -53,6 +61,8 @@ function AdminUsersContent() {
   const [msg, setMsg] = useState('')
   const [createForm, setCreateForm] = useState({ email: '', name: '', analises: '5', mineracoes: '5', plano: 'starter' })
   const [editForm, setEditForm] = useState<EditForm>({ email: '', name: '', plano: '', analises: '', mineracoes: '', max_analises: '', max_mineracoes: '', max_slots_radar: '', creditos: '', ativo: '1', renova_em: '' })
+  const [activity, setActivity] = useState<ActivityItem[]>([])
+  const [activityLoading, setActivityLoading] = useState(false)
 
   const load = useCallback(async (s = search, p = page) => {
     setLoading(true)
@@ -319,6 +329,7 @@ function AdminUsersContent() {
                       <button style={btn('#1a2a1e', '#4ade80')} onClick={() => { setActionVal(''); setModal({ type: 'analises', user: u }) }}>+An{'\u00e1'}lises</button>
                       <button style={btn('#1a1e2a', '#60a5fa')} onClick={() => { setActionVal(''); setModal({ type: 'mineracoes', user: u }) }}>+Minera{'\u00e7\u00f5'}es</button>
                       <button style={btn()} onClick={() => toggleAtivo(u)}>{u.ativo ? 'Desativar' : 'Ativar'}</button>
+                      <button style={btn('#1a1a2a', '#a78bfa')} onClick={async () => { setActivityLoading(true); setActivity([]); setModal({ type: 'activity', user: u }); try { const r = await fetch(`/api/activity?userId=${u.id}`, { headers: { 'x-admin-secret': document.cookie.replace(/(?:(?:^|.*;\s*)cc_admin\s*=\s*([^;]*).*$)|^.*$/, '$1') } }); const d = await r.json(); setActivity(d.activity || []) } catch {} setActivityLoading(false) }}>Atividade</button>
                       <button style={btn('#2a2a1a', '#facc15')} onClick={() => setModal({ type: 'reset', user: u })}>Reset</button>
                       <button style={btn('#2a1a1a', '#f87171')} onClick={() => setModal({ type: 'delete', user: u })}>Excluir</button>
                     </div>
@@ -423,6 +434,35 @@ function AdminUsersContent() {
                   {modal.tempPassword}
                 </div>
                 <button onClick={() => setModal(null)} style={{ width: '100%', marginTop: 18, padding: '11px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, color: '#888', fontSize: 14, cursor: 'pointer' }}>Fechar</button>
+              </>
+            )}
+
+            {/* Activity timeline */}
+            {modal.type === 'activity' && (
+              <>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#a78bfa', margin: '0 0 10px' }}>Atividade: {modal.user.email}</h3>
+                {activityLoading ? (
+                  <p style={{ color: '#888', fontSize: 13 }}>Carregando...</p>
+                ) : activity.length === 0 ? (
+                  <p style={{ color: '#555', fontSize: 13 }}>Nenhuma atividade registrada.</p>
+                ) : (
+                  <div style={{ maxHeight: '60vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {activity.map(a => {
+                      const labels: Record<string, string> = { mine: 'Minerou', analyze: 'Analisou', radar_add: 'Radar +', radar_remove: 'Radar -', checkout_click: 'Checkout', upgrade_prompt: 'Viu upgrade' }
+                      const colors: Record<string, string> = { mine: '#f59e0b', analyze: '#60a5fa', radar_add: '#4ade80', radar_remove: '#f87171', checkout_click: '#a78bfa', upgrade_prompt: '#facc15' }
+                      const det = a.details ? JSON.parse(a.details) : {}
+                      const detailStr = det.keyword ? `"${det.keyword}"` : det.pagina_nome ? det.pagina_nome : det.url ? det.url.substring(0, 60) : det.from ? `(${det.from})` : ''
+                      return (
+                        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'rgba(255,255,255,.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,.05)' }}>
+                          <span style={{ fontSize: 11, color: colors[a.action] || '#888', fontWeight: 700, minWidth: 80 }}>{labels[a.action] || a.action}</span>
+                          <span style={{ fontSize: 12, color: '#aaa', flex: 1 }}>{detailStr}</span>
+                          <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>{new Date(a.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <button onClick={() => setModal(null)} style={{ width: '100%', marginTop: 14, padding: '11px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, color: '#888', fontSize: 14, cursor: 'pointer' }}>Fechar</button>
               </>
             )}
 
