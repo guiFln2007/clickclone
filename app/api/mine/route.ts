@@ -194,6 +194,7 @@ export async function GET(req: NextRequest) {
 
   const runId = req.nextUrl.searchParams.get('runId')
   const minAnuncios = 10
+  const maxAnuncios = 140
   const minDias = 5
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
 
@@ -264,8 +265,9 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(p => {
-        // Minimo: 10 anuncios ativos
+        // Minimo: 10 anuncios, maximo: 140 (acima = marca grande tipo iFood, 99)
         if (p.total_anuncios < minAnuncios) return false
+        if (p.total_anuncios > maxAnuncios) return false
         // Minimo: 5 dias rodando
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
         // Tem que ter landing
