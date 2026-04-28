@@ -278,7 +278,6 @@ export default function ToolPage() {
   const [plano, setPlano] = useState('starter')
   const [renovaEm, setRenovaEm] = useState<string | null>(null)
   const [upgradeModal, setUpgradeModal] = useState(false)
-  const [lastMineModal, setLastMineModal] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
   const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -494,7 +493,6 @@ export default function ToolPage() {
         if (data.status === 'done') {
           setMineResults(data.ofertas || [])
           if (!data.ofertas?.length) setMineError('Nenhuma oferta encontrada com esses filtros. Tente diminuir o m\u00EDnimo de an\u00FAncios.')
-          setMineracoes(prev => { const n = (prev ?? 1) - 1; if (n <= 0) setTimeout(() => setLastMineModal(true), 1500); return Math.max(0, n) })
           setMining(false); setMineStatus(''); return
         }
       }
@@ -1058,23 +1056,6 @@ export default function ToolPage() {
             <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>Assine o Pro para continuar analisando.</p>
             <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noreferrer" className="mine-btn" style={{ width: '100%', textAlign: 'center', textDecoration: 'none', display: 'block' }}>Assinar &rarr;</a>
             <button className="btn-outline" style={{ width: '100%', marginTop: 8 }} onClick={() => setUpgradeModal(false)}>Fechar</button>
-          </div>
-        </div>
-      )}
-      {/* Last mine modal */}
-      {lastMineModal && (
-        <div className="modal-overlay" onClick={() => setLastMineModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <div style={{ fontSize: 40, textAlign: 'center', marginBottom: 12 }}>{'\uD83D\uDEA8'}</div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, textAlign: 'center' }}>Suas minera{'\u00e7\u00f5'}es acabaram</h2>
-            <p style={{ color: '#aaa', fontSize: 14, lineHeight: 1.6, marginBottom: 8, textAlign: 'center' }}>
-              Voc{'\u00ea'} encontrou <strong style={{ color: '#FF8C00' }}>{mineResults.length} ofertas escaladas</strong> agora.
-            </p>
-            <p style={{ color: '#888', fontSize: 13, lineHeight: 1.6, marginBottom: 20, textAlign: 'center' }}>
-              Quer continuar minerando? O Starter d{'\u00e1'} <strong style={{ color: '#fff' }}>10 minera{'\u00e7\u00f5'}es por m{'\u00ea'}s</strong> + an{'\u00e1'}lise de ofertas + radar autom{'\u00e1'}tico.
-            </p>
-            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noreferrer" className="mine-btn" style={{ width: '100%', textAlign: 'center', textDecoration: 'none', display: 'block', padding: '14px 20px', fontSize: 16 }}>Desbloquear Minerador {'\u2192'} R$57,90/m{'\u00ea'}s</a>
-            <button className="btn-outline" style={{ width: '100%', marginTop: 8 }} onClick={() => setLastMineModal(false)}>Agora n{'\u00e3'}o</button>
           </div>
         </div>
       )}
