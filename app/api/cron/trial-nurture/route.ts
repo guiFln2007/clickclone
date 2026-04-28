@@ -5,9 +5,10 @@ import { sendTrialDiscountEmail, sendTrialEngageEmail } from '@/lib/mailer'
 export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
-  // Optional secret check for cron security
+  // Accept ADMIN_SECRET or CRON_SECRET for auth
   const secret = req.nextUrl.searchParams.get('secret')
-  if (process.env.ADMIN_SECRET && secret !== process.env.ADMIN_SECRET) {
+  const validSecrets = [process.env.ADMIN_SECRET, process.env.CRON_SECRET].filter(Boolean)
+  if (validSecrets.length > 0 && !validSecrets.includes(secret || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
