@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 import { dbGetUserById } from '@/lib/db'
+import { maybeRunNurture } from '@/lib/auto-nurture'
 
 const SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'ratoads-secret-change-in-prod'
 )
 
 export async function GET(req: NextRequest) {
-  // Try x-user-id header first (injected by middleware when route is protected)
-  // then fall back to reading the cookie directly (when middleware doesn't run)
+  maybeRunNurture()
+
   let userId: number | null = null
 
   const headerUserId = req.headers.get('x-user-id')
