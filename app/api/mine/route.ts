@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
   const { keyword } = await req.json()
   const minAnuncios = 3
-  const minDias = 10
+  const minDias = 5
   if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
   const kw = keyword.trim()
@@ -194,7 +194,8 @@ export async function GET(req: NextRequest) {
 
   const runId = req.nextUrl.searchParams.get('runId')
   const minAnuncios = 10
-  const minDias = 10
+  const maxAnuncios = 140
+  const minDias = 5
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
 
   // So bloqueia redes sociais como landing (sem bio links, sem expert filter)
@@ -264,9 +265,10 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(p => {
-        // Minimo: 10 anuncios ativos
+        // Minimo: 10 anuncios, maximo: 140 (acima = marca grande)
         if (p.total_anuncios < minAnuncios) return false
-        // Minimo: 10 dias rodando
+        if (p.total_anuncios > maxAnuncios) return false
+        // Minimo: 5 dias rodando
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
         // Tem que ter landing
         const url = (p.landing_url || '').toLowerCase()

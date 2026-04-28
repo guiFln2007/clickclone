@@ -133,7 +133,7 @@ export async function initDb() {
 
 // Plan definitions — single source of truth
 export const PLANS: Record<string, { analises: number; mineracoes: number; slots_radar: number; label: string; periodo: string; dias: number }> = {
-  trial: { analises: 3, mineracoes: 3, slots_radar: 3, label: 'Trial', periodo: 'teste', dias: 30 },
+  trial: { analises: 2, mineracoes: 2, slots_radar: 2, label: 'Trial', periodo: 'teste', dias: 30 },
   starter: { analises: 10, mineracoes: 10, slots_radar: 10, label: 'Starter', periodo: 'mensal', dias: 30 },
   premium: { analises: 20, mineracoes: 20, slots_radar: 20, label: 'Premium', periodo: 'trimestral', dias: 90 },
 }
