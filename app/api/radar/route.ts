@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbGetUserById, dbCreateTrackedOffer, dbGetTrackedOffers, dbDeleteTrackedOffer, dbCreateSnapshot, dbLogActivity } from '@/lib/db'
+import { dbGetUserById, dbCreateTrackedOffer, dbGetTrackedOffers, dbDeleteTrackedOffer, dbCreateSnapshot } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   const userId = Number(req.headers.get('x-user-id'))
@@ -73,7 +73,6 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  await dbLogActivity(userId, 'radar_add', { pagina_nome, ad_library_url, nicho })
   return NextResponse.json({ id, message: 'Oferta salva no radar' })
 }
 
@@ -84,11 +83,8 @@ export async function DELETE(req: NextRequest) {
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'id obrigatorio' }, { status: 400 })
 
-  const offers = await dbGetTrackedOffers(userId)
-  const offer = offers.find(o => o.id === id)
   const ok = await dbDeleteTrackedOffer(id, userId)
   if (!ok) return NextResponse.json({ error: 'Oferta nao encontrada' }, { status: 404 })
 
-  await dbLogActivity(userId, 'radar_remove', { pagina_nome: offer?.pagina_nome })
   return NextResponse.json({ message: 'Removida do radar' })
 }

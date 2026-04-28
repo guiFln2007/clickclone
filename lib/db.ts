@@ -105,20 +105,6 @@ export async function initDb() {
     },
   ])
 
-  // Activity log table
-  try {
-    await db.execute({
-      sql: `CREATE TABLE IF NOT EXISTS user_activity (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id    INTEGER NOT NULL,
-        action     TEXT NOT NULL,
-        details    TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`,
-      args: [],
-    })
-  } catch { /* already exists */ }
-
   // Migration: add page_id column to existing tracked_offers table
   try {
     await db.execute('ALTER TABLE tracked_offers ADD COLUMN page_id TEXT')
@@ -147,7 +133,7 @@ export async function initDb() {
 
 // Plan definitions — single source of truth
 export const PLANS: Record<string, { analises: number; mineracoes: number; slots_radar: number; label: string; periodo: string; dias: number }> = {
-  trial: { analises: 1, mineracoes: 1, slots_radar: 1, label: 'Trial', periodo: 'teste', dias: 30 },
+  trial: { analises: 3, mineracoes: 3, slots_radar: 3, label: 'Trial', periodo: 'teste', dias: 30 },
   starter: { analises: 10, mineracoes: 10, slots_radar: 10, label: 'Starter', periodo: 'mensal', dias: 30 },
   premium: { analises: 20, mineracoes: 20, slots_radar: 20, label: 'Premium', periodo: 'trimestral', dias: 90 },
 }
@@ -405,42 +391,6 @@ export async function dbLogAnalysis(userId: number | null, ip: string): Promise<
   await db.execute({
     sql: 'INSERT INTO analyses_log (user_id, ip) VALUES (?, ?)',
     args: [userId, ip],
-  })
-}
-
-// ── User activity log ─────────────────────────────────────────────────────────
-
-export type UserActivity = {
-  id: number
-  user_id: number
-  action: string
-  details: string | null
-  created_at: string
-}
-
-export async function dbLogActivity(userId: number, action: string, details?: Record<string, unknown>): Promise<void> {
-  await initDb()
-  await db.execute({
-    sql: 'INSERT INTO user_activity (user_id, action, details) VALUES (?, ?, ?)',
-    args: [userId, action, details ? JSON.stringify(details) : null],
-  })
-}
-
-export async function dbGetUserActivity(userId: number, limit = 50): Promise<UserActivity[]> {
-  await initDb()
-  const res = await db.execute({
-    sql: 'SELECT * FROM user_activity WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
-    args: [userId, limit],
-  })
-  return res.rows.map(r => {
-    const row = r as Record<string, unknown>
-    return {
-      id: row.id as number,
-      user_id: row.user_id as number,
-      action: row.action as string,
-      details: (row.details as string) ?? null,
-      created_at: row.created_at as string,
-    }
   })
 }
 

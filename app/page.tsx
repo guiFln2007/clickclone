@@ -881,7 +881,7 @@ export default function LandingPage() {
                 </div>
                 <span className="plan-badge plan-badge-trial">Trial</span>
               </div>
-              {['1 an\u00e1lise completa','1 minera\u00e7\u00e3o autom\u00e1tica','1 slot de rastreamento','Scripts de CTV inclu\u00eddos','Sem cart\u00e3o de cr\u00e9dito'].map(f => (
+              {['3 an\u00e1lises completas','3 minera\u00e7\u00f5es autom\u00e1ticas','3 slots de rastreamento','Scripts de CTV inclu\u00eddos','Sem cart\u00e3o de cr\u00e9dito'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
               {!trialOpen ? (

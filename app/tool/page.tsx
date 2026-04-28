@@ -901,7 +901,7 @@ export default function ToolPage() {
                   disabled={mining}
                   style={{ width: '100%', padding: '12px 16px', fontSize: 15, borderRadius: 8, border: '1px solid #444', background: '#1a1a1a', color: '#fff', marginBottom: 20, outline: 'none' }}
                 />
-                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros usados pelos maiores players do mercado para encontrar ofertas escaladas: <span style={{ color: '#e8a040' }}>10+ an{'\u00FA'}ncios ativos</span>, <span style={{ color: '#e8a040' }}>5+ dias rodando</span> e <span style={{ color: '#e8a040' }}>apenas sites de venda reais</span>.</p>
+                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros usados pelos maiores players do mercado para encontrar ofertas escaladas: <span style={{ color: '#e8a040' }}>10+ an{'\u00FA'}ncios ativos</span>, <span style={{ color: '#e8a040' }}>10+ dias rodando</span> e <span style={{ color: '#e8a040' }}>apenas sites de venda reais</span>.</p>
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
                   <button className="mine-btn" onClick={handleMine} disabled={!mineKeyword.trim() || mining}>
                     {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : <>{'\u26CF\uFE0F'} Minerar Agora</>}
@@ -1054,7 +1054,7 @@ export default function ToolPage() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 10 }}>Limite atingido</h2>
             <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>Assine o Pro para continuar analisando.</p>
-            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noreferrer" className="mine-btn" style={{ width: '100%', textAlign: 'center', textDecoration: 'none', display: 'block' }} onClick={() => { if (userId) fetch('/api/activity', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-user-id': String(userId) }, body: JSON.stringify({ action: 'checkout_click', details: { from: 'upgrade_modal' } }) }).catch(() => {}) }}>Assinar &rarr;</a>
+            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noreferrer" className="mine-btn" style={{ width: '100%', textAlign: 'center', textDecoration: 'none', display: 'block' }}>Assinar &rarr;</a>
             <button className="btn-outline" style={{ width: '100%', marginTop: 8 }} onClick={() => setUpgradeModal(false)}>Fechar</button>
           </div>
         </div>

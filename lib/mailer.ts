@@ -73,9 +73,9 @@ export async function sendTrialEmail(email: string, tempPassword: string) {
 
     <p>O que tá incluso no seu teste:</p>
     <ul style="padding-left:20px;color:#444">
-      <li>1 análise completa</li>
-      <li>1 mineração automática</li>
-      <li>1 slot de rastreamento</li>
+      <li>3 análises completas</li>
+      <li>3 minerações automáticas</li>
+      <li>3 slots de rastreamento</li>
     </ul>
 
     <p style="color:#888;font-size:13px">Curtiu e quer mais? O plano Starter dá 10 análises, 10 minerações e 10 slots por R$57,90/mês.</p>
