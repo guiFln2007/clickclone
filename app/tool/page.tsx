@@ -361,9 +361,10 @@ export default function ToolPage() {
   }
 
   // ── ANALYZE ──
-  async function handleAnalyze(e: React.FormEvent) {
-    e.preventDefault()
-    if (!url.trim()) return
+  async function handleAnalyze(e?: React.FormEvent, overrideUrl?: string) {
+    if (e) e.preventDefault()
+    const analyzeUrl = overrideUrl || url
+    if (!analyzeUrl.trim()) return
     setShowReport(false); setAnalyzing(true); setError(''); setTermLines([]); setDashProgress(0)
     setPhase1Report(null); setPhase2Report(null); setPhase2Screenshots([])
     if (stepTimer.current) clearInterval(stepTimer.current)
@@ -382,7 +383,7 @@ export default function ToolPage() {
 
     try {
       setTermLines([{ text: '> Iniciando analise de anuncios...', type: 'wait' }])
-      const res1 = await fetch('/api/phase1', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ url }) })
+      const res1 = await fetch('/api/phase1', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ url: analyzeUrl }) })
       if (res1.status === 402) { setUpgradeModal(true); return }
       if (!res1.ok) { const e = await res1.json().catch(() => ({})); throw new Error(e.error || 'Erro na fase 1') }
 
@@ -416,8 +417,8 @@ export default function ToolPage() {
 
       // Save to history
       const promessa = ((p2 as Record<string, unknown>).promessa_central as string)?.split(' ').slice(0, 5).join(' ') || ''
-      const record: SavedAnalysis = { id: Date.now().toString(), name: promessa || ((p1 as Record<string, unknown>).angulo_dominante as string) || 'Oferta', score: Number((p1 as Record<string, unknown>).nota_entrada && ((p1 as Record<string, unknown>).nota_entrada as Record<string, number>).score) || 0, url, phase1: p1 as Record<string, unknown>, phase2: p2 as Record<string, unknown>, screenshots: shots.slice(0, 2), createdAt: Date.now() }
-      const updated = [record, ...savedAnalyses.filter(a => a.url !== url)].slice(0, 20)
+      const record: SavedAnalysis = { id: Date.now().toString(), name: promessa || ((p1 as Record<string, unknown>).angulo_dominante as string) || 'Oferta', score: Number((p1 as Record<string, unknown>).nota_entrada && ((p1 as Record<string, unknown>).nota_entrada as Record<string, number>).score) || 0, url: analyzeUrl, phase1: p1 as Record<string, unknown>, phase2: p2 as Record<string, unknown>, screenshots: shots.slice(0, 2), createdAt: Date.now() }
+      const updated = [record, ...savedAnalyses.filter(a => a.url !== analyzeUrl)].slice(0, 20)
       setSavedAnalyses(updated); localStorage.setItem('cc_analyses', JSON.stringify(updated))
       setShowReport(true)
     } catch (err) { setError(err instanceof Error ? err.message : 'Erro ao analisar') } finally { setAnalyzing(false) }
@@ -494,7 +495,7 @@ export default function ToolPage() {
   // ── MINE ──
   async function handleMine() {
     if (!mineKeyword.trim() || mining) return
-    setMining(true); setMineError(''); setMineResults([]); setMineStatus('Conectando ao Meta Ad Library...')
+    setMining(true); setMineError(''); setMineResults([]); setMineStatus('Conectando \u00E0 biblioteca de an\u00FAncios...')
     try {
       // 1. Start the mining run
       const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ keyword: mineKeyword.trim() }) })
@@ -502,7 +503,7 @@ export default function ToolPage() {
       const { runId } = await startRes.json()
       if (!runId) throw new Error('Falha ao iniciar busca')
 
-      setMineStatus('Minerando an\u00FAncios no Meta Ad Library...')
+      setMineStatus('Minerando an\u00FAncios na biblioteca...')
 
       // 2. Poll every 5s until done
       const statusMsgs = ['Vasculhando bibliotecas de an\u00FAncios...', 'Analisando p\u00E1ginas encontradas...', 'Filtrando ofertas validadas...', 'Isso pode levar alguns minutos...', 'Processando resultados...', 'Quase l\u00E1...']
@@ -757,12 +758,13 @@ export default function ToolPage() {
           {activeTab === 'analise' && (
             <div className="tab-content">
               <div className="analyze-hero">
+                <div className="tool-sec-label"><span>Intelig{'\u00ea'}ncia competitiva</span></div>
                 <h1 className="analyze-title">Analise de <span className="acc">Biblioteca</span></h1>
-                <p className="analyze-sub">Inteligencia competitiva em segundos</p>
+                <p className="analyze-sub">Descubra pontos fracos, modele criativos e gere funis em segundos</p>
                 <form onSubmit={handleAnalyze} className="analyze-form">
                   <div className="analyze-input-wrap">
                     <svg className="analyze-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input className="analyze-input" type="url" placeholder="Cole o link da Ad Library do concorrente..." value={url} onChange={e => setUrl(e.target.value)} />
+                    <input className="analyze-input" type="url" placeholder="Cole o link da biblioteca de an\u00FAncios do concorrente..." value={url} onChange={e => setUrl(e.target.value)} />
                   </div>
                   <button className="analyze-btn" type="submit" disabled={analyzing || !url.trim()}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -790,14 +792,15 @@ export default function ToolPage() {
                 </div>
               </div>
 
-              {/* Rat Mascot */}
+              {/* Rat Mascot + Loading */}
               <RatMascot isAnalyzing={analyzing} />
-
-              {/* Loading status text */}
               {analyzing && (
-                <div className="rat-loading-info">
-                  <div className="rat-status">{termLines.length > 0 ? termLines[termLines.length - 1].text.replace(/^> /, '').replace(/^\u2713 /, '') : 'Iniciando analise...'}</div>
-                  <div className="rat-progress-bar"><div className="rat-progress-fill" style={{ width: `${dashProgress}%` }} /></div>
+                <div className="status-bar-wrap">
+                  <div className="status-track"><div className="status-fill" style={{ width: `${dashProgress}%` }} /></div>
+                  <div className="status-text">
+                    <span className="st-pulse" />
+                    <span>{termLines.length > 0 ? termLines[termLines.length - 1].text.replace(/^> /, '').replace(/^\u2713 /, '') : 'Iniciando analise...'}</span>
+                  </div>
                 </div>
               )}
               {!analyzing && error && <div className="err" style={{ maxWidth: 680, margin: '0 auto 24px' }}>{error}</div>}
@@ -828,7 +831,44 @@ export default function ToolPage() {
               )}
 
               {!analyzing && savedAnalyses.length === 0 && !error && (
-                <div className="empty-state" style={{ marginTop: 0 }}>Nenhuma analise ainda. Cole um link acima para comecar.</div>
+                <div className="analysis-explainer">
+                  <div className="explainer-title">O que voc{'\u00ea'} recebe ao analisar</div>
+                  <div className="explainer-subtitle">Cole o link da biblioteca de an{'\u00FA'}ncios de qualquer concorrente e receba em segundos:</div>
+                  <div className="explainer-grid">
+                    <div className="explainer-card">
+                      <div className="explainer-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                      </div>
+                      <div className="explainer-card-title">Score 0-10</div>
+                      <div className="explainer-card-desc">Nota de entrada baseada em volume de an{'\u00fa'}ncios, tempo rodando e presença de expert</div>
+                    </div>
+                    <div className="explainer-card">
+                      <div className="explainer-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                      </div>
+                      <div className="explainer-card-title">Pontos fortes e fracos</div>
+                      <div className="explainer-card-desc">An{'\u00e1'}lise detalhada dos criativos: o que funciona e o que evitar</div>
+                    </div>
+                    <div className="explainer-card">
+                      <div className="explainer-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      </div>
+                      <div className="explainer-card-title">3 scripts de CTV</div>
+                      <div className="explainer-card-desc">Roteiros prontos com hook, corpo e CTA pra voc{'\u00ea'} gravar ou adaptar</div>
+                    </div>
+                    <div className="explainer-card">
+                      <div className="explainer-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+                      </div>
+                      <div className="explainer-card-title">Prompt Lovable/Bolt</div>
+                      <div className="explainer-card-desc">Prompt pronto pra gerar uma landing page melhor que a do concorrente</div>
+                    </div>
+                  </div>
+                  <div className="explainer-tip">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    <span>Dica: minere uma oferta e clique em <strong>&ldquo;Ver pontos fracos + scripts&rdquo;</strong> pra analisar direto</span>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -912,6 +952,7 @@ export default function ToolPage() {
           {activeTab === 'minerador' && (
             <div className="tab-content">
               <div className="mine-hero">
+                <div className="tool-sec-label"><span>Descoberta de ofertas</span></div>
                 <h1 className="mine-title">Minerador <span className="acc">Autom{'\u00E1'}tico</span></h1>
                 <p className="mine-sub">Encontre ofertas validadas no seu nicho em segundos</p>
               </div>
@@ -939,7 +980,12 @@ export default function ToolPage() {
 
               {/* Rat mascot */}
               <RatMascot isAnalyzing={mining} />
-              {mining && mineStatus && <div className="mine-status">{mineStatus}</div>}
+              {mining && mineStatus && (
+                <div className="status-bar-wrap">
+                  <div className="status-track"><div className="status-fill" style={{ width: '60%' }} /></div>
+                  <div className="status-text"><span className="st-pulse" /><span>{mineStatus}</span></div>
+                </div>
+              )}
               {!mining && mineResults.length === 0 && !mineError && <div className="mine-hint">Digite uma palavra-chave e clique em Minerar</div>}
 
               {/* Results */}
@@ -962,8 +1008,8 @@ export default function ToolPage() {
                           </div>
                           {o.resumo_angulo && <div className="mrc-angle">{o.resumo_angulo}</div>}
                           <div className="mrc-acts">
-                            <a className="mrc-btn-orange" href={o.ad_library_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', textAlign: 'center' }}>Ver Biblioteca</a>
-                            <button className="mrc-btn-outline" onClick={() => { setUrl(o.ad_library_url); setActiveTab('analise') }}>Analisar</button>
+                            <button className="mrc-btn-orange" onClick={() => { setUrl(o.ad_library_url); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, o.ad_library_url), 150) }} style={{ cursor: 'pointer', border: 'none' }}>Modelar funil e criativos</button>
+                            <a className="mrc-btn-outline" href={o.ad_library_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', textAlign: 'center' }}>Ver Biblioteca</a>
                             <button className="mrc-btn-outline" onClick={() => saveMinedToRadar(o)} disabled={savedToRadar.has(o.pagina_nome)} style={savedToRadar.has(o.pagina_nome) ? { opacity: 0.5, cursor: 'default' } : {}}>{savedToRadar.has(o.pagina_nome) ? 'Salvo' : '+ Radar'}</button>
                           </div>
                         </div>
@@ -1308,19 +1354,20 @@ body::after{
 .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:720px;margin:24px auto 8px}
 @media(max-width:500px){.stats-row{grid-template-columns:1fr}}
 .stat-card{
-  background:linear-gradient(180deg,rgba(20,20,28,.6),rgba(15,15,20,.4));
-  border:1px solid rgba(255,255,255,.06);
-  backdrop-filter:blur(20px);
+  background:#06080f;
+  border:1px solid rgba(255,140,0,.12);
   border-radius:16px;padding:18px 22px;display:flex;align-items:center;gap:14px;
-  transition:all .35s var(--ease-out);position:relative;overflow:hidden;
+  transition:all .4s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden;z-index:1;
 }
+.stat-card::after{content:'';position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.035) 1px,transparent 1px);background-size:22px 22px;pointer-events:none;z-index:0}
 .stat-card::before{
-  content:'';position:absolute;inset:0;
-  background:linear-gradient(135deg,rgba(255,107,0,.04),transparent);
-  opacity:0;transition:opacity .35s;
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:linear-gradient(rgba(255,140,0,.5) 0 0) top left/2px 14px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top left/14px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top right/2px 14px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top right/14px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom left/2px 14px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom left/14px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom right/2px 14px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom right/14px 2px no-repeat;
+  transition:opacity .35s ease;opacity:.4;
 }
-.stat-card:hover{transform:translateY(-2px);border-color:rgba(255,107,0,.18)}
+.stat-card:hover{transform:translateY(-3px);border-color:rgba(255,140,0,.32);background:#080b15;box-shadow:0 20px 50px rgba(0,0,0,.6),0 0 0 1px rgba(255,140,0,.18)}
 .stat-card:hover::before{opacity:1}
+.stat-card>*{position:relative;z-index:2}
 .stat-card svg{flex-shrink:0;position:relative;z-index:1}
 .stat-num{font-size:24px;font-weight:900;color:#fff;position:relative;z-index:1;letter-spacing:-.02em}
 .stat-label{font-size:11px;color:var(--text-3);line-height:1.3;font-weight:500;position:relative;z-index:1}
@@ -1348,11 +1395,22 @@ body::after{
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
 
-/* RAT LOADING */
-.rat-loading-info{display:flex;flex-direction:column;align-items:center;gap:14px;padding:0 20px 28px;max-width:420px;margin:0 auto}
-.rat-status{font-size:14px;color:var(--text-2);text-align:center;min-height:22px;animation:fadein .35s var(--ease-out);font-weight:500}
-.rat-progress-bar{width:300px;height:6px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden}
-.rat-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:999px;transition:width .6s var(--ease-out);box-shadow:0 0 16px rgba(255,107,0,.4)}
+/* SECTION LABEL (landing style) */
+.tool-sec-label{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px}
+.tool-sec-label::before,.tool-sec-label::after{content:'';width:32px;height:1px;flex-shrink:0}
+.tool-sec-label::before{background:linear-gradient(90deg,transparent,#FF8C00)}
+.tool-sec-label::after{background:linear-gradient(90deg,#FF8C00,transparent)}
+.tool-sec-label span{color:#FF8C00;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+
+/* STATUS BAR (landing style) */
+.status-bar-wrap{width:100%;display:flex;flex-direction:column;gap:14px;max-width:420px;margin:0 auto;padding:0 20px 28px;animation:fadein .4s var(--ease-out)}
+.status-track{height:6px;background:rgba(255,255,255,.05);border-radius:100px;overflow:hidden;border:1px solid rgba(255,140,0,.14);position:relative}
+.status-fill{height:100%;background:linear-gradient(90deg,#FF8C00,#FFB347);border-radius:100px;transition:width .9s cubic-bezier(.16,1,.3,1);box-shadow:0 0 18px rgba(255,140,0,.55);position:relative;overflow:hidden}
+.status-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmer 1.6s linear infinite;background-size:200px 100%}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.status-text{display:flex;align-items:center;justify-content:center;gap:12px;font-size:14px;color:#bbb;font-weight:500;min-height:36px;text-align:center}
+.st-pulse{width:9px;height:9px;border-radius:50%;background:#FF8C00;animation:st-pulse-anim 1.2s ease-in-out infinite;flex-shrink:0;box-shadow:0 0 10px rgba(255,140,0,.6)}
+@keyframes st-pulse-anim{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.5)}}
 
 /* HISTORY BUTTON */
 .hc-btn{padding:7px 14px;border-radius:999px;border:1px solid var(--border-2);background:rgba(255,255,255,.02);color:var(--text-2);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s var(--ease-out);flex-shrink:0;white-space:nowrap}
@@ -1605,24 +1663,25 @@ body::after{
 .mine-results-wrap{margin-top:12px}
 .mine-results{display:flex;flex-direction:column;gap:14px}
 .mrc{
-  background:linear-gradient(180deg,rgba(20,20,28,.6),rgba(15,15,20,.4));
-  border:1px solid rgba(255,255,255,.06);
-  backdrop-filter:blur(20px);
-  border-radius:18px;padding:22px;
-  transition:all .4s var(--ease-out);position:relative;overflow:hidden;
-  animation:fadein .4s var(--ease-out);
+  background:#06080f;
+  border:1px solid rgba(255,140,0,.12);
+  border-radius:18px;padding:24px;
+  transition:all .4s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden;
+  animation:fadein .4s var(--ease-out);z-index:1;
 }
+.mrc::after{content:'';position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.035) 1px,transparent 1px);background-size:22px 22px;pointer-events:none;z-index:0}
 .mrc::before{
-  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
-  background:linear-gradient(180deg,var(--accent),transparent);
-  opacity:0;transition:opacity .4s;
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:linear-gradient(rgba(255,140,0,.5) 0 0) top left/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top left/18px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top right/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top right/18px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom left/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom left/18px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom right/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom right/18px 2px no-repeat;
+  transition:opacity .35s ease;opacity:.45;
 }
 .mrc:hover{
-  transform:translateY(-3px);
-  border-color:rgba(255,107,0,.25);
-  box-shadow:0 16px 40px rgba(0,0,0,.3);
+  transform:translateY(-4px);
+  border-color:rgba(255,140,0,.32);background:#080b15;
+  box-shadow:0 28px 70px rgba(0,0,0,.7),0 0 0 1px rgba(255,140,0,.18);
 }
 .mrc:hover::before{opacity:1}
+.mrc>*{position:relative;z-index:2}
 .mrc-top{display:flex;align-items:center;gap:16px;margin-bottom:10px}
 .mrc-score{
   width:54px;height:54px;border-radius:14px;
@@ -1753,6 +1812,25 @@ body::after{
 
 /* EMPTY */
 .empty-state{padding:64px 24px;text-align:center;color:var(--text-3);font-size:14px;font-weight:500}
+
+/* ─── ANALYSIS EXPLAINER (landing style) ─── */
+.analysis-explainer{max-width:760px;margin:0 auto;padding:0 8px;animation:fadein .5s var(--ease-out)}
+.explainer-title{font-size:clamp(20px,3.5vw,28px);font-weight:800;color:var(--text);text-align:center;margin-bottom:6px;letter-spacing:-.03em}
+.explainer-subtitle{font-size:14px;color:var(--text-2);text-align:center;margin-bottom:28px;font-weight:300}
+.explainer-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:rgba(255,255,255,.05);overflow:visible;margin-bottom:24px}
+.explainer-card{background:#06080f;padding:28px 22px;text-align:left;position:relative;overflow:hidden;transition:transform .45s cubic-bezier(.16,1,.3,1),box-shadow .45s ease,background .35s ease;cursor:default;z-index:1}
+.explainer-card::after{content:'';position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.035) 1px,transparent 1px);background-size:22px 22px;pointer-events:none;z-index:0}
+.explainer-card::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;background:linear-gradient(rgba(255,140,0,.55) 0 0) top left/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.55) 0 0) top left/18px 2px no-repeat,linear-gradient(rgba(255,140,0,.55) 0 0) top right/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.55) 0 0) top right/18px 2px no-repeat,linear-gradient(rgba(255,140,0,.55) 0 0) bottom left/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.55) 0 0) bottom left/18px 2px no-repeat,linear-gradient(rgba(255,140,0,.55) 0 0) bottom right/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.55) 0 0) bottom right/18px 2px no-repeat;transition:opacity .35s ease;opacity:.5}
+.explainer-card:hover{transform:scale(1.03);z-index:10;background:#09101f;box-shadow:0 28px 80px rgba(0,0,0,.85),0 0 0 1px rgba(255,140,0,.25)}
+.explainer-card:hover::before{opacity:1}
+.explainer-icon{margin-bottom:14px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;position:relative;z-index:2}
+.explainer-icon::before{content:'';position:absolute;inset:-2px;border-radius:50%;border:2px solid transparent;border-top-color:rgba(255,140,0,.75);border-right-color:rgba(255,140,0,.2);animation:exp-arc-spin 3s linear infinite}
+@keyframes exp-arc-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.explainer-card-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-.02em;position:relative;z-index:2}
+.explainer-card-desc{font-size:13px;color:#888;line-height:1.75;font-weight:300;position:relative;z-index:2}
+.explainer-tip{display:flex;align-items:center;gap:10px;background:rgba(255,140,0,.06);border:1px solid rgba(255,140,0,.18);border-radius:12px;padding:14px 18px;font-size:13px;color:var(--text-2);font-weight:400}
+.explainer-tip strong{color:#FF8C00}
+@media(max-width:540px){.explainer-grid{grid-template-columns:1fr}}
 
 /* ─── REPORT ─── */
 .report-wrap{min-height:100vh;background:#09090b;color:#e4e4e7;display:flex;flex-direction:column;overflow-x:hidden}
