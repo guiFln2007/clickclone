@@ -181,6 +181,16 @@ function AdminUsersContent() {
     await load()
   }
 
+  async function sendCupom(user: AdminUser) {
+    if (!confirm(`Enviar cupom BOASVINDAS50 pra ${user.email}?`)) return
+    const res = await fetch('/api/admin/send-recovery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: user.email }),
+    })
+    showMsg(res.ok ? `Cupom enviado pra ${user.email}` : `Erro ao enviar pra ${user.email}`)
+  }
+
   async function toggleAtivo(user: AdminUser) {
     const next = user.ativo ? 0 : 1
     await fetch(`/api/admin/users/${user.id}`, {
@@ -321,6 +331,9 @@ function AdminUsersContent() {
                       <button style={btn()} onClick={() => toggleAtivo(u)}>{u.ativo ? 'Desativar' : 'Ativar'}</button>
                       <button style={btn('#2a2a1a', '#facc15')} onClick={() => setModal({ type: 'reset', user: u })}>Reset</button>
                       <button style={btn('#2a1a1a', '#f87171')} onClick={() => setModal({ type: 'delete', user: u })}>Excluir</button>
+                      {(u.plano === 'trial' || u.plano === 'inativo') && (
+                        <button style={btn('#2a1a2a', '#e879f9')} onClick={() => sendCupom(u)}>Cupom 50%</button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -518,7 +531,7 @@ function AdminUsersContent() {
                   <div>
                     <label style={{ display: 'block', fontSize: 12, color: '#666', marginBottom: 5 }}>Plano</label>
                     <select value={createForm.plano} onChange={(e) => setCreateForm(f => ({ ...f, plano: e.target.value }))} style={{ ...inputStyle, cursor: 'pointer' }}>
-                      <option value="trial">Trial (2/2/2)</option>
+                      <option value="trial">Trial (1/1/1)</option>
                       <option value="starter">Starter (10/10/10)</option>
                       <option value="premium">Premium (20/20/20)</option>
                     </select>
