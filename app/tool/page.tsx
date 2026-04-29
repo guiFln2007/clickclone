@@ -387,13 +387,14 @@ export default function ToolPage() {
       if (res1.status === 402) { setUpgradeModal(true); return }
       if (!res1.ok) { const e = await res1.json().catch(() => ({})); throw new Error(e.error || 'Erro na fase 1') }
 
-      let p1: Record<string, unknown> | null = null
+      let p1: Record<string, unknown> | null = null; let phase1Err: string | null = null
       await readSSE(res1, ev => {
-        if (ev.type === 'error') throw new Error(ev.message as string)
+        if (ev.type === 'error') { phase1Err = ev.message as string; return true }
         if (ev.type === 'progress') { setTermLines(prev => [...prev, { text: `> ${ev.text}`, type: 'wait' }]); setDashProgress(30) }
         if (ev.type === 'done') { p1 = ev.report as Record<string, unknown>; setTermLines(prev => [...prev, { text: '\u2713 Fase 1 concluida', type: 'done' }]); setDashProgress(50); return true }
         return false
       })
+      if (phase1Err) throw new Error(phase1Err)
       if (!p1) throw new Error('Fase 1 nao retornou relatorio')
       setPhase1Report(p1)
 
@@ -405,13 +406,14 @@ export default function ToolPage() {
       if (res2.status === 402) { setUpgradeModal(true); return }
       if (!res2.ok) { const e = await res2.json().catch(() => ({})); throw new Error(e.error || 'Erro na fase 2') }
 
-      let p2: Record<string, unknown> | null = null; let shots: string[] = []
+      let p2: Record<string, unknown> | null = null; let shots: string[] = []; let phase2Err: string | null = null
       await readSSE(res2, ev => {
-        if (ev.type === 'error') throw new Error(ev.message as string)
+        if (ev.type === 'error') { phase2Err = ev.message as string; return true }
         if (ev.type === 'progress') { setTermLines(prev => [...prev, { text: `> ${ev.text}`, type: 'wait' }]); setDashProgress(75) }
         if (ev.type === 'done') { p2 = ev.report as Record<string, unknown>; shots = (ev.screenshots as string[]) || []; setTermLines(prev => [...prev, { text: '\u2713 Prompt do funil pronto', type: 'done' }]); setDashProgress(100); return true }
         return false
       })
+      if (phase2Err) throw new Error(phase2Err)
       if (!p2) throw new Error('Fase 2 nao retornou relatorio')
       setPhase2Report(p2); setPhase2Screenshots(shots)
 
