@@ -261,10 +261,6 @@ export default function LandingPage() {
   const [adCount, setAdCount] = useState(127)
   const [tcIdx, setTcIdx] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [popupOpen, setPopupOpen] = useState(false)
-  const [popupEmail, setPopupEmail] = useState('')
-  const [popupLoading, setPopupLoading] = useState(false)
-  const [popupDone, setPopupDone] = useState(false)
   const resScrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -391,36 +387,6 @@ export default function LandingPage() {
       setPhase('idle')
       setDemoSteps([])
     }
-  }
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const seen = localStorage.getItem('ratoads_popup_seen')
-    if (!seen) {
-      const t = setTimeout(() => setPopupOpen(true), 3000)
-      return () => clearTimeout(t)
-    }
-  }, [])
-
-  async function handlePopupSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!popupEmail || popupLoading) return
-    setPopupLoading(true)
-    try {
-      await fetch('/api/lead', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: popupEmail }),
-      })
-      setPopupDone(true)
-      localStorage.setItem('ratoads_popup_seen', '1')
-    } catch { /* ignore */ }
-    setPopupLoading(false)
-  }
-
-  function closePopup() {
-    setPopupOpen(false)
-    localStorage.setItem('ratoads_popup_seen', '1')
   }
 
   return (
@@ -919,43 +885,6 @@ export default function LandingPage() {
       </footer>
 
       <button className="back-top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Voltar ao topo">{'\u2191'}</button>
-
-      {/* Popup cupom 10% */}
-      {popupOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(4px)' }} onClick={closePopup}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#111', border: '1px solid rgba(255,140,0,.3)', borderRadius: 16, padding: '36px 32px', maxWidth: 420, width: '90%', position: 'relative', boxShadow: '0 24px 80px rgba(255,140,0,.15)' }}>
-            <button onClick={closePopup} style={{ position: 'absolute', top: 14, right: 16, background: 'none', border: 'none', color: '#555', fontSize: 20, cursor: 'pointer' }}>{'\u00d7'}</button>
-            {!popupDone ? (
-              <>
-                <div style={{ fontSize: 13, color: '#E8692A', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Oferta exclusiva</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.3, marginBottom: 8 }}>Ganhe <span style={{ color: '#E8692A' }}>10% de desconto</span> na sua primeira assinatura</div>
-                <p style={{ fontSize: 14, color: '#888', marginBottom: 24 }}>Deixa seu email e a gente te manda o cupom na hora.</p>
-                <form onSubmit={handlePopupSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <input
-                    type="email"
-                    placeholder="Seu melhor email"
-                    value={popupEmail}
-                    onChange={e => setPopupEmail(e.target.value)}
-                    required
-                    style={{ width: '100%', background: '#0a0a0a', border: '1px solid rgba(255,255,255,.1)', color: '#fff', padding: '14px 16px', borderRadius: 10, fontSize: 14, fontFamily: 'inherit', outline: 'none' }}
-                  />
-                  <button type="submit" disabled={popupLoading} style={{ background: '#E8692A', color: '#fff', border: 'none', padding: '16px 24px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {popupLoading ? 'Enviando...' : 'Quero meu cupom'}
-                  </button>
-                </form>
-                <p style={{ fontSize: 11, color: '#333', textAlign: 'center', marginTop: 12 }}>Sem spam. S{'\u00f3'} o cupom.</p>
-              </>
-            ) : (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>{'\u2705'}</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 8 }}>Cupom enviado!</div>
-                <p style={{ fontSize: 14, color: '#888', marginBottom: 20 }}>Confere seu email. O cupom <strong style={{ color: '#E8692A' }}>DESCONTO10</strong> j{'\u00e1'} t{'\u00e1'} l{'\u00e1'}.</p>
-                <button onClick={closePopup} style={{ background: '#E8692A', color: '#fff', border: 'none', padding: '14px 28px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>Fechar</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </>
   )
 }

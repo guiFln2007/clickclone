@@ -122,19 +122,6 @@ export async function initDb() {
     try { await db.execute(sql) } catch { /* column already exists */ }
   }
 
-  // Migration: leads table
-  try {
-    await db.execute({
-      sql: `CREATE TABLE IF NOT EXISTS leads (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        email      TEXT NOT NULL UNIQUE,
-        source     TEXT NOT NULL DEFAULT 'popup',
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`,
-      args: [],
-    })
-  } catch { /* exists */ }
-
   // Migration: track trial nurture emails sent
   try { await db.execute('ALTER TABLE users ADD COLUMN trial_email_sent TEXT') } catch { /* exists */ }
 
@@ -500,19 +487,6 @@ export async function dbCheckTrialIp(ip: string): Promise<boolean> {
 export async function dbSetTrialIp(email: string, ip: string): Promise<void> {
   await initDb()
   await db.execute({ sql: 'UPDATE users SET trial_ip = ? WHERE email = ?', args: [ip, email] })
-}
-
-export async function dbSaveLead(email: string, source = 'popup'): Promise<boolean> {
-  await initDb()
-  try {
-    await db.execute({
-      sql: 'INSERT OR IGNORE INTO leads (email, source) VALUES (?, ?)',
-      args: [email, source],
-    })
-    return true
-  } catch {
-    return false
-  }
 }
 
 export async function dbGetTrialUsersForNurture(): Promise<User[]> {
