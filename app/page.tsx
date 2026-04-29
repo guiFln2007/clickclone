@@ -855,7 +855,7 @@ export default function LandingPage() {
               {['10 minera\u00e7\u00f5es por m\u00eas','10 an\u00e1lises por m\u00eas','10 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte 24h'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
-              <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow IC - Geral" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Come{'\u00e7'}ar agora {'\u2192'}</a>
+              <a href={CHECKOUT_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow IC-Geral" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Come{'\u00e7'}ar agora {'\u2192'}</a>
               <p style={{ textAlign: 'center', fontSize: 11.5, color: '#2a2a2a', marginTop: 12 }}>Acesso imediato {'\u00b7'} Cancele quando quiser</p>
             </div>
             <div className="price-c price-c-premium sc-top">
@@ -870,7 +870,7 @@ export default function LandingPage() {
               {['20 minera\u00e7\u00f5es por m\u00eas','20 an\u00e1lises por m\u00eas','20 slots de rastreamento','3 scripts de CTV por an\u00e1lise','Suporte priorit\u00e1rio'].map(f => (
                 <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
               ))}
-              <a href={PREMIUM_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow IC - Geral" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Quero o Premium {'\u2192'}</a>
+              <a href={PREMIUM_URL} target="_blank" rel="noopener noreferrer" className="btn btn-orange glow IC-Geral" style={{ width: '100%', justifyContent: 'center', marginTop: 28, fontSize: 15.5, padding: '18px 32px', borderRadius: 10 }}>Quero o Premium {'\u2192'}</a>
               <p style={{ textAlign: 'center', fontSize: 11.5, color: '#2a2a2a', marginTop: 12 }}>Acesso imediato {'\u00b7'} Cancele quando quiser</p>
             </div>
           </div>

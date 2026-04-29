@@ -1149,7 +1149,7 @@ export default function ToolPage() {
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#FF6B00' }}>10</span>
               </div>
             </div>
-            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noreferrer" className="mine-btn IC - Geral" style={{ width: '100%', textAlign: 'center', textDecoration: 'none', display: 'block', padding: '16px 24px', fontSize: 15, fontWeight: 800 }}>
+            <a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" target="_blank" rel="noreferrer" className="mine-btn IC-Geral" style={{ width: '100%', textAlign: 'center', textDecoration: 'none', display: 'block', padding: '16px 24px', fontSize: 15, fontWeight: 800 }}>
               Desbloquear por R$57,90/m{'\u00ea'}s {'\u2192'}
             </a>
             <p style={{ textAlign: 'center', fontSize: 11, color: '#52525b', marginTop: 10 }}>Cancele quando quiser {'\u00b7'} Acesso imediato</p>
