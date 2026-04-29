@@ -498,6 +498,15 @@ export async function dbGetTrialUsersForNurture(): Promise<User[]> {
   return res.rows.map(r => rowToUser(r as Record<string, unknown>))
 }
 
+export async function dbGetInactiveTrials(): Promise<User[]> {
+  await initDb()
+  const res = await db.execute({
+    sql: `SELECT * FROM users WHERE plano IN ('trial', 'inativo') AND kirvano_id IS NULL`,
+    args: [],
+  })
+  return res.rows.map(r => rowToUser(r as Record<string, unknown>))
+}
+
 export async function dbMarkTrialEmail(userId: number, emailType: string): Promise<void> {
   await initDb()
   // Append to comma-separated list

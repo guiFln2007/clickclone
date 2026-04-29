@@ -184,6 +184,42 @@ export async function sendTrialUpgradeEmail(email: string) {
   })
 }
 
+export async function sendRecoveryBlastEmail(email: string) {
+  if (!process.env.SMTP_USER) return
+
+  await transporter.sendMail({
+    from: `"Guilherme do RatoAds" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: 'Cupom de 50% — só até amanhã',
+    html: wrap(`
+    <p>Fala! Aqui é o Guilherme, fundador do RatoAds.</p>
+
+    <p>Você testou a plataforma um tempo atrás, e desde então <strong>muita coisa mudou</strong>:</p>
+
+    <ul style="padding-left:20px;color:#444;line-height:2.2">
+      <li><strong>Mineração automática</strong> — encontra todas as ofertas escaladas de qualquer nicho em minutos</li>
+      <li><strong>Análise de funil completa</strong> — criativos, copy, página, estratégia de tráfego</li>
+      <li><strong>Radar de ofertas</strong> — rastreia concorrentes e te avisa quando mudam algo</li>
+    </ul>
+
+    <p>Como você já conhece a ferramenta, separei um cupom exclusivo de <strong>50% no primeiro mês</strong>:</p>
+
+    <p style="text-align:center;margin:24px 0">
+      <code style="background:#f3f3f3;padding:10px 24px;border-radius:6px;font-size:22px;font-weight:bold;color:#E8692A;letter-spacing:2px">BOASVINDAS50</code>
+    </p>
+
+    <p>Plano Starter: de <s>R$57,90</s> por <strong>R$27,90</strong> no primeiro mês.</p>
+
+    <p><a href="${STARTER_URL}" style="display:inline-block;background:#E8692A;color:#fff;padding:14px 32px;border-radius:8px;font-weight:bold;text-decoration:none;margin:8px 0">Assinar com 50% off &rarr;</a></p>
+
+    <p style="color:#e55;font-size:13px;font-weight:bold">Cupom válido só até amanhã.</p>
+
+    <p style="margin-top:32px;color:#888;font-size:13px">Qualquer dúvida, responde esse email.<br>
+    &mdash; Guilherme, RatoAds</p>
+    `),
+  })
+}
+
 export async function sendBustedEmail(email: string) {
   if (!process.env.SMTP_USER) return
 

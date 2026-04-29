@@ -26,6 +26,8 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [blasting, setBlasting] = useState(false)
+  const [blastResult, setBlastResult] = useState<{ sent: number; failed: number } | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/stats')
@@ -80,7 +82,37 @@ export default function AdminDashboard() {
               >
                 + Criar Usuário
               </a>
+              <button
+                disabled={blasting}
+                onClick={async () => {
+                  if (!confirm('Disparar email de recuperação (BOASVINDAS50) pra todos os trials inativos?')) return
+                  setBlasting(true)
+                  setBlastResult(null)
+                  try {
+                    const res = await fetch('/api/admin/blast-recovery', { method: 'POST' })
+                    const data = await res.json()
+                    setBlastResult({ sent: data.sent, failed: data.failed })
+                  } catch {
+                    setBlastResult({ sent: 0, failed: -1 })
+                  }
+                  setBlasting(false)
+                }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '10px 18px', background: blasting ? '#333' : '#7c3aed', border: 'none',
+                  borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 13, cursor: blasting ? 'wait' : 'pointer',
+                }}
+              >
+                {blasting ? 'Enviando...' : 'Disparar BOASVINDAS50'}
+              </button>
             </div>
+            {blastResult && (
+              <p style={{ color: blastResult.failed === -1 ? '#e55' : '#4ade80', fontSize: 13, marginTop: 12 }}>
+                {blastResult.failed === -1
+                  ? 'Erro ao disparar.'
+                  : `${blastResult.sent} emails enviados${blastResult.failed > 0 ? `, ${blastResult.failed} falharam` : ''}.`}
+              </p>
+            )}
           </div>
         </>
       ) : (
