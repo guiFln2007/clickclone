@@ -184,6 +184,32 @@ export async function sendTrialUpgradeEmail(email: string) {
   })
 }
 
+export async function sendCouponEmail(email: string) {
+  if (!process.env.SMTP_USER) return
+
+  await transporter.sendMail({
+    from: `"RatoAds" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: 'Seu cupom de 10% de desconto',
+    html: wrap(`
+    <p>Aqui est&aacute; seu cupom exclusivo de <strong>10% de desconto</strong> no RatoAds:</p>
+
+    <p style="text-align:center;margin:24px 0">
+      <code style="background:#f3f3f3;padding:10px 24px;border-radius:6px;font-size:22px;font-weight:bold;color:#E8692A;letter-spacing:2px">DESCONTO10</code>
+    </p>
+
+    <p>Use no checkout do plano Starter e pague <strong>R$52,11</strong> em vez de R$57,90.</p>
+
+    <p><a href="${STARTER_URL}" style="display:inline-block;background:#E8692A;color:#fff;padding:14px 32px;border-radius:8px;font-weight:bold;text-decoration:none;margin:8px 0">Assinar com desconto &rarr;</a></p>
+
+    <p style="color:#888;font-size:13px">Aplique o cupom <strong>DESCONTO10</strong> no checkout.</p>
+
+    <p style="margin-top:32px;color:#888;font-size:13px">Qualquer d&uacute;vida, responde esse email.<br>
+    &mdash; Equipe RatoAds</p>
+    `),
+  })
+}
+
 export async function sendRecoveryBlastEmail(email: string) {
   if (!process.env.SMTP_USER) return
 
