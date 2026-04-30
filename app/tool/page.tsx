@@ -323,6 +323,10 @@ export default function ToolPage() {
       if (typeof d.user?.max_slots_radar === 'number') setMaxSlots(d.user.max_slots_radar)
       if (d.user?.plano) setPlano(d.user.plano)
       if (d.user?.renova_em) setRenovaEm(d.user.renova_em)
+      // Save for visitor tracking
+      if (d.user?.id) {
+        try { localStorage.setItem('rato_user', JSON.stringify({ id: d.user.id, email: d.user.email })) } catch {}
+      }
     }).catch(() => {})
   }, [])
 

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import Tracker from './components/Tracker'
 
 export const metadata: Metadata = {
   title: 'RatoAds',
@@ -22,7 +23,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" data-utmify-prevent-xcod-sck data-utmify-prevent-subids async defer />
         <script dangerouslySetInnerHTML={{ __html: `window.pixelId="69f26370ea959e0543f1e221";var a=document.createElement("script");a.setAttribute("async","");a.setAttribute("defer","");a.setAttribute("src","https://cdn.utmify.com.br/scripts/pixel/pixel.js");document.head.appendChild(a);` }} />
       </head>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <Tracker />
+        {children}
+      </body>
     </html>
   )
 }

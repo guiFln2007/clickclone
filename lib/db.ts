@@ -141,6 +141,43 @@ export async function initDb() {
   // Migration: track trial signup IP
   try { await db.execute('ALTER TABLE users ADD COLUMN trial_ip TEXT') } catch { /* exists */ }
 
+  // Migration: visitor_sessions table for real-time tracking
+  try {
+    await db.execute({
+      sql: `CREATE TABLE IF NOT EXISTS visitor_sessions (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id  TEXT NOT NULL UNIQUE,
+        user_id     INTEGER,
+        email       TEXT,
+        page        TEXT NOT NULL DEFAULT '/',
+        referrer    TEXT,
+        utm_source  TEXT,
+        utm_medium  TEXT,
+        utm_campaign TEXT,
+        ip          TEXT,
+        user_agent  TEXT,
+        device      TEXT,
+        started_at  TEXT NOT NULL DEFAULT (datetime('now')),
+        last_seen   TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    })
+  } catch { /* exists */ }
+
+  // Migration: page_views log for tracking history
+  try {
+    await db.execute({
+      sql: `CREATE TABLE IF NOT EXISTS page_views (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id  TEXT NOT NULL,
+        user_id     INTEGER,
+        page        TEXT NOT NULL,
+        created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    })
+  } catch { /* exists */ }
+
   initialized = true
 }
 
@@ -815,6 +852,141 @@ export async function dbGetLastSnapshot(offerId: string): Promise<OfferSnapshot 
     variacao_percent: row.variacao_percent as number,
     registrado_em: row.registrado_em as string,
   }
+}
+
+// ── Visitor tracking (real-time) ─────────────────────────────────────────────
+
+export type VisitorSession = {
+  id: number
+  session_id: string
+  user_id: number | null
+  email: string | null
+  page: string
+  referrer: string | null
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
+  ip: string | null
+  user_agent: string | null
+  device: string | null
+  started_at: string
+  last_seen: string
+}
+
+export async function dbUpsertVisitor(data: {
+  session_id: string
+  user_id?: number | null
+  email?: string | null
+  page: string
+  referrer?: string | null
+  utm_source?: string | null
+  utm_medium?: string | null
+  utm_campaign?: string | null
+  ip?: string | null
+  user_agent?: string | null
+  device?: string | null
+}): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: `INSERT INTO visitor_sessions (session_id, user_id, email, page, referrer, utm_source, utm_medium, utm_campaign, ip, user_agent, device)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(session_id) DO UPDATE SET
+            page = excluded.page,
+            user_id = COALESCE(excluded.user_id, visitor_sessions.user_id),
+            email = COALESCE(excluded.email, visitor_sessions.email),
+            last_seen = datetime('now')`,
+    args: [
+      data.session_id,
+      data.user_id ?? null,
+      data.email ?? null,
+      data.page,
+      data.referrer ?? null,
+      data.utm_source ?? null,
+      data.utm_medium ?? null,
+      data.utm_campaign ?? null,
+      data.ip ?? null,
+      data.user_agent ?? null,
+      data.device ?? null,
+    ],
+  })
+}
+
+export async function dbLogPageView(sessionId: string, userId: number | null, page: string): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: 'INSERT INTO page_views (session_id, user_id, page) VALUES (?, ?, ?)',
+    args: [sessionId, userId, page],
+  })
+}
+
+export async function dbGetActiveVisitors(minutesAgo = 2): Promise<VisitorSession[]> {
+  await initDb()
+  const res = await db.execute({
+    sql: `SELECT * FROM visitor_sessions
+          WHERE last_seen >= datetime('now', '-' || ? || ' minutes')
+          ORDER BY last_seen DESC`,
+    args: [minutesAgo],
+  })
+  return res.rows.map(r => {
+    const row = r as Record<string, unknown>
+    return {
+      id: row.id as number,
+      session_id: row.session_id as string,
+      user_id: (row.user_id as number) ?? null,
+      email: (row.email as string) ?? null,
+      page: row.page as string,
+      referrer: (row.referrer as string) ?? null,
+      utm_source: (row.utm_source as string) ?? null,
+      utm_medium: (row.utm_medium as string) ?? null,
+      utm_campaign: (row.utm_campaign as string) ?? null,
+      ip: (row.ip as string) ?? null,
+      user_agent: (row.user_agent as string) ?? null,
+      device: (row.device as string) ?? null,
+      started_at: row.started_at as string,
+      last_seen: row.last_seen as string,
+    }
+  })
+}
+
+export async function dbGetVisitorStats(): Promise<{
+  online: number
+  todayUnique: number
+  todayPageViews: number
+  byPage: { page: string; count: number }[]
+}> {
+  await initDb()
+  const [onlineRes, uniqueRes, pvRes, byPageRes] = await Promise.all([
+    db.execute({
+      sql: `SELECT COUNT(*) as n FROM visitor_sessions WHERE last_seen >= datetime('now', '-2 minutes')`,
+      args: [],
+    }),
+    db.execute({
+      sql: `SELECT COUNT(DISTINCT session_id) as n FROM page_views WHERE created_at >= datetime('now', 'start of day')`,
+      args: [],
+    }),
+    db.execute({
+      sql: `SELECT COUNT(*) as n FROM page_views WHERE created_at >= datetime('now', 'start of day')`,
+      args: [],
+    }),
+    db.execute({
+      sql: `SELECT page, COUNT(*) as n FROM visitor_sessions WHERE last_seen >= datetime('now', '-2 minutes') GROUP BY page ORDER BY n DESC`,
+      args: [],
+    }),
+  ])
+  return {
+    online: Number(onlineRes.rows[0].n),
+    todayUnique: Number(uniqueRes.rows[0].n),
+    todayPageViews: Number(pvRes.rows[0].n),
+    byPage: byPageRes.rows.map(r => ({ page: r.page as string, count: Number(r.n) })),
+  }
+}
+
+export async function dbCleanOldVisitors(): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: `DELETE FROM visitor_sessions WHERE last_seen < datetime('now', '-1 hour')`,
+    args: [],
+  })
 }
 
 export default db
