@@ -342,6 +342,7 @@ export default function LandingPage() {
         .sc-right{opacity:0;translate:60px 0;filter:blur(6px);transition:opacity .75s cubic-bezier(.16,1,.3,1),translate .75s cubic-bezier(.16,1,.3,1),filter .75s ease}
         .sc-fade{opacity:0;filter:blur(4px);transition:opacity .9s ease,filter .9s ease}
         .visible{opacity:1!important;translate:0 0!important;filter:blur(0)!important}
+        @media(max-width:640px){.sc-top,.sc-bot,.sc-left,.sc-right{filter:none;translate:0 24px}.sc-fade{filter:none}}
         @keyframes glowStrong{0%{opacity:.55}25%{opacity:.3}50%{opacity:.45}75%{opacity:.2}100%{opacity:.04}}
         @keyframes glowSoft{0%{opacity:.4}20%{opacity:.12}45%{opacity:.32}70%{opacity:.15}100%{opacity:.04}}
         @keyframes noisemove{0%{background-position:0 0}16%{background-position:-60px -30px}33%{background-position:40px 55px}50%{background-position:-30px 70px}66%{background-position:65px -40px}83%{background-position:-50px 20px}100%{background-position:0 0}}
