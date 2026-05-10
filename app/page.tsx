@@ -261,36 +261,7 @@ export default function LandingPage() {
   const [adCount, setAdCount] = useState(127)
   const [tcIdx, setTcIdx] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [trialEmail, setTrialEmail] = useState('')
-  const [trialOpen, setTrialOpen] = useState(false)
-  const [trialLoading, setTrialLoading] = useState(false)
-  const [trialMsg, setTrialMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const resScrollRef = useRef<HTMLDivElement>(null)
-
-  async function handleTrialSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!trialEmail || trialLoading) return
-    setTrialLoading(true)
-    setTrialMsg(null)
-    try {
-      const res = await fetch('/api/trial', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trialEmail }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setTrialMsg({ ok: true, text: 'Acesso enviado pro seu email!' })
-        setTrialEmail('')
-      } else {
-        setTrialMsg({ ok: false, text: data.error || 'Erro ao criar teste' })
-      }
-    } catch {
-      setTrialMsg({ ok: false, text: 'Erro de conexão' })
-    } finally {
-      setTrialLoading(false)
-    }
-  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -596,24 +567,9 @@ export default function LandingPage() {
         .res-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:26px}
         .res-nav-btn{background:rgba(13,13,13,.9);border:1px solid rgba(255,255,255,.07);color:#fff;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;transition:border-color .2s,background .2s;padding:0;backdrop-filter:blur(8px);cursor:pointer}
         .res-nav-btn:hover{border-color:rgba(255,140,0,.4);background:#111}
-        .price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;align-items:stretch}
-        @media(max-width:1060px){.price-grid{grid-template-columns:1fr 1fr}.price-c-trial{grid-column:1/-1;max-width:520px;margin:0 auto;width:100%}}
-        @media(max-width:680px){.price-grid{grid-template-columns:1fr;max-width:520px;margin:0 auto}.price-c-trial{max-width:100%}}
+        .price-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;align-items:stretch;max-width:720px;margin:0 auto}
+        @media(max-width:680px){.price-grid{grid-template-columns:1fr;max-width:520px}}
         @media(max-width:560px){.price-grid{max-width:100%;gap:16px}.price-c{padding:24px 20px;border-radius:16px}.price-c .price-am{font-size:42px}.pack-title{font-size:15px}.plan-badge{font-size:9px;padding:4px 8px}.pf{font-size:12.5px;padding:9px 0;gap:8px}}
-        .price-c-trial{border-color:rgba(16,185,129,.25)}
-        .price-c-trial::before{background:linear-gradient(90deg,transparent,#10B981,transparent)}
-        .price-c-trial:hover{border-color:rgba(16,185,129,.4)}
-        .plan-badge-trial{background:rgba(16,185,129,.12);color:#10B981;border:1px solid rgba(16,185,129,.25)}
-        .trial-input{width:100%;background:#111;border:1px solid rgba(255,255,255,.1);color:#fff;padding:14px 16px;border-radius:10px;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
-        .trial-input:focus{border-color:#10B981}
-        .trial-input::placeholder{color:#333}
-        .btn-trial{background:#10B981;color:#fff;border:none;padding:16px 24px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;width:100%;font-family:inherit;transition:background .2s,transform .1s}
-        .btn-trial:hover{background:#059669}
-        .btn-trial:active{transform:scale(.98)}
-        .btn-trial:disabled{opacity:.6;cursor:not-allowed}
-        .trial-msg{text-align:center;font-size:13px;margin-top:10px;font-weight:500}
-        .trial-msg-ok{color:#10B981}
-        .trial-msg-err{color:#ef4444}
         .pack-title{font-size:18px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;line-height:1}
         .price-c-premium{border:2px solid #FFB347;background:linear-gradient(180deg,rgba(255,140,0,.06),rgba(255,255,255,.02));box-shadow:0 0 0 1px rgba(255,228,181,.6),0 0 18px rgba(255,140,0,.7),0 0 48px rgba(255,140,0,.45),0 0 90px rgba(255,140,0,.25),inset 0 0 24px rgba(255,140,0,.08),0 24px 80px rgba(0,0,0,.5)}
         .price-c-premium::before{display:none}
@@ -853,47 +809,6 @@ export default function LandingPage() {
             <h2 className="title">ESCOLHA SEU <span className="acc">PLANO</span></h2>
           </div>
           <div className="price-grid">
-            {/* Trial card */}
-            <div className="price-c price-c-trial sc-top">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
-                <div>
-                  <div className="pack-title" style={{ color: '#10B981' }}>TESTE GR{'\u00c1'}TIS</div>
-                  <div className="price-am">R$0</div>
-                  <div style={{ fontSize: 12, color: '#444', marginTop: 5, fontWeight: 400 }}>por 30 dias</div>
-                </div>
-                <span className="plan-badge plan-badge-trial">Trial</span>
-              </div>
-              {['2 minera\u00e7\u00f5es autom\u00e1ticas','2 an\u00e1lises completas','2 slots de rastreamento','Scripts de CTV inclu\u00eddos','Sem cart\u00e3o de cr\u00e9dito'].map(f => (
-                <div className="pf" key={f}><span className="pc">{'\u2726'}</span><span>{f}</span></div>
-              ))}
-              {!trialOpen ? (
-                <button onClick={() => setTrialOpen(true)} className="btn-trial" style={{ marginTop: 28 }}>
-                  Minerar gr{'\u00e1'}tis {'\u2192'}
-                </button>
-              ) : (
-                <form onSubmit={handleTrialSubmit} style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <input
-                    type="email"
-                    placeholder="Seu melhor email"
-                    value={trialEmail}
-                    onChange={e => setTrialEmail(e.target.value)}
-                    className="trial-input"
-                    required
-                    autoFocus
-                  />
-                  <button type="submit" className="btn-trial" disabled={trialLoading}>
-                    {trialLoading ? 'Criando acesso...' : 'Receber acesso gr\u00e1tis'}
-                  </button>
-                  {trialMsg && (
-                    <div className={`trial-msg ${trialMsg.ok ? 'trial-msg-ok' : 'trial-msg-err'}`}>
-                      {trialMsg.text}
-                    </div>
-                  )}
-                </form>
-              )}
-              <p style={{ textAlign: 'center', fontSize: 11.5, color: '#2a2a2a', marginTop: 12 }}>Acesso imediato {'\u00b7'} Sem compromisso</p>
-            </div>
-
             <div className="price-c sc-top">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
                 <div>
