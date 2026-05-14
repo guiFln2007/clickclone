@@ -1,0 +1,12 @@
+{
+  "name": "ratoads-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "puppeteer-core": "^23.0.0"
+  }
+}
