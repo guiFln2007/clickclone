@@ -178,12 +178,44 @@ export async function initDb() {
     })
   } catch { /* exists */ }
 
+  // Migration: auto_mined_offers for 24/7 mining feed
+  try {
+    await db.execute({
+      sql: `CREATE TABLE IF NOT EXISTS auto_mined_offers (
+        id              TEXT PRIMARY KEY,
+        page_name       TEXT NOT NULL,
+        page_id         TEXT NOT NULL UNIQUE,
+        ad_count        INTEGER NOT NULL DEFAULT 0,
+        landing_url     TEXT,
+        thumbnail_url   TEXT,
+        creative_urls   TEXT,
+        nicho           TEXT,
+        keyword_source  TEXT,
+        dias_rodando    INTEGER,
+        first_seen      TEXT NOT NULL DEFAULT (datetime('now')),
+        last_seen       TEXT NOT NULL DEFAULT (datetime('now')),
+        status          TEXT NOT NULL DEFAULT 'ativa'
+      )`,
+      args: [],
+    })
+  } catch { /* exists */ }
+  // Migration: add enrichment fields
+  for (const col of [
+    'ALTER TABLE auto_mined_offers ADD COLUMN enriched INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE auto_mined_offers ADD COLUMN ig_handle TEXT',
+    'ALTER TABLE auto_mined_offers ADD COLUMN ig_followers INTEGER',
+    'ALTER TABLE auto_mined_offers ADD COLUMN fb_followers INTEGER',
+    'ALTER TABLE auto_mined_offers ADD COLUMN landing_screenshot TEXT',
+    'ALTER TABLE auto_mined_offers ADD COLUMN ad_copies TEXT',
+  ]) { try { await db.execute(col) } catch { /* exists */ } }
+
   initialized = true
 }
 
 // Plan definitions — single source of truth
 export const PLANS: Record<string, { analises: number; mineracoes: number; slots_radar: number; label: string; periodo: string; dias: number }> = {
   trial: { analises: 1, mineracoes: 1, slots_radar: 1, label: 'Trial', periodo: 'teste', dias: 30 },
+  curso: { analises: 3, mineracoes: 3, slots_radar: 3, label: 'Curso', periodo: 'teste', dias: 30 },
   starter: { analises: 10, mineracoes: 10, slots_radar: 10, label: 'Starter', periodo: 'mensal', dias: 30 },
   premium: { analises: 20, mineracoes: 20, slots_radar: 20, label: 'Premium', periodo: 'trimestral', dias: 90 },
 }
@@ -987,6 +1019,187 @@ export async function dbCleanOldVisitors(): Promise<void> {
     sql: `DELETE FROM visitor_sessions WHERE last_seen < datetime('now', '-1 hour')`,
     args: [],
   })
+}
+
+// ── Auto-mined offers ────────────────────────────────────────────────────────
+
+export type AutoMinedOffer = {
+  id: string
+  page_name: string
+  page_id: string
+  ad_count: number
+  landing_url: string | null
+  thumbnail_url: string | null
+  creative_urls: string | null
+  nicho: string | null
+  keyword_source: string | null
+  dias_rodando: number | null
+  first_seen: string
+  last_seen: string
+  status: string
+  enriched: number
+  ig_handle: string | null
+  ig_followers: number | null
+  fb_followers: number | null
+  landing_screenshot: string | null
+  ad_copies: string | null
+}
+
+export async function dbUpsertMinedOffer(data: {
+  page_name: string
+  page_id: string
+  ad_count: number
+  landing_url?: string | null
+  thumbnail_url?: string | null
+  creative_urls?: string | null
+  nicho?: string | null
+  keyword_source?: string | null
+  dias_rodando?: number | null
+}): Promise<void> {
+  await initDb()
+  const id = `mo_${data.page_id}`
+  await db.execute({
+    sql: `INSERT INTO auto_mined_offers (id, page_name, page_id, ad_count, landing_url, thumbnail_url, creative_urls, nicho, keyword_source, dias_rodando)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(page_id) DO UPDATE SET
+            ad_count = excluded.ad_count,
+            landing_url = COALESCE(excluded.landing_url, auto_mined_offers.landing_url),
+            thumbnail_url = COALESCE(excluded.thumbnail_url, auto_mined_offers.thumbnail_url),
+            creative_urls = COALESCE(excluded.creative_urls, auto_mined_offers.creative_urls),
+            dias_rodando = COALESCE(excluded.dias_rodando, auto_mined_offers.dias_rodando),
+            last_seen = datetime('now'),
+            status = 'ativa'`,
+    args: [id, data.page_name, data.page_id, data.ad_count, data.landing_url ?? null, data.thumbnail_url ?? null, data.creative_urls ?? null, data.nicho ?? null, data.keyword_source ?? null, data.dias_rodando ?? null],
+  })
+}
+
+export async function dbGetMinedOffers(opts: {
+  search?: string
+  nicho?: string
+  limit?: number
+  offset?: number
+  sortBy?: 'ad_count' | 'dias_rodando' | 'last_seen'
+}): Promise<{ offers: AutoMinedOffer[]; total: number }> {
+  await initDb()
+  const where: string[] = ["status IN ('ouro', 'ativa')"]
+  const args: (string | number)[] = []
+
+  if (opts.search) {
+    where.push('page_name LIKE ?')
+    args.push(`%${opts.search}%`)
+  }
+  if (opts.nicho) {
+    where.push('nicho LIKE ?')
+    args.push(`%${opts.nicho}%`)
+  }
+
+  const whereStr = where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''
+  const sort = opts.sortBy === 'dias_rodando' ? 'dias_rodando DESC' : opts.sortBy === 'last_seen' ? 'last_seen DESC' : 'ad_count DESC'
+  const limit = opts.limit || 48
+  const offset = opts.offset || 0
+
+  const [countRes, dataRes] = await Promise.all([
+    db.execute({ sql: `SELECT COUNT(*) as n FROM auto_mined_offers ${whereStr}`, args }),
+    db.execute({ sql: `SELECT * FROM auto_mined_offers ${whereStr} ORDER BY ${sort} LIMIT ? OFFSET ?`, args: [...args, limit, offset] }),
+  ])
+
+  return {
+    total: Number(countRes.rows[0]?.n ?? 0),
+    offers: dataRes.rows.map(r => {
+      const row = r as Record<string, unknown>
+      return {
+        id: row.id as string,
+        page_name: row.page_name as string,
+        page_id: row.page_id as string,
+        ad_count: row.ad_count as number,
+        landing_url: (row.landing_url as string) ?? null,
+        thumbnail_url: (row.thumbnail_url as string) ?? null,
+        creative_urls: (row.creative_urls as string) ?? null,
+        nicho: (row.nicho as string) ?? null,
+        keyword_source: (row.keyword_source as string) ?? null,
+        dias_rodando: (row.dias_rodando as number) ?? null,
+        first_seen: row.first_seen as string,
+        last_seen: row.last_seen as string,
+        status: row.status as string,
+        enriched: (row.enriched as number) ?? 0,
+        ig_handle: (row.ig_handle as string) ?? null,
+        ig_followers: (row.ig_followers as number) ?? null,
+        fb_followers: (row.fb_followers as number) ?? null,
+        landing_screenshot: (row.landing_screenshot as string) ?? null,
+        ad_copies: (row.ad_copies as string) ?? null,
+      }
+    }),
+  }
+}
+
+export async function dbUpdateMinedOfferStatus(pageId: string, status: string, nicho?: string, extra?: {
+  ig_handle?: string | null
+  ig_followers?: number | null
+  fb_followers?: number | null
+}): Promise<void> {
+  await initDb()
+  const sets = ['status = ?']
+  const args: (string | number | null)[] = [status]
+  if (nicho) { sets.push('nicho = ?'); args.push(nicho) }
+  if (extra?.ig_handle !== undefined) { sets.push('ig_handle = ?'); args.push(extra.ig_handle) }
+  if (extra?.ig_followers !== undefined) { sets.push('ig_followers = ?'); args.push(extra.ig_followers) }
+  if (extra?.fb_followers !== undefined) { sets.push('fb_followers = ?'); args.push(extra.fb_followers) }
+  if (extra) { sets.push('enriched = 1') }
+  args.push(pageId)
+  await db.execute({ sql: `UPDATE auto_mined_offers SET ${sets.join(', ')} WHERE page_id = ?`, args })
+}
+
+export async function dbGetUnclassifiedOffers(limit = 10): Promise<AutoMinedOffer[]> {
+  await initDb()
+  const res = await db.execute({
+    sql: `SELECT * FROM auto_mined_offers WHERE status = 'ativa' ORDER BY ad_count DESC LIMIT ?`,
+    args: [limit],
+  })
+  return res.rows.map(r => {
+    const row = r as Record<string, unknown>
+    return {
+      id: row.id as string, page_name: row.page_name as string, page_id: row.page_id as string,
+      ad_count: row.ad_count as number, landing_url: (row.landing_url as string) ?? null,
+      thumbnail_url: (row.thumbnail_url as string) ?? null, creative_urls: (row.creative_urls as string) ?? null,
+      nicho: (row.nicho as string) ?? null, keyword_source: (row.keyword_source as string) ?? null,
+      dias_rodando: (row.dias_rodando as number) ?? null, first_seen: row.first_seen as string,
+      last_seen: row.last_seen as string, status: row.status as string,
+        enriched: (row.enriched as number) ?? 0,
+        ig_handle: (row.ig_handle as string) ?? null,
+        ig_followers: (row.ig_followers as number) ?? null,
+        fb_followers: (row.fb_followers as number) ?? null,
+        landing_screenshot: (row.landing_screenshot as string) ?? null,
+        ad_copies: (row.ad_copies as string) ?? null,
+    }
+  })
+}
+
+export async function dbGetMinedOfferByPageId(pageId: string): Promise<AutoMinedOffer | null> {
+  await initDb()
+  const res = await db.execute({ sql: 'SELECT * FROM auto_mined_offers WHERE page_id = ?', args: [pageId] })
+  if (!res.rows[0]) return null
+  const row = res.rows[0] as Record<string, unknown>
+  return {
+    id: row.id as string,
+    page_name: row.page_name as string,
+    page_id: row.page_id as string,
+    ad_count: row.ad_count as number,
+    landing_url: (row.landing_url as string) ?? null,
+    thumbnail_url: (row.thumbnail_url as string) ?? null,
+    creative_urls: (row.creative_urls as string) ?? null,
+    nicho: (row.nicho as string) ?? null,
+    keyword_source: (row.keyword_source as string) ?? null,
+    dias_rodando: (row.dias_rodando as number) ?? null,
+    first_seen: row.first_seen as string,
+    last_seen: row.last_seen as string,
+    status: row.status as string,
+        enriched: (row.enriched as number) ?? 0,
+        ig_handle: (row.ig_handle as string) ?? null,
+        ig_followers: (row.ig_followers as number) ?? null,
+        fb_followers: (row.fb_followers as number) ?? null,
+        landing_screenshot: (row.landing_screenshot as string) ?? null,
+        ad_copies: (row.ad_copies as string) ?? null,
+  }
 }
 
 export default db

@@ -246,6 +246,41 @@ export async function sendRecoveryBlastEmail(email: string) {
   })
 }
 
+export async function sendCursoTrialEmail(email: string, tempPassword: string) {
+  if (!process.env.SMTP_USER) return
+
+  await transporter.sendMail({
+    from: `"RatoAds" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: 'Seu acesso ao RatoAds (Curso Low Ticket Automatizado)',
+    html: wrap(`
+    <p>Fala! Voc&ecirc; ativou seu acesso ao RatoAds pelo Curso Low Ticket Automatizado.</p>
+
+    <p>Seus dados de acesso:</p>
+
+    <p style="margin:0"><strong>Login:</strong> ${email}</p>
+    <p style="margin:0 0 16px"><strong>Senha:</strong> <code style="background:#f3f3f3;padding:3px 8px;border-radius:4px;font-size:16px;font-weight:bold;color:#E8692A">${tempPassword}</code></p>
+
+    <p><strong>Seu plano inclui:</strong></p>
+    <ul style="padding-left:20px;color:#444;line-height:2">
+      <li><strong>3 minera&ccedil;&otilde;es</strong> autom&aacute;ticas</li>
+      <li><strong>3 an&aacute;lises</strong> completas de funil</li>
+      <li><strong>3 slots</strong> de rastreamento</li>
+      <li>Acesso por <strong>30 dias</strong></li>
+    </ul>
+
+    <p>Use a skill <code>/automatico</code> no Claude Code pra minerar direto por l&aacute;, ou acesse pelo site:</p>
+
+    <p><a href="${BASE_URL}/login" style="display:inline-block;background:#E8692A;color:#fff;padding:12px 28px;border-radius:8px;font-weight:bold;text-decoration:none;margin:8px 0">Entrar no RatoAds &rarr;</a></p>
+
+    <p style="color:#888;font-size:13px;margin-top:24px">Quer mais minera&ccedil;&otilde;es? Assine o plano Starter e tenha 10 de cada, todo m&ecirc;s.</p>
+
+    <p style="margin-top:32px;color:#888;font-size:13px">Qualquer d&uacute;vida, responde esse email.<br>
+    &mdash; Equipe RatoAds</p>
+    `),
+  })
+}
+
 export async function sendBustedEmail(email: string) {
   if (!process.env.SMTP_USER) return
 

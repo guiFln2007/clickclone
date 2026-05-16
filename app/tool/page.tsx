@@ -123,6 +123,10 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
   const usaPraVender: string[] = phase1.o_que_usa_pra_vender || []
   const angulosNaoExplorados: string[] = phase1.angulos_nao_explorados || []
 
+  // Top criativos
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const topCriativos: { index: number; texto_completo: string; hook: string; formato: string; dias_rodando: number; score: number; angulo: string; media_url?: string }[] = phase1.top_criativos || []
+
   // Phase 2 data
   const promptLovable: string = phase2.prompt_lovable || ''
   const estruturaFunil: string[] = phase2.estrutura_funil || []
@@ -164,54 +168,69 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
           {nota.justificativa && <div className="nota-just">{nota.justificativa as string}</div>}
         </div>
 
-        {/* ══ BLOCO 2 — AN{'\u00C1'}LISE DOS CRIATIVOS ══ */}
+        {/* ══ TOP CRIATIVOS (logo após a nota) ══ */}
+
+        {/* ══ TOP 6 CRIATIVOS ESCALADOS ══ */}
+        {topCriativos.length > 0 && (
+          <div>
+            <div className="rpt-card-lbl" style={{ marginBottom: 16 }}>TOP {topCriativos.length} CRIATIVOS MAIS ESCALADOS</div>
+            <div className="criativos-grid">
+              {topCriativos.map((c, i) => {
+                const scoreCls = c.score >= 8 ? 'green' : c.score >= 5 ? 'yellow' : 'red'
+                return (
+                  <div key={i} className="criativo-card">
+                    {c.media_url && (
+                      <div className="criativo-media">
+                        {c.media_url.includes('.mp4') || c.media_url.includes('video_hd') || c.media_url.includes('video_sd') || c.media_url.includes('/v/') ? (
+                          <video src={c.media_url} controls preload="metadata" />
+                        ) : (
+                          <img src={c.media_url} alt="" onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
+                        )}
+                      </div>
+                    )}
+                    <div className="criativo-header">
+                      <div className={`criativo-score ${scoreCls}`}>{c.score}</div>
+                      <div className="criativo-meta">
+                        <span className="criativo-formato">{c.media_url && (c.media_url.includes('.mp4') || c.media_url.includes('video')) ? 'V\u00cdDEO' : c.formato.toUpperCase()}</span>
+                        {c.dias_rodando > 0 && <span className="criativo-dias">{c.dias_rodando}d</span>}
+                      </div>
+                    </div>
+                    <div className="criativo-hook">&ldquo;{c.hook}&rdquo;</div>
+                    <div className="criativo-angulo">{c.angulo}</div>
+                    <div className="criativo-actions">
+                      <button
+                        className="criativo-btn"
+                        onClick={() => {
+                          const blob = new Blob([c.texto_completo], { type: 'text/plain' })
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `criativo-${c.index}-transcricao.txt`
+                          a.click()
+                          URL.revokeObjectURL(url)
+                        }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Baixar transcri{'\u00e7\u00e3'}o
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ══ ANÁLISE DOS CRIATIVOS ══ */}
         <div className="rpt-divider" />
         <div className="rpt-sec-title">AN{'\u00C1'}LISE DOS CRIATIVOS <span className="rpt-sec-count">{phase1.total_ads_analyzed || '?'} an{'\u00FA'}ncios analisados</span></div>
 
         {pontosFortes.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">PONTOS FORTES</div><div className="rpt-list">{pontosFortes.map((p, i) => <div key={i} className="rpt-list-item strong"><span className="ic">{'\u2713'}</span><span>{p}</span></div>)}</div></div>}
         {pontosFracos.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">PONTOS FRACOS</div><div className="rpt-list">{pontosFracos.map((p, i) => <div key={i} className="rpt-list-item weak"><span className="ic">{'\u2715'}</span><span>{p}</span></div>)}</div></div>}
 
-        {(modelar.manter?.length > 0 || modelar.corrigir?.length > 0) && (
-          <div className="rpt-card rpt-card-orange">
-            <div className="rpt-card-lbl">O QUE MODELAR</div>
-            {(modelar.manter as string[])?.length > 0 && <><div className="rpt-sub-lbl">Manter:</div><div className="rpt-list">{(modelar.manter as string[]).map((m, i) => <div key={i} className="rpt-list-item info"><span className="ic">{'\u2713'}</span><span>{m}</span></div>)}</div></>}
-            {(modelar.corrigir as string[])?.length > 0 && <><div className="rpt-sub-lbl" style={{ marginTop: 12 }}>Corrigir:</div><div className="rpt-list">{(modelar.corrigir as string[]).map((c, i) => <div key={i} className="rpt-list-item weak"><span className="ic">{'\u2715'}</span><span>{c}</span></div>)}</div></>}
-          </div>
-        )}
-
-        {scripts.length > 0 && (
-          <div>
-            <div className="rpt-card-lbl" style={{ marginBottom: 12 }}>3 SCRIPTS DE CTV PRONTOS</div>
-            <div className="scripts-grid">
-              {scripts.map((s, i) => (
-                <div key={i} className="script-card">
-                  <div className="script-hd">CTV #{s.numero || i + 1} &mdash; {s.formato}</div>
-                  <div className="script-section"><div className="script-label">HOOK (0-3s):</div><div className="script-text">&ldquo;{s.hook}&rdquo;</div></div>
-                  <div className="script-section"><div className="script-label">CORPO (3-12s):</div><div className="script-text">&ldquo;{s.corpo}&rdquo;</div></div>
-                  <div className="script-section"><div className="script-label">CTA (12-15s):</div><div className="script-text">&ldquo;{s.cta}&rdquo;</div></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ══ BLOCO 3 — PROMPT LOVABLE/BOLT ══ */}
+        {/* ══ PROMPT LOVABLE ══ */}
         <div className="rpt-divider" />
-        <div className="rpt-sec-title">PROMPT PRONTO {'\u2014'} LOVABLE / BOLT <span className="rpt-sec-count">{phase2.tipo_de_funil || ''}</span></div>
-
-        {estruturaFunil.length > 0 && (
-          <div className="rpt-card">
-            <div className="rpt-card-lbl">ESTRUTURA DO FUNIL</div>
-            <div className="rpt-list">{estruturaFunil.map((e, i) => <div key={i} className="rpt-list-item info"><span className="ic" style={{ color: '#FF6B00', fontWeight: 800 }}>{i + 1}.</span><span>{e}</span></div>)}</div>
-          </div>
-        )}
-
-        {diferenciaisAplicados.length > 0 && (
-          <div className="rpt-card rpt-card-orange">
-            <div className="rpt-card-lbl">MELHORIAS EM RELA{'\u00C7\u00C3'}O AO CONCORRENTE</div>
-            <div className="rpt-list">{diferenciaisAplicados.map((d, i) => <div key={i} className="rpt-list-item strong"><span className="ic">{'\u2713'}</span><span>{d}</span></div>)}</div>
-          </div>
-        )}
+        <div className="rpt-sec-title">PROMPT LOVABLE</div>
 
         {promptLovable && (
           <div className="rpt-card" style={{ position: 'relative' }}>
@@ -255,8 +274,8 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
 /* ─────────── MAIN PAGE ─────────── */
 
 export default function ToolPage() {
-  type Tab = 'analise' | 'rastreamento' | 'minerador'
-  const [activeTab, setActiveTab] = useState<Tab>('analise')
+  type Tab = 'home' | 'ofertas' | 'analise' | 'rastreamento' | 'minerador'
+  const [activeTab, setActiveTab] = useState<Tab>('home')
   const [showReport, setShowReport] = useState(false)
 
   // Analysis
@@ -277,6 +296,41 @@ export default function ToolPage() {
   const [radarSearch, setRadarSearch] = useState('')
   const [historyView, setHistoryView] = useState<{ offer: TrackedOffer; snapshots: Snapshot[] } | null>(null)
   const [totalAlerts, setTotalAlerts] = useState(0)
+
+  // Ofertas feed
+  interface FeedOffer { id: string; page_name: string; page_id: string; ad_count: number; landing_url: string | null; thumbnail_url: string | null; creative_urls: string | null; nicho: string | null; dias_rodando: number | null; first_seen: string; last_seen: string; enriched: number; ig_handle: string | null; ig_followers: number | null; fb_followers: number | null; landing_screenshot: string | null; ad_copies: string | null }
+  const [feedOffers, setFeedOffers] = useState<FeedOffer[]>([])
+  const [feedTotal, setFeedTotal] = useState(0)
+  const [feedSearch, setFeedSearch] = useState('')
+  const [feedNicho, setFeedNicho] = useState('')
+  const [feedSort, setFeedSort] = useState<'ad_count' | 'dias_rodando' | 'last_seen'>('ad_count')
+  const [feedLoading, setFeedLoading] = useState(false)
+  const [feedOffset, setFeedOffset] = useState(0)
+  const [feedDetail, setFeedDetail] = useState<FeedOffer | null>(null)
+  const [feedFilterOpen, setFeedFilterOpen] = useState(false)
+  const [feedEstrutura, setFeedEstrutura] = useState<string[]>([])
+  const [fdTranscriptExpanded, setFdTranscriptExpanded] = useState(false)
+  const [fdShowAllCreatives, setFdShowAllCreatives] = useState(false)
+
+  const loadFeed = useCallback(async (reset = false) => {
+    setFeedLoading(true)
+    const off = reset ? 0 : feedOffset
+    try {
+      const params = new URLSearchParams({ limit: '48', offset: String(off), sort: feedSort })
+      if (feedSearch) params.set('search', feedSearch)
+      if (feedNicho) params.set('nicho', feedNicho)
+      const res = await fetch(`/api/offers?${params}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (reset) { setFeedOffers(data.offers); setFeedOffset(48) }
+        else { setFeedOffers(prev => [...prev, ...data.offers]); setFeedOffset(off + 48) }
+        setFeedTotal(data.total)
+      }
+    } catch { /* ok */ }
+    setFeedLoading(false)
+  }, [feedOffset, feedSearch, feedNicho, feedSort])
+
+  useEffect(() => { if (activeTab === 'ofertas') loadFeed(true) }, [activeTab, feedSearch, feedNicho, feedSort]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mine
   const [mineKeyword, setMineKeyword] = useState('')
@@ -634,60 +688,57 @@ export default function ToolPage() {
         {/* HEADER */}
         <header className="header">
           <div className="header-left">
-            <div className="header-logo-circle">
-              <img src="/logo.png" alt="RatoAds" />
+            <div className="header-logo-circle" onClick={() => setActiveTab('home')}>
+              <img src="/rato-mascot.png" alt="RatoAds" />
             </div>
           </div>
           <nav className="header-tabs">
             {[
               {
-                id: 'minerador' as Tab,
-                label: 'Minera\u00e7\u00e3o Autom\u00e1tica',
+                id: 'ofertas' as Tab,
+                label: 'Ofertas',
                 svg: (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14.5 5.5l4 4"/>
-                    <path d="M10.5 9.5l-7 7v3h3l7-7"/>
-                    <path d="M17.5 8.5l3-3a2.121 2.121 0 0 0-3-3l-3 3"/>
-                    <path d="M9.5 8.5L8 7l1.5-1.5L11 7"/>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{width:18,height:18}}>
+                    <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
                   </svg>
+                ),
+              },
+              {
+                id: 'minerador' as Tab,
+                label: 'Minera\u00e7\u00e3o',
+                svg: (
+                  <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style={{width:20,height:20}}><path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="currentColor"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="currentColor"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="currentColor"/></svg>
                 ),
               },
               {
                 id: 'analise' as Tab,
-                label: 'An\u00e1lise de Biblioteca',
+                label: 'An\u00e1lise',
                 svg: (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="m21 21-4.35-4.35"/>
-                    <path d="M8 11h2"/>
-                    <path d="M11 8v6"/>
-                    <path d="M13 11h1"/>
-                  </svg>
+                  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:20,height:20}}><circle cx="19" cy="19" r="15" stroke="currentColor" strokeWidth="4.5"/><rect x="9" y="22" width="4" height="7" rx="1" fill="currentColor"/><rect x="15" y="18" width="4" height="11" rx="1" fill="currentColor"/><rect x="21" y="14" width="4" height="15" rx="1" fill="currentColor"/><line x1="30" y1="30" x2="44" y2="44" stroke="currentColor" strokeWidth="5.5" strokeLinecap="round"/></svg>
                 ),
               },
               {
                 id: 'rastreamento' as Tab,
-                label: 'Rastreamento de Ofertas',
+                label: 'Radar',
                 svg: (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <circle cx="12" cy="12" r="6"/>
-                    <circle cx="12" cy="12" r="2"/>
-                    <line x1="12" y1="2" x2="12" y2="4"/>
-                    <line x1="12" y1="20" x2="12" y2="22"/>
-                    <line x1="2" y1="12" x2="4" y2="12"/>
-                    <line x1="20" y1="12" x2="22" y2="12"/>
-                  </svg>
+                  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:20,height:20}}><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round"/><circle cx="24" cy="18" r="6" stroke="currentColor" strokeWidth="3" fill="none"/><circle cx="24" cy="18" r="1.8" fill="currentColor"/></svg>
                 ),
                 badge: totalAlerts,
               },
-            ].map(t => (
-              <button key={t.id} className={`header-tab${activeTab === t.id ? ' active' : ''}`} onClick={() => setActiveTab(t.id)}>
-                <span className="tab-icon">{t.svg}</span>
-                <span className="tab-label">{t.label}</span>
-                {t.badge ? <span className="tab-badge">{t.badge}</span> : null}
-              </button>
-            ))}
+            ].map(t => {
+              const tooltips: Record<string, string> = {
+                'minerador': 'Encontre ofertas escaladas por palavra-chave',
+                'analise': 'Analise criativos, score e gere funil completo',
+                'rastreamento': 'Acompanhe ofertas e varia\u00e7\u00f5es di\u00e1rias',
+              }
+              return (
+                <button key={t.id} className={`header-tab${activeTab === t.id ? ' active' : ''}`} onClick={() => setActiveTab(t.id)} data-tooltip={tooltips[t.id]}>
+                  <span className="tab-icon">{t.svg}</span>
+                  <span className="tab-label">{t.label}</span>
+                  {t.badge ? <span className="tab-badge">{t.badge}</span> : null}
+                </button>
+              )
+            })}
           </nav>
           <div className="header-right" ref={profileRef}>
             <div className="header-saldo">{plano === 'trial' ? 'Trial' : plano === 'premium' ? 'Premium' : 'Starter'}</div>
@@ -760,6 +811,427 @@ export default function ToolPage() {
             )
           })()}
 
+          {/* ── HOME ── */}
+          {activeTab === 'home' && (
+            <div className="tab-content">
+              <div className="home-wrap">
+                <div className="home-header">
+                  <h1 className="home-title">Seu fluxo de trabalho</h1>
+                  <p className="home-sub">Siga o caminho abaixo pra encontrar, analisar e rastrear ofertas lucrativas.</p>
+                </div>
+                <div className="home-path">
+                  {[
+                    { id: 'ofertas' as Tab, n: 'OFERTAS', t: 'Feed de Ofertas', d: 'Ofertas mineradas automaticamente 24h. Navegue, filtre e encontre oportunidades prontas.', cta: 'Explorar',
+                      icon: <svg viewBox="0 0 24 24" fill="none" stroke="#FF8C00" strokeWidth="1.8" style={{width:22,height:22}}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> },
+                    { id: 'minerador' as Tab, n: 'PASSO 01', t: 'Minera\u00e7\u00e3o Autom\u00e1tica', d: 'Busque por palavra-chave espec\u00edfica e encontre ofertas escaladas do nicho.', cta: 'Minerar',
+                      icon: <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style={{width:22,height:22}}><path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="#FF8C00"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="#FF8C00"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="#FF8C00"/></svg> },
+                    { id: 'analise' as Tab, n: 'PASSO 02', t: 'An\u00e1lise Completa', d: 'Score de 1 a 10, transcri\u00e7\u00e3o dos criativos mais escalados, scripts de CTV e prompt pra clonar a p\u00e1gina.', cta: 'Analisar',
+                      icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:22,height:22}}><circle cx="19" cy="19" r="15" fill="rgba(255,140,0,.08)"/><circle cx="19" cy="19" r="15" stroke="#FF8C00" strokeWidth="4.5"/><rect x="9" y="22" width="4" height="7" rx="1" fill="#FF8C00"/><rect x="15" y="18" width="4" height="11" rx="1" fill="#FF8C00"/><rect x="21" y="14" width="4" height="15" rx="1" fill="#FF8C00"/><polyline points="11,21 17,17 23,13 27,15" stroke="#FFB347" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/><line x1="30" y1="30" x2="44" y2="44" stroke="#FF8C00" strokeWidth="5.5" strokeLinecap="round"/></svg> },
+                    { id: 'rastreamento' as Tab, n: 'PASSO 03', t: 'Rastreamento da oferta', d: 'Adicione no rastreamento e acompanhe em tempo real os ads ativos e como eles variam diariamente.', cta: 'Ver radar',
+                      icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:22,height:22}}><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" fill="rgba(255,140,0,.08)"/><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" stroke="#FF8C00" strokeWidth="4.5" strokeLinejoin="round"/><circle cx="24" cy="18" r="6" stroke="#FF8C00" strokeWidth="3" fill="none"/><line x1="24" y1="9" x2="24" y2="13" stroke="#FFB347" strokeWidth="2.5" strokeLinecap="round"/><line x1="24" y1="23" x2="24" y2="27" stroke="#FFB347" strokeWidth="2.5" strokeLinecap="round"/><line x1="15" y1="18" x2="19" y2="18" stroke="#FFB347" strokeWidth="2.5" strokeLinecap="round"/><line x1="29" y1="18" x2="33" y2="18" stroke="#FFB347" strokeWidth="2.5" strokeLinecap="round"/><circle cx="24" cy="18" r="1.8" fill="#FF8C00"/></svg> },
+                  ].map(s => (
+                    <div key={s.id} className="home-step" onClick={() => setActiveTab(s.id)}>
+                      <div className="home-step-num">{s.n}</div>
+                      <div className="home-step-dot" />
+                      <div className="home-step-icon">{s.icon}</div>
+                      <h3 className="home-step-title">{s.t}</h3>
+                      <p className="home-step-desc">{s.d}</p>
+                      <span className="home-step-cta">{s.cta} {'\u2192'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── ABA OFERTAS ── */}
+          {activeTab === 'ofertas' && (
+            <div className="tab-content rdr-full" style={{ maxWidth: '100%' }}>
+              {/* Search bar — full width */}
+              <div className="of-searchbar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input className="of-search-input" placeholder="Buscar oferta..." value={feedSearch} onChange={e => setFeedSearch(e.target.value)} />
+                <div className="of-search-actions">
+                  <img src="https://flagcdn.com/w40/br.png" alt="BR" className="of-flag-active" title="Brasil" />
+                  <select className="of-sort-btn" value={feedSort} onChange={e => setFeedSort(e.target.value as typeof feedSort)}>
+                    <option value="ad_count">Mais an{'\u00fa'}ncios</option>
+                    <option value="dias_rodando">Mais tempo</option>
+                    <option value="last_seen">Mais recentes</option>
+                  </select>
+                  <button className="of-filter-toggle" onClick={() => setFeedFilterOpen(p => !p)} title="Filtros">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="of-layout">
+                {/* Grid */}
+                <div className="of-grid-area">
+                  {feedLoading && feedOffers.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-3)' }}>Carregando ofertas...</div>
+                  )}
+                  {!feedLoading && feedOffers.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-3)' }}>
+                      <p style={{ fontSize: 16, marginBottom: 8 }}>Nenhuma oferta minerada ainda</p>
+                      <p style={{ fontSize: 13 }}>O minerador autom{'\u00e1'}tico roda 24h. As ofertas v{'\u00e3'}o aparecer aqui conforme forem encontradas.</p>
+                    </div>
+                  )}
+                  {feedOffers.length > 0 && (() => {
+                    // Compute structure per offer + filter
+                    const getStructure = (o: FeedOffer) => {
+                      // Detect by landing URL patterns + creative types
+                      const land = (o.landing_url || '').toLowerCase()
+                      if (land.includes('quiz') || land.includes('typeform') || land.includes('bucket')) return 'Quiz'
+                      try {
+                        const urls: string[] = o.creative_urls ? JSON.parse(o.creative_urls) : []
+                        const hasVid = urls.some(u => u.includes('.mp4') || u.includes('video_hd') || u.includes('video_sd'))
+                        if (hasVid) return 'VSL'
+                      } catch { /* */ }
+                      return 'P\u00e1gina de vendas'
+                    }
+                    const filtered = feedEstrutura.length === 0 ? feedOffers : feedOffers.filter(o => feedEstrutura.includes(getStructure(o)))
+                    return (
+                    <>
+                      <div className="of-grid">
+                        {filtered.map(o => {
+                          const struct = getStructure(o)
+                          const hasVid = struct === 'VSL'
+                          return (
+                            <div key={o.id} className="of-card" onClick={() => { setFeedDetail(o); setFdTranscriptExpanded(false); setFdShowAllCreatives(false) }}>
+                              <div className="of-card-img">
+                                {o.thumbnail_url ? (
+                                  <img src={o.thumbnail_url} alt="" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                ) : o.landing_screenshot ? (
+                                  <img src={o.landing_screenshot} alt="" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                ) : (
+                                  <div className="of-card-placeholder">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="1"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                  </div>
+                                )}
+                                {/* Play badge for video offers */}
+                                {hasVid && <div className="of-card-play"><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>}
+                                {/* Bookmark */}
+                                <button className="of-card-bm" onClick={e => { e.stopPropagation(); saveMinedToRadar({ pagina_nome: o.page_name, ad_library_url: /^\d+$/.test(o.page_id) ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${o.page_id}` : '', landing_url: o.landing_url, total_anuncios: o.ad_count, dias_rodando: o.dias_rodando, score_escalabilidade: 0, nicho: o.nicho || '' }) }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                                </button>
+                              </div>
+                              <div className="of-card-body">
+                                <div className="of-card-name">{o.page_name}</div>
+                                <div className="of-card-footer">
+                                  <div className="of-card-ads">{o.ad_count}<span>Ads</span></div>
+                                  <img className="of-card-flag" src="https://flagcdn.com/w40/br.png" alt="BR" />
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {feedOffers.length < feedTotal && (
+                        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                          <button className="fd-btn-more" onClick={() => loadFeed(false)} disabled={feedLoading}>
+                            {feedLoading ? 'Carregando...' : `Ver mais (${feedTotal - feedOffers.length} restantes)`}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                    )
+                  })()}
+                </div>
+
+                {/* Sidebar filters */}
+                {feedFilterOpen && (
+                  <div className="of-sidebar">
+                    <div className="of-sidebar-inner">
+                      <div className="of-sb-hd">
+                        <span>Filtros</span>
+                        <button className="of-sb-close" onClick={() => setFeedFilterOpen(false)}>{'\u00d7'}</button>
+                      </div>
+
+                      {/* Estrutura */}
+                      <div className="of-sb-section">
+                        <div className="of-sb-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Estrutura</div>
+                        {['VSL', 'P\u00e1gina de vendas', 'Quiz'].map(e => (
+                          <label key={e} className="of-sb-check">
+                            <input type="checkbox" checked={feedEstrutura.includes(e)} onChange={() => setFeedEstrutura(prev => prev.includes(e) ? prev.filter(x => x !== e) : [...prev, e])} />
+                            <span>{e}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      {/* Nichos */}
+                      <div className="of-sb-section">
+                        <div className="of-sb-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Nichos</div>
+                        {['', 'emagrecimento', 'renda extra', 'packs', 'educa\u00e7\u00e3o', 'beleza', 'pets', 'sa\u00fade', 'relacionamento'].map(n => (
+                          <label key={n} className="of-sb-check">
+                            <input type="radio" name="nicho" checked={feedNicho === n} onChange={() => setFeedNicho(n)} />
+                            <span>{n || 'Todos'}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      {/* Sort */}
+                      <div className="of-sb-section">
+                        <div className="of-sb-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg> Ordenar por</div>
+                        {([['ad_count', 'Mais an\u00fancios'], ['dias_rodando', 'Mais tempo rodando'], ['last_seen', 'Mais recentes']] as const).map(([v, l]) => (
+                          <label key={v} className="of-sb-check">
+                            <input type="radio" name="sort" checked={feedSort === v} onChange={() => setFeedSort(v as typeof feedSort)} />
+                            <span>{l}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="of-sb-total">{feedTotal} ofertas encontradas</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Detail full page — AdSpy style */}
+              {feedDetail && (() => {
+                const adLibUrl = /^\d+$/.test(feedDetail.page_id)
+                  ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${feedDetail.page_id}`
+                  : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(feedDetail.page_name)}&search_type=keyword_exact_phrase`
+                const rawCreatives: string[] = feedDetail.creative_urls ? (() => { try { return JSON.parse(feedDetail.creative_urls) } catch { return [] } })() : []
+                // Deduplicate and filter out preview thumbnails (video_preview_image_url pattern)
+                const creatives = [...new Set(rawCreatives)].filter(u => !u.includes('video_preview_image'))
+                const adCopies: { text: string; format: string; date: string }[] = (feedDetail as unknown as Record<string, string>).ad_copies ? (() => { try { return JSON.parse((feedDetail as unknown as Record<string, string>).ad_copies) } catch { return [] } })() : []
+                const isVideo = (u: string) => u.includes('.mp4') || u.includes('video_hd') || u.includes('video_sd') || u.includes('/v/')
+                const videoCount = creatives.filter(isVideo).length
+                const imageCount = creatives.length - videoCount
+                const CREATIVES_INITIAL = 8
+                return (
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'var(--bg)', overflowY: 'auto' }}>
+                    <div className="fd">
+                      {/* Top bar */}
+                      <button className="fd-back" onClick={() => setFeedDetail(null)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                        Voltar
+                      </button>
+
+                      <div className="fd-breadcrumb">Ofertas / <span>{feedDetail.page_name}</span></div>
+                      <h2 className="fd-title">{feedDetail.page_name}</h2>
+
+                      {/* ═══ TOP: Preview + Sidebar ═══ */}
+                      <div className="fd-top">
+                        <div className="fd-main-area">
+                          {/* Landing page preview */}
+                          {feedDetail.landing_screenshot && (
+                            <div className="fd-hero-wrap">
+                              <img src={feedDetail.landing_screenshot} alt="Landing page" className="fd-hero-img" onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
+                            </div>
+                          )}
+                          <div className="fd-action-bar">
+                            <button className="fd-btn-analyze" onClick={() => {
+                              setUrl(adLibUrl); setFeedDetail(null); setActiveTab('analise')
+                              setTimeout(() => handleAnalyze(undefined, adLibUrl), 300)
+                            }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                              Analisar oferta completa
+                            </button>
+                            {feedDetail.landing_url && (
+                              <a className="fd-btn-dl" href={feedDetail.landing_url} target="_blank" rel="noopener noreferrer">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                Ver Landing Page
+                              </a>
+                            )}
+                            <div className="fd-stats-pills">
+                              {videoCount > 0 && <span className="fd-pill fd-pill-vid">{videoCount} v{'\u00ed'}deo{videoCount > 1 ? 's' : ''}</span>}
+                              {imageCount > 0 && <span className="fd-pill fd-pill-img">{imageCount} imag{imageCount > 1 ? 'ens' : 'em'}</span>}
+                              <span className="fd-pill">{feedDetail.ad_count} an{'\u00fa'}ncios</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Sidebar — golden accent */}
+                        <div className="fd-sidebar">
+                          <div className="fd-sidebar-card">
+                            <div className="fd-sidebar-hd">
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                              Informa{'\u00e7\u00f5'}es
+                            </div>
+                            <div className="fd-sidebar-rows">
+                              <div className="fd-row"><span>Rede</span><span>FACEBOOK</span></div>
+                              <div className="fd-row"><span>Estrutura</span><span>{(() => { const land = (feedDetail.landing_url || '').toLowerCase(); if (land.includes('quiz') || land.includes('typeform') || land.includes('bucket')) return 'Quiz'; return videoCount > 0 ? 'VSL' : 'P\u00e1gina de vendas' })()}</span></div>
+                              <div className="fd-row"><span>Idioma</span><span>PT_BR</span></div>
+                              <div className="fd-row"><span>Tipo</span><span>Low Ticket</span></div>
+                              {feedDetail.nicho && <div className="fd-row"><span>Nicho</span><span style={{ textTransform: 'capitalize' }}>{feedDetail.nicho}</span></div>}
+                              <div className="fd-row"><span>Pa{'\u00eds'}</span><span>Brasil</span></div>
+                              <div className="fd-row"><span>Primeira vez</span><span>{new Date(feedDetail.first_seen).toLocaleDateString('pt-BR')}</span></div>
+                              {feedDetail.dias_rodando !== null && <div className="fd-row"><span>Dias rodando</span><span>{feedDetail.dias_rodando}d</span></div>}
+                            </div>
+                          </div>
+                          <div className="fd-sidebar-card">
+                            <div className="fd-sidebar-hd">
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                              M{'\u00e9'}tricas
+                            </div>
+                            <div className="fd-sidebar-rows">
+                              <div className="fd-row"><span>Qtd. An{'\u00fa'}ncios</span><span className="fd-row-accent">{feedDetail.ad_count}</span></div>
+                              <div className="fd-row"><span>Criativos</span><span>{creatives.length}</span></div>
+                              {feedDetail.ig_followers != null && feedDetail.ig_followers > 0 && <div className="fd-row"><span>IG Seguidores</span><span>{feedDetail.ig_followers.toLocaleString('pt-BR')}</span></div>}
+                              {feedDetail.ig_handle && <div className="fd-row"><span>Instagram</span><span className="fd-row-accent">@{feedDetail.ig_handle.replace(/^@/, '')}</span></div>}
+                              {feedDetail.fb_followers != null && feedDetail.fb_followers > 0 && <div className="fd-row"><span>FB Seguidores</span><span>{feedDetail.fb_followers.toLocaleString('pt-BR')}</span></div>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ═══ TRANSCRIÇÃO ═══ */}
+                      {adCopies.length > 0 && (() => {
+                        const fullText = adCopies.map((c, i) => `[Criativo ${i+1}] ${c.format} | ${c.date}\n${c.text}`).join('\n\n---\n\n')
+                        const preview = adCopies[0]?.text || ''
+                        return (
+                          <div className="fd-section">
+                            <div className="fd-section-hd">
+                              <div className="fd-section-title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                Transcri{'\u00e7\u00e3'}o
+                              </div>
+                              <button className="fd-btn-sm" onClick={() => {
+                                const blob = new Blob([fullText], { type: 'text/plain' })
+                                const u = URL.createObjectURL(blob)
+                                const a = document.createElement('a')
+                                a.href = u; a.download = `${feedDetail.page_name}-transcricao.txt`; a.click()
+                                URL.revokeObjectURL(u)
+                              }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Baixar transcri{'\u00e7\u00e3'}o
+                              </button>
+                            </div>
+                            <div className="fd-transcript-box">
+                              <div className={`fd-transcript-text${fdTranscriptExpanded ? ' expanded' : ''}`}>
+                                {fdTranscriptExpanded ? fullText : preview}
+                              </div>
+                              {adCopies.length > 1 && (
+                                <button className="fd-transcript-toggle" onClick={() => setFdTranscriptExpanded(e => !e)}>
+                                  {fdTranscriptExpanded ? 'Mostrar menos' : `Ler mais (${adCopies.length} criativos)`}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* ═══ CRIATIVOS — grid 4 colunas ═══ */}
+                      {creatives.length > 0 && (() => {
+                        const visible = fdShowAllCreatives ? creatives : creatives.slice(0, CREATIVES_INITIAL)
+                        const remaining = creatives.length - CREATIVES_INITIAL
+                        return (
+                          <div className="fd-section">
+                            <div className="fd-section-hd">
+                              <div className="fd-section-title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="2" width="20" height="20" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                Criativos
+                              </div>
+                              <span className="fd-section-count">{creatives.length} criativos</span>
+                            </div>
+                            <div className="fd-creatives-grid">
+                              {visible.map((url, i) => {
+                                const isVid = isVideo(url)
+                                const adCopy = adCopies[i]
+                                const hideCard = (el: HTMLElement | null) => { const card = el?.closest('.fd-creative-card') as HTMLElement; if (card) card.style.display = 'none' }
+                                return (
+                                  <div key={url} className="fd-creative-card">
+                                    <div className="fd-creative-media">
+                                      {isVid ? (
+                                        <video
+                                          src={url} controls preload="metadata"
+                                          onError={e => hideCard(e.target as HTMLElement)}
+                                          onStalled={e => { setTimeout(() => { const v = e.target as HTMLVideoElement; if (v.readyState === 0) hideCard(v) }, 3000) }}
+                                        />
+                                      ) : (
+                                        <img src={url} alt="" onError={e => hideCard(e.target as HTMLElement)} />
+                                      )}
+                                      <a href={url} download target="_blank" rel="noopener noreferrer" className="fd-creative-dl">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                      </a>
+                                      {isVid && <div className="fd-creative-type-badge">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                      </div>}
+                                    </div>
+                                    <div className="fd-creative-info">
+                                      <div className="fd-creative-name">{isVid ? 'V\u00eddeo' : 'Imagem'} {i + 1}</div>
+                                      <div className="fd-creative-tags">
+                                        <span className="fd-tag">PT_BR</span>
+                                        <span className="fd-tag">FACEBOOK</span>
+                                        {isVid ? <span className="fd-tag fd-tag-vid">V{'\u00ed'}deo</span> : <span className="fd-tag fd-tag-img">Imagem</span>}
+                                        <span className="fd-tag fd-tag-active">Ativo</span>
+                                      </div>
+                                      {adCopy?.date && <div className="fd-creative-date">{adCopy.date}</div>}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            {remaining > 0 && !fdShowAllCreatives && (
+                              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                                <button className="fd-btn-more" onClick={() => setFdShowAllCreatives(true)}>
+                                  Ver mais criativos ({remaining} restantes)
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+
+                      {/* ═══ PÁGINAS ═══ */}
+                      <div className="fd-section">
+                        <div className="fd-section-hd">
+                          <div className="fd-section-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            P{'\u00e1'}ginas
+                          </div>
+                        </div>
+                        <div className="fd-pages-grid">
+                          {/* Site Principal */}
+                          {feedDetail.landing_url && (
+                            <div className="fd-page-card">
+                              <div className="fd-page-screenshot">
+                                {feedDetail.landing_screenshot ? (
+                                  <img src={feedDetail.landing_screenshot} alt="Landing page" />
+                                ) : (
+                                  <div className="fd-page-placeholder">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="1"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><circle cx="7.5" cy="6" r=".5"/><circle cx="10" cy="6" r=".5"/></svg>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="fd-page-info">
+                                <div className="fd-page-label">Site Principal</div>
+                                <code className="fd-page-url">{feedDetail.landing_url}</code>
+                                <div className="fd-page-actions">
+                                  <button className="fd-btn-sm" onClick={() => navigator.clipboard.writeText(feedDetail.landing_url || '')}>Copiar</button>
+                                  <a className="fd-btn-sm" href={feedDetail.landing_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>Abrir</a>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {/* Facebook Ad Library */}
+                          <div className="fd-page-card">
+                            <div className="fd-page-screenshot">
+                              <div className="fd-page-placeholder fd-page-fb">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                                <span className="fd-page-badge">{feedDetail.ad_count} An{'\u00fa'}ncios</span>
+                              </div>
+                            </div>
+                            <div className="fd-page-info">
+                              <div className="fd-page-label">Biblioteca de An{'\u00fa'}ncios</div>
+                              <code className="fd-page-url">{adLibUrl}</code>
+                              <div className="fd-page-actions">
+                                <button className="fd-btn-sm" onClick={() => navigator.clipboard.writeText(adLibUrl)}>Copiar</button>
+                                <a className="fd-btn-sm" href={adLibUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>Abrir</a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
           {/* ── ABA ANALISE ── */}
           {activeTab === 'analise' && (
             <div className="tab-content">
@@ -770,7 +1242,7 @@ export default function ToolPage() {
                 <form onSubmit={handleAnalyze} className="analyze-form">
                   <div className="analyze-input-wrap">
                     <svg className="analyze-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input className="analyze-input" type="url" placeholder="Cole o link da biblioteca de an\u00FAncios do concorrente..." value={url} onChange={e => setUrl(e.target.value)} />
+                    <input className="analyze-input" type="url" placeholder="Cole o link da biblioteca de anúncios do concorrente..." value={url} onChange={e => setUrl(e.target.value)} />
                   </div>
                   <button className="analyze-btn" type="submit" disabled={analyzing || !url.trim()}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -782,19 +1254,31 @@ export default function ToolPage() {
               {/* Stats cards */}
               <div className="stats-row">
                 <div className="stat-card">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                  <div className="stat-num">{savedAnalyses.length}</div>
-                  <div className="stat-label">analises realizadas</div>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(255,107,0,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                  </div>
+                  <div>
+                    <div className="stat-num">{savedAnalyses.length}</div>
+                    <div className="stat-label">An{'\u00e1'}lises realizadas</div>
+                  </div>
                 </div>
                 <div className="stat-card">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                  <div className="stat-num">{trackedOffers.length}</div>
-                  <div className="stat-label">ofertas rastreadas</div>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(255,107,0,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                  </div>
+                  <div>
+                    <div className="stat-num">{trackedOffers.length}</div>
+                    <div className="stat-label">Ofertas rastreadas</div>
+                  </div>
                 </div>
                 <div className="stat-card">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  <div className="stat-num">{analises ?? '\u2014'}</div>
-                  <div className="stat-label">analises restantes</div>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(255,107,0,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.8"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                  </div>
+                  <div>
+                    <div className="stat-num">{analises ?? '\u2014'}</div>
+                    <div className="stat-label">An{'\u00e1'}lises restantes</div>
+                  </div>
                 </div>
               </div>
 
@@ -843,31 +1327,31 @@ export default function ToolPage() {
                   <div className="explainer-grid">
                     <div className="explainer-card">
                       <div className="explainer-icon">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.8"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
                       </div>
                       <div className="explainer-card-title">Score 0-10</div>
-                      <div className="explainer-card-desc">Nota de entrada baseada em volume de an{'\u00fa'}ncios, tempo rodando e presença de expert</div>
+                      <div className="explainer-card-desc">Nota baseada em volume, tempo e presen{'\u00e7'}a de expert</div>
                     </div>
                     <div className="explainer-card">
                       <div className="explainer-icon">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.8"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
                       </div>
-                      <div className="explainer-card-title">Pontos fortes e fracos</div>
-                      <div className="explainer-card-desc">An{'\u00e1'}lise detalhada dos criativos: o que funciona e o que evitar</div>
+                      <div className="explainer-card-title">Top 6 criativos</div>
+                      <div className="explainer-card-desc">Os criativos mais escalados com transcri{'\u00e7\u00e3'}o completa</div>
                     </div>
                     <div className="explainer-card">
                       <div className="explainer-icon">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.8"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
                       </div>
                       <div className="explainer-card-title">3 scripts de CTV</div>
-                      <div className="explainer-card-desc">Roteiros prontos com hook, corpo e CTA pra voc{'\u00ea'} gravar ou adaptar</div>
+                      <div className="explainer-card-desc">Roteiros prontos com hook, corpo e CTA</div>
                     </div>
                     <div className="explainer-card">
                       <div className="explainer-icon">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m7.5 4.27 9 5.15"/><path d="M3.29 7 12 12l8.71-5"/><path d="M12 22V12"/></svg>
                       </div>
-                      <div className="explainer-card-title">Prompt Lovable/Bolt</div>
-                      <div className="explainer-card-desc">Prompt pronto pra gerar uma landing page melhor que a do concorrente</div>
+                      <div className="explainer-card-title">Prompt Lovable</div>
+                      <div className="explainer-card-desc">Prompt com m{'\u00ed'}dias reais pra clonar a p{'\u00e1'}gina</div>
                     </div>
                   </div>
                   <div className="explainer-tip">
@@ -890,15 +1374,7 @@ export default function ToolPage() {
                 </div>
               </div>
 
-              {/* Dica Importante banner */}
-              <div className="rdr-banner">
-                <div className="rdr-banner-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></div>
-                <div>
-                  <p style={{ color: '#fff', fontWeight: 500, marginBottom: 4 }}>{'\uD83D\uDD52'} Atualiza&ccedil;&atilde;o autom&aacute;tica di&aacute;ria</p>
-                  <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 4 }}>Todas as ofertas s&atilde;o atualizadas automaticamente todos os dias &agrave;s <strong style={{ color: '#fff' }}>07:00</strong> (hor&aacute;rio de Bras&iacute;lia).</p>
-                  <p style={{ color: '#F59E0B', fontSize: 13 }}>Pr&oacute;xima atualiza&ccedil;&atilde;o: {nextUpdateLabel()}</p>
-                </div>
-              </div>
+              {/* Banner removido — info de atualização fica nos cards */}
 
               {/* 4 Metric cards */}
               <div className="rdr-metrics">
@@ -975,7 +1451,7 @@ export default function ToolPage() {
                   disabled={mining}
                   style={{ width: '100%', padding: '12px 16px', fontSize: 15, borderRadius: 8, border: '1px solid #444', background: '#1a1a1a', color: '#fff', marginBottom: 20, outline: 'none' }}
                 />
-                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros usados pelos maiores players do mercado para encontrar ofertas escaladas: <span style={{ color: '#e8a040' }}>10+ an{'\u00FA'}ncios ativos</span>, <span style={{ color: '#e8a040' }}>5+ dias rodando</span> e <span style={{ color: '#e8a040' }}>apenas sites de venda reais</span>.</p>
+                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros inteligentes: <span style={{ color: '#e8a040' }}>3+ dias rodando</span>, sem marcas grandes e sem redes sociais como landing.</p>
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
                   <button className="mine-btn" onClick={handleMine} disabled={!mineKeyword.trim() || mining}>
                     {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : <>{'\u26CF\uFE0F'} Minerar Agora</>}
@@ -1006,9 +1482,22 @@ export default function ToolPage() {
                         <div key={i} className="mrc">
                           <div className="mrc-top">
                             <div className={`mrc-score ${cls}`}>{sc}</div>
+                            {(() => {
+                              const pageIdMatch = o.ad_library_url.match(/view_all_page_id=(\d+)/)
+                              const fbPageId = pageIdMatch?.[1]
+                              return fbPageId ? (
+                                <div className="mrc-preview">
+                                  <img
+                                    src={`https://graph.facebook.com/${fbPageId}/picture?type=large`}
+                                    alt=""
+                                    onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+                                  />
+                                </div>
+                              ) : null
+                            })()}
                             <div className="mrc-info">
                               <div className="mrc-name">{o.pagina_nome}</div>
-                              <div className="mrc-meta">{o.dias_rodando !== null ? `${o.dias_rodando} dias` : '?'} &middot; {o.total_anuncios} an{'\u00FA'}ncios</div>
+                              <div className="mrc-meta">{o.dias_rodando !== null ? `${o.dias_rodando} dias rodando` : 'Tempo indeterminado'}{o.total_anuncios > 1 ? ` \u00B7 ${o.total_anuncios} ads encontrados` : ''}</div>
                             </div>
                             {o.nicho && <span className="mrc-nicho">{o.nicho}</span>}
                           </div>
@@ -1170,94 +1659,96 @@ export default function ToolPage() {
 /* ─────────── CSS ─────────── */
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;font-family:'Sora',system-ui,sans-serif;background:#000;color:#fafafa;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+html{overflow-y:scroll}
+html,body{height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;background:#06080f;color:#fafafa;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 
-/* GLOBAL ANIM TOKENS */
+/* GLOBAL TOKENS */
 :root{
-  --bg:#050507;
-  --bg-elev:#0c0c10;
-  --bg-elev-2:#15151b;
-  --border:#1c1c24;
-  --border-2:#26262f;
-  --text:#f5f5f7;
+  --bg:#06080f;
+  --bg-elev:#0a0d16;
+  --bg-elev-2:#10131c;
+  --bg-card:rgba(8,11,21,.8);
+  --border:rgba(255,255,255,.06);
+  --border-2:rgba(255,255,255,.1);
+  --text:#fafafa;
   --text-2:#a1a1aa;
-  --text-3:#52525b;
+  --text-3:#71717a;
   --accent:#FF6B00;
   --accent-2:#FF8C42;
-  --accent-glow:rgba(255,107,0,.18);
+  --accent-glow:rgba(255,107,0,.15);
+  --radius:12px;
   --ease-out:cubic-bezier(.16,1,.3,1);
   --ease-spring:cubic-bezier(.34,1.56,.64,1);
 }
 
-/* DOT GRID + AMBIENT GLOW (matching landing) */
-body::before{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-  background-image:radial-gradient(circle,rgba(255,255,255,.05) 1px,transparent 1px);
-  background-size:24px 24px;
-}
-body::after{
-  content:'';position:fixed;top:-220px;left:-580px;width:1400px;height:200px;pointer-events:none;z-index:0;
-  background:linear-gradient(90deg,rgba(255,208,182,.15),transparent);
-  border-radius:9999px;transform:rotate(43deg);mix-blend-mode:screen;
-  animation:glowStrong 8s ease-in-out infinite alternate;
-}
-@keyframes glowStrong{0%{opacity:.55}25%{opacity:.3}50%{opacity:.45}75%{opacity:.2}100%{opacity:.04}}
+/* BG — clean, no glow */
 
 /* LAYOUT */
-.app{min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1}
+.app{min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1;overflow-x:hidden}
 
 /* HEADER */
 .header{
-  display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding:16px 32px;height:auto;
-  background:rgba(0,0,0,.6);
-  border-bottom:1px solid rgba(255,255,255,.04);
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  padding:14px 28px;height:64px;
+  background:rgba(6,8,15,.9);
+  border-bottom:1px solid var(--border);
   position:sticky;top:0;z-index:50;
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);
 }
-.header-left{display:flex;align-items:center;flex-shrink:0}
+.header-left{display:flex;align-items:center}
 .header-logo-circle{display:flex;align-items:center;cursor:pointer}
-.header-logo-circle img{height:36px;width:auto;display:block;filter:drop-shadow(0 0 16px rgba(255,107,0,.45)) drop-shadow(0 0 4px rgba(255,107,0,.3));mix-blend-mode:lighten}
+.header-logo-circle img{
+  height:38px;width:auto;display:block;
+  filter:
+    drop-shadow(1px 0 0 rgba(255,160,0,.85))
+    drop-shadow(-1px 0 0 rgba(255,160,0,.85))
+    drop-shadow(0 1px 0 rgba(255,160,0,.85))
+    drop-shadow(0 -1px 0 rgba(255,160,0,.85))
+    drop-shadow(0 0 6px rgba(255,140,0,.5))
+    drop-shadow(0 0 14px rgba(255,140,0,.25));
+  transition:filter .2s;
+}
+.header-logo-circle:hover img{
+  filter:
+    drop-shadow(1px 0 0 rgba(255,170,0,.95))
+    drop-shadow(-1px 0 0 rgba(255,170,0,.95))
+    drop-shadow(0 1px 0 rgba(255,170,0,.95))
+    drop-shadow(0 -1px 0 rgba(255,170,0,.95))
+    drop-shadow(0 0 8px rgba(255,140,0,.7))
+    drop-shadow(0 0 20px rgba(255,140,0,.4));
+}
 
 /* PILL NAV */
 .header-tabs{
-  display:flex;align-items:center;gap:4px;
-  background:rgba(15,15,20,.7);
-  border:1px solid rgba(255,255,255,.06);
-  backdrop-filter:blur(20px) saturate(180%);
-  -webkit-backdrop-filter:blur(20px) saturate(180%);
-  padding:6px;border-radius:999px;
-  box-shadow:
-    0 8px 32px rgba(0,0,0,.4),
-    inset 0 1px 0 rgba(255,255,255,.05);
+  display:flex;align-items:center;gap:2px;
+  background:var(--bg-elev);
+  border:1px solid var(--border);
+  padding:4px;border-radius:10px;
+  width:480px;flex-shrink:0;
 }
 .header-tab{
-  display:flex;align-items:center;gap:8px;padding:10px 18px;
-  border:none;background:transparent;color:var(--text-2);
+  display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 0;
+  flex:1 1 0;min-width:0;
+  border:none;background:transparent;color:var(--text-3);
   font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
-  border-radius:999px;transition:all .35s var(--ease-out);
-  white-space:nowrap;position:relative;letter-spacing:-.01em;
+  border-radius:8px;transition:background .15s ease, color .15s ease;
+  white-space:nowrap;position:relative;
 }
-.header-tab::before{
-  content:'';position:absolute;inset:0;border-radius:999px;
-  background:linear-gradient(135deg,rgba(255,107,0,.22),rgba(255,107,0,.08));
-  opacity:0;transition:opacity .35s var(--ease-out);z-index:-1;
-}
-.header-tab:hover{color:var(--text)}
-.header-tab:hover .tab-icon{transform:scale(1.08);color:var(--text)}
+.header-tab::before{display:none}
+.header-tab:hover{color:var(--text-2);background:rgba(255,255,255,.03)}
+.header-tab:hover .tab-icon{color:var(--text-2)}
 .header-tab.active{
   color:#fff;
-  background:linear-gradient(135deg,#FF6B00,#FF8C42);
-  box-shadow:
-    0 8px 24px rgba(255,107,0,.35),
-    0 0 0 1px rgba(255,255,255,.1) inset,
-    0 1px 0 rgba(255,255,255,.2) inset;
+  background:var(--bg-elev-2);
+  box-shadow:0 1px 3px rgba(0,0,0,.3);
 }
-.header-tab.active .tab-icon{color:#fff;transform:scale(1.05)}
-.tab-icon{display:flex;align-items:center;color:var(--text-3);transition:all .35s var(--ease-out)}
-.tab-label{font-weight:600}
+.header-tab.active .tab-icon{color:var(--accent)}
+.tab-icon{display:flex;align-items:center;color:var(--text-3);transition:color .15s}
+.tab-label{font-weight:600;pointer-events:none}
+
+/* TOOLTIP — disabled, was clipping */
 .tab-badge{
   background:#ef4444;color:#fff;font-size:10px;font-weight:800;
   padding:2px 7px;border-radius:999px;min-width:18px;text-align:center;
@@ -1266,26 +1757,26 @@ body::after{
 .header-tab.active .tab-badge{background:rgba(0,0,0,.25);box-shadow:none}
 
 /* HEADER RIGHT */
-.header-right{display:flex;align-items:center;gap:14px;flex-shrink:0;position:relative}
+.header-right{display:flex;align-items:center;gap:14px;justify-content:flex-end;position:relative}
 .header-saldo{
-  font-size:12px;color:var(--text-2);font-weight:600;white-space:nowrap;
-  padding:8px 14px;background:rgba(15,15,20,.7);border:1px solid rgba(255,255,255,.06);
-  border-radius:999px;backdrop-filter:blur(20px);
+  font-size:11px;color:var(--text-3);font-weight:600;white-space:nowrap;
+  padding:6px 12px;background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:6px;
 }
 .header-avatar{
-  width:38px;height:38px;border-radius:50%;
-  background:linear-gradient(135deg,#FF6B00,#FF8C42);
-  border:2px solid rgba(255,255,255,.1);color:#fff;font-weight:800;font-size:14px;
+  width:34px;height:34px;border-radius:8px;
+  background:var(--accent);
+  border:none;color:#fff;font-weight:800;font-size:13px;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 16px rgba(255,107,0,.3);transition:transform .3s var(--ease-spring);
+  transition:opacity .15s;
 }
-.header-avatar:hover{transform:scale(1.06)}
+.header-avatar:hover{opacity:.85}
 .profile-drop{
-  position:absolute;top:calc(100% + 12px);right:0;
-  background:rgba(15,15,20,.95);border:1px solid var(--border-2);
-  border-radius:14px;padding:10px;min-width:180px;z-index:100;
-  backdrop-filter:blur(20px);box-shadow:0 16px 40px rgba(0,0,0,.6);
-  animation:dropIn .25s var(--ease-out);
+  position:absolute;top:calc(100% + 8px);right:0;
+  background:var(--bg-elev);border:1px solid var(--border-2);
+  border-radius:var(--radius);padding:8px;min-width:200px;z-index:100;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);
+  animation:dropIn .15s ease;
 }
 @keyframes dropIn{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 .profile-name{padding:10px 12px;font-size:13px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);margin-bottom:6px}
@@ -1303,80 +1794,67 @@ body::after{
 .pq-val{color:var(--text);font-weight:700;font-variant-numeric:tabular-nums}
 .pq-renew .pq-val{color:var(--accent)}
 @media(max-width:900px){
-  .header{padding:14px 16px 0;flex-wrap:wrap}
-  .header-tabs{order:3;width:100%;justify-content:center;margin-top:12px}
+  .header{display:flex;flex-wrap:wrap;padding:14px 16px 0;height:auto}
+  .header-left{flex-shrink:0}
+  .header-right{flex-shrink:0;margin-left:auto}
+  .header-tabs{order:3;width:100%;justify-content:center;margin-top:12px;flex-shrink:0}
   .tab-label{display:none}
   .header-tab{padding:10px 14px}
 }
 
 /* CONTENT */
-.content{flex:1;overflow-y:auto;animation:contentFade .45s var(--ease-out)}
-@keyframes contentFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.tab-content{max-width:1000px;margin:0 auto;padding:48px 32px 100px}
+.content{flex:1;overflow-y:auto}
+@keyframes contentFade{from{opacity:0}to{opacity:1}}
+.tab-content{max-width:1000px;margin:0 auto;padding:48px 32px 100px;animation:contentFade .2s ease}
 @media(max-width:768px){.tab-content{padding:32px 16px 80px}}
 
 /* ANALYZE */
 .analyze-hero{text-align:center;margin-bottom:32px;animation:contentFade .5s var(--ease-out)}
-.analyze-title{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-.04em;margin-bottom:10px;line-height:1.1;color:#fff}
-.acc{background:linear-gradient(135deg,#FF8C00,#FFB347);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.analyze-title{font-size:clamp(26px,3.5vw,38px);font-weight:800;letter-spacing:-.03em;margin-bottom:10px;line-height:1.15;color:#fff}
+.acc{color:var(--accent);-webkit-text-fill-color:var(--accent)}
 .analyze-sub{font-size:15px;color:var(--text-2);margin-bottom:32px;font-weight:500}
 
-.analyze-form{display:flex;gap:10px;max-width:720px;margin:0 auto}
+.analyze-form{display:flex;gap:10px;max-width:640px;margin:0 auto}
 .analyze-input-wrap{
-  flex:1;display:flex;align-items:center;gap:12px;
-  background:rgba(15,15,20,.6);border:1px solid rgba(255,255,255,.08);
-  backdrop-filter:blur(20px);border-radius:14px;padding:0 18px;
-  transition:all .35s var(--ease-out);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  flex:1;display:flex;align-items:center;gap:10px;
+  background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:var(--radius);padding:0 16px;
+  transition:all .2s ease;
 }
 .analyze-input-wrap:focus-within{
-  border-color:rgba(255,107,0,.5);
-  box-shadow:0 0 0 4px rgba(255,107,0,.1),0 8px 32px rgba(255,107,0,.15),inset 0 1px 0 rgba(255,255,255,.04);
-  background:rgba(20,20,28,.8);
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(255,107,0,.08);
 }
-.analyze-input-icon{flex-shrink:0;color:var(--text-3);transition:color .3s}
+.analyze-input-icon{flex-shrink:0;color:var(--text-3);transition:color .2s}
 .analyze-input-wrap:focus-within .analyze-input-icon{color:var(--accent)}
-.analyze-input{flex:1;background:transparent;border:none;padding:16px 0;font-family:inherit;font-size:14px;color:var(--text);outline:none;font-weight:500}
+.analyze-input{flex:1;background:transparent;border:none;padding:14px 0;font-family:inherit;font-size:14px;color:var(--text);outline:none;font-weight:500}
 .analyze-input::placeholder{color:var(--text-3)}
 .analyze-btn{
-  padding:0 28px;background:linear-gradient(135deg,#FF6B00,#FF8C42);
-  border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:14px;
-  font-weight:800;cursor:pointer;transition:all .3s var(--ease-out);
+  padding:0 24px;background:var(--accent);
+  border:none;border-radius:var(--radius);color:#fff;font-family:inherit;font-size:14px;
+  font-weight:700;cursor:pointer;transition:all .15s ease;
   white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:8px;
-  box-shadow:
-    0 8px 24px rgba(255,107,0,.35),
-    0 0 0 1px rgba(255,255,255,.1) inset,
-    0 1px 0 rgba(255,255,255,.2) inset;
-  letter-spacing:-.01em;
 }
-.analyze-btn:hover:not(:disabled){
-  transform:translateY(-1px);
-  box-shadow:0 12px 32px rgba(255,107,0,.45),0 0 0 1px rgba(255,255,255,.15) inset,0 1px 0 rgba(255,255,255,.25) inset;
-}
-.analyze-btn:active:not(:disabled){transform:translateY(0)}
+.analyze-btn:hover:not(:disabled){background:#e05e00}
+.analyze-btn:active:not(:disabled){transform:scale(.98)}
 .analyze-btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* STATS */
-.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:720px;margin:24px auto 8px}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:720px;margin:24px auto 8px}
 @media(max-width:500px){.stats-row{grid-template-columns:1fr}}
 .stat-card{
-  background:#06080f;
-  border:1px solid rgba(255,140,0,.12);
-  border-radius:16px;padding:18px 22px;display:flex;align-items:center;gap:14px;
-  transition:all .4s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden;z-index:1;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);padding:18px 20px;display:flex;align-items:center;gap:14px;
+  transition:all .2s ease;
 }
-.stat-card::after{content:'';position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.035) 1px,transparent 1px);background-size:22px 22px;pointer-events:none;z-index:0}
-.stat-card::before{
-  content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
-  background:linear-gradient(rgba(255,140,0,.5) 0 0) top left/2px 14px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top left/14px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top right/2px 14px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top right/14px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom left/2px 14px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom left/14px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom right/2px 14px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom right/14px 2px no-repeat;
-  transition:opacity .35s ease;opacity:.4;
-}
-.stat-card:hover{transform:translateY(-3px);border-color:rgba(255,140,0,.32);background:#080b15;box-shadow:0 20px 50px rgba(0,0,0,.6),0 0 0 1px rgba(255,140,0,.18)}
-.stat-card:hover::before{opacity:1}
+.stat-card::after{display:none}
+.stat-card::before{display:none}
+.stat-card:hover{border-color:var(--border-2);background:var(--bg-elev)}
 .stat-card>*{position:relative;z-index:2}
-.stat-card svg{flex-shrink:0;position:relative;z-index:1}
-.stat-num{font-size:24px;font-weight:900;color:#fff;position:relative;z-index:1;letter-spacing:-.02em}
-.stat-label{font-size:11px;color:var(--text-3);line-height:1.3;font-weight:500;position:relative;z-index:1}
+.stat-card svg{flex-shrink:0}
+.stat-num{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.02em}
+.stat-label{font-size:11px;color:var(--text-3);line-height:1.3;font-weight:500}
 
 /* TERM */
 .term{
@@ -1401,12 +1879,300 @@ body::after{
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
 
-/* SECTION LABEL (landing style) */
-.tool-sec-label{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px}
-.tool-sec-label::before,.tool-sec-label::after{content:'';width:32px;height:1px;flex-shrink:0}
-.tool-sec-label::before{background:linear-gradient(90deg,transparent,#FF8C00)}
-.tool-sec-label::after{background:linear-gradient(90deg,#FF8C00,transparent)}
-.tool-sec-label span{color:#FF8C00;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+/* HOME */
+.home-wrap{display:flex;flex-direction:column;align-items:center;padding-top:48px}
+.home-header{text-align:center;margin-bottom:48px}
+.home-title{font-size:clamp(24px,3.5vw,34px);font-weight:800;color:#fff;letter-spacing:-.03em;margin-bottom:8px}
+.home-sub{font-size:14px;color:#666;font-weight:300;max-width:400px;margin:0 auto;line-height:1.7}
+.home-path{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;width:100%;max-width:960px;position:relative}
+@media(max-width:900px){.home-path{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.home-path{grid-template-columns:1fr;gap:16px}}
+.home-path-line{display:none}
+.home-step{
+  background:#06080f;border:1px solid rgba(255,140,0,.12);
+  border-radius:18px;padding:38px 26px 32px;width:100%;
+  text-align:center;cursor:pointer;position:relative;z-index:1;overflow:hidden;
+  transition:transform .4s cubic-bezier(.16,1,.3,1),border-color .35s,box-shadow .35s,background .35s;
+  display:flex;flex-direction:column;align-items:center;
+}
+.home-step::before{content:'';position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.035) 1px,transparent 1px);background-size:22px 22px;pointer-events:none;z-index:0}
+.home-step>*{position:relative;z-index:1}
+.home-step:hover{transform:translateY(-4px);border-color:rgba(255,140,0,.32);background:#080b15;box-shadow:0 28px 70px rgba(0,0,0,.7),0 0 0 1px rgba(255,140,0,.18)}
+.home-step-num{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:rgba(255,140,0,.5);letter-spacing:.15em;text-transform:uppercase;margin-bottom:14px}
+.home-step-dot{width:8px;height:8px;border-radius:50%;background:#FF8C00;box-shadow:0 0 10px rgba(255,140,0,.5);margin-bottom:10px}
+.home-step-icon{
+  width:56px;height:56px;border-radius:50%;
+  border:1px solid rgba(255,140,0,.3);background:rgba(255,140,0,.06);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:28px;position:relative;
+  transition:border-color .3s,box-shadow .3s,background .3s;
+}
+.home-step:hover .home-step-icon{border-color:rgba(255,140,0,.6);box-shadow:0 0 28px rgba(255,140,0,.2);background:rgba(255,140,0,.1)}
+.home-step-icon::before{
+  content:'';position:absolute;inset:-4px;border-radius:50%;
+  border:1.5px solid transparent;border-top-color:rgba(255,140,0,.6);border-right-color:rgba(255,140,0,.15);
+  animation:arc-spin 4s linear infinite;
+}
+@keyframes arc-spin{to{transform:rotate(360deg)}}
+.home-step-icon svg{transition:transform .3s}
+.home-step:hover .home-step-icon svg{transform:scale(1.15)}
+.home-step-title{font-size:18px;font-weight:700;color:#fff;margin-bottom:14px;letter-spacing:-.02em}
+.home-step-desc{font-size:13px;color:#888;line-height:1.75;font-weight:300;max-width:260px;margin:0 auto 16px}
+.home-step-cta{font-size:13px;font-weight:700;color:var(--accent);transition:color .15s}
+.home-step:hover .home-step-cta{color:var(--accent-2)}
+
+/* ═══ FEED OFERTAS V2 — Escalonador style ═══ */
+.of-searchbar{
+  display:flex;align-items:center;gap:12px;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:14px;padding:0 18px;margin-bottom:24px;
+  transition:border-color .2s;
+}
+.of-searchbar:focus-within{border-color:rgba(255,140,0,.4);box-shadow:0 0 0 3px rgba(255,140,0,.06)}
+.of-search-input{flex:1;background:transparent;border:none;padding:14px 0;font-family:inherit;font-size:14px;color:var(--text);outline:none;font-weight:500}
+.of-search-input::placeholder{color:var(--text-3)}
+.of-search-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.of-flag-active{width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);cursor:pointer}
+.of-sort-btn{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;
+  padding:8px 14px;font-family:inherit;font-size:12px;font-weight:600;
+  color:var(--text-2);outline:none;cursor:pointer;transition:all .15s;
+}
+.of-sort-btn:hover{border-color:var(--accent);color:var(--text)}
+.of-filter-toggle{
+  width:38px;height:38px;border-radius:10px;
+  background:var(--bg-elev);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-2);cursor:pointer;transition:all .15s;
+}
+.of-filter-toggle:hover{border-color:var(--accent);color:var(--accent)}
+
+/* Layout: grid only, sidebar overlays */
+.of-layout{position:relative}
+.of-grid-area{width:100%}
+
+/* 5-column grid */
+.of-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+@media(max-width:1200px){.of-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:900px){.of-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.of-grid{grid-template-columns:repeat(2,1fr);gap:10px}}
+
+/* Card */
+.of-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:14px;overflow:hidden;cursor:pointer;
+  transition:all .25s cubic-bezier(.16,1,.3,1);
+}
+.of-card:hover{border-color:rgba(255,140,0,.35);transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.of-card-img{width:100%;aspect-ratio:1;background:var(--bg-elev);position:relative;overflow:hidden}
+.of-card-img img{width:100%;height:100%;object-fit:cover;display:block}
+.of-card-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(10,10,20,.8),rgba(15,15,25,.6))}
+/* Play badge */
+.of-card-play{
+  position:absolute;top:10px;left:10px;width:28px;height:28px;
+  background:#FF6B00;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px rgba(255,107,0,.5);
+}
+/* Bookmark */
+.of-card-bm{
+  position:absolute;top:10px;right:10px;width:30px;height:30px;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(6px);border:none;
+  border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.55);transition:all .15s;
+}
+.of-card-bm:hover{color:#fff;background:rgba(0,0,0,.7)}
+.of-card-body{padding:12px 14px}
+.of-card-name{
+  font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px;
+  line-height:1.35;min-height:38px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.of-card-footer{display:flex;align-items:center;gap:10px}
+.of-card-ads{
+  background:rgba(255,140,0,.1);border:1px solid rgba(255,140,0,.2);
+  color:var(--accent);font-size:14px;font-weight:800;
+  padding:6px 14px;border-radius:10px;display:flex;flex-direction:column;align-items:center;line-height:1.2;
+}
+.of-card-ads span{font-size:10px;font-weight:600;opacity:.6}
+.of-card-flag{width:24px;height:24px;border-radius:50%;object-fit:cover;border:1px solid var(--border)}
+
+/* Sidebar filters — overlay below header */
+.of-sidebar{position:fixed;top:64px;right:0;bottom:0;z-index:40;width:300px;background:var(--bg);border-left:1px solid var(--border);box-shadow:-8px 0 40px rgba(0,0,0,.6);animation:of-slide-in .2s ease}
+@keyframes of-slide-in{from{transform:translateX(100%)}to{transform:translateX(0)}}
+.of-sidebar-inner{
+  padding:24px 20px;height:100%;overflow-y:auto;
+}
+.of-sb-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;font-size:16px;font-weight:800;color:var(--text)}
+.of-sb-close{background:none;border:none;color:var(--text-3);font-size:22px;cursor:pointer;padding:0 4px;line-height:1}
+.of-sb-close:hover{color:var(--text)}
+.of-sb-section{margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:16px}
+.of-sb-section:last-of-type{border-bottom:none;padding-bottom:0}
+.of-sb-label{font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.of-sb-label svg{color:var(--accent)}
+.of-sb-check{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;color:var(--text-2);cursor:pointer}
+.of-sb-check:hover{color:var(--text)}
+.of-sb-check input[type="radio"],.of-sb-check input[type="checkbox"]{
+  width:16px;height:16px;accent-color:var(--accent);cursor:pointer;
+}
+.of-sb-total{text-align:center;font-size:12px;color:var(--text-3);font-weight:600;margin-top:12px}
+
+/* ═══ FEED DETAIL V2 — AdSpy style ═══ */
+.fd{
+  background:var(--bg);width:100%;max-width:1080px;margin:0 auto;min-height:100vh;
+  padding:24px 32px 80px;position:relative;
+}
+.fd-back{position:sticky;top:16px;z-index:10;background:var(--bg-elev);border:1px solid var(--border);color:var(--text-2);cursor:pointer;padding:8px 16px;border-radius:8px;transition:all .15s;font-family:inherit;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.fd-back:hover{color:var(--text);border-color:var(--border-2)}
+.fd-breadcrumb{font-size:12px;color:var(--text-3);margin-top:20px;margin-bottom:6px}
+.fd-breadcrumb span{color:var(--accent)}
+.fd-title{font-size:24px;font-weight:800;color:var(--accent);margin-bottom:28px;letter-spacing:-.02em}
+
+/* Top area: VSL + sidebar */
+.fd-top{display:grid;grid-template-columns:1fr 300px;gap:24px;margin-bottom:36px}
+@media(max-width:860px){.fd-top{grid-template-columns:1fr}}
+.fd-main-area{min-width:0}
+.fd-hero-wrap{margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:#000}
+.fd-hero-img{width:100%;max-height:400px;object-fit:contain;display:block}
+.fd-action-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.fd-stats-pills{display:flex;gap:6px;margin-left:auto}
+.fd-pill{font-size:11px;font-weight:700;padding:5px 12px;border-radius:8px;background:rgba(255,255,255,.06);color:var(--text-3)}
+.fd-pill-vid{background:rgba(139,92,246,.12);color:#a78bfa}
+.fd-pill-img{background:rgba(59,130,246,.12);color:#60a5fa}
+.fd-btn-dl{
+  display:inline-flex;align-items:center;gap:8px;padding:10px 20px;
+  background:rgba(255,140,0,.1);border:1px solid rgba(255,140,0,.25);
+  color:var(--accent);font-size:13px;font-weight:700;border-radius:10px;
+  cursor:pointer;font-family:inherit;transition:all .15s;text-decoration:none;
+}
+.fd-btn-dl:hover{background:rgba(255,140,0,.2)}
+.fd-btn-analyze{
+  display:inline-flex;align-items:center;gap:8px;padding:10px 20px;
+  background:linear-gradient(135deg,#FF6B00,#FF8C42);border:none;
+  color:#fff;font-size:13px;font-weight:800;border-radius:10px;
+  cursor:pointer;font-family:inherit;transition:all .15s;
+  box-shadow:0 4px 16px rgba(255,107,0,.3);
+}
+.fd-btn-analyze:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(255,107,0,.4)}
+
+/* Sidebar cards — golden accent */
+.fd-sidebar{display:flex;flex-direction:column;gap:16px}
+.fd-sidebar-card{
+  background:var(--bg-card);border:1px solid rgba(255,180,50,.18);
+  border-radius:14px;overflow:hidden;
+}
+.fd-sidebar-hd{
+  padding:14px 16px;font-size:14px;font-weight:700;
+  color:#FFB347;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid rgba(255,180,50,.1);
+  background:rgba(255,180,50,.04);
+}
+.fd-sidebar-rows{padding:4px 0}
+.fd-row{display:flex;justify-content:space-between;padding:10px 16px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.04)}
+.fd-row:last-child{border-bottom:none}
+.fd-row span:first-child{color:var(--text-3)}
+.fd-row span:last-child{color:var(--text);font-weight:600}
+.fd-row-accent{color:var(--accent)!important;font-weight:800!important}
+
+/* Sections */
+.fd-section{margin-bottom:40px}
+.fd-section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.fd-section-title{font-size:18px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:10px}
+.fd-section-title svg{color:var(--accent)}
+.fd-section-count{font-size:13px;color:var(--text-3);font-weight:600}
+
+/* Buttons */
+.fd-btn-sm{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,140,0,.1);border:1px solid rgba(255,140,0,.25);
+  color:var(--accent);font-size:11px;font-weight:700;padding:6px 14px;
+  border-radius:8px;cursor:pointer;font-family:inherit;transition:all .15s;
+}
+.fd-btn-sm:hover{background:rgba(255,140,0,.2)}
+.fd-btn-more{
+  background:var(--bg-card);border:1px solid var(--border);color:var(--text-2);
+  font-size:13px;font-weight:700;padding:12px 28px;border-radius:10px;
+  cursor:pointer;font-family:inherit;transition:all .15s;
+}
+.fd-btn-more:hover{border-color:var(--accent);color:var(--accent)}
+
+/* Transcript box — golden border */
+.fd-transcript-box{
+  background:rgba(0,0,0,.25);
+  border:1px solid rgba(255,180,50,.2);
+  border-radius:12px;padding:20px;position:relative;
+}
+.fd-transcript-text{
+  font-size:13px;color:var(--text-2);line-height:1.8;white-space:pre-wrap;word-break:break-word;
+  max-height:160px;overflow:hidden;transition:max-height .3s ease;
+}
+.fd-transcript-text.expanded{max-height:none}
+.fd-transcript-toggle{
+  display:block;margin:12px auto 0;background:none;border:none;
+  color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;
+  font-family:inherit;padding:4px 8px;
+}
+.fd-transcript-toggle:hover{text-decoration:underline}
+
+/* Creatives grid — 4 cols */
+.fd-creatives-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:900px){.fd-creatives-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.fd-creatives-grid{grid-template-columns:repeat(2,1fr)}}
+.fd-creative-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:12px;overflow:hidden;transition:all .2s;
+}
+.fd-creative-card:hover{border-color:rgba(255,140,0,.3);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.fd-creative-media{position:relative;width:100%;aspect-ratio:1;background:#0a0a0f;overflow:hidden}
+.fd-creative-media video,.fd-creative-media img{width:100%;height:100%;object-fit:cover;display:block}
+.fd-creative-dl{
+  position:absolute;top:8px;right:8px;width:30px;height:30px;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(4px);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;text-decoration:none;transition:all .15s;opacity:0;
+}
+.fd-creative-card:hover .fd-creative-dl{opacity:1}
+.fd-creative-dl:hover{background:rgba(255,140,0,.8)}
+.fd-creative-info{padding:10px 12px}
+.fd-creative-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px}
+.fd-creative-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px}
+.fd-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,.06);color:var(--text-3);text-transform:uppercase;letter-spacing:.03em}
+.fd-tag-vid{background:rgba(139,92,246,.15);color:#a78bfa}
+.fd-tag-img{background:rgba(59,130,246,.15);color:#60a5fa}
+.fd-tag-active{background:rgba(34,197,94,.12);color:#22c55e}
+.fd-creative-date{font-size:11px;color:var(--text-3)}
+.fd-creative-broken{display:none!important}
+.fd-creative-type-badge{
+  position:absolute;bottom:8px;left:8px;width:28px;height:28px;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(4px);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;color:#fff;
+}
+
+/* Pages grid */
+.fd-pages-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media(max-width:700px){.fd-pages-grid{grid-template-columns:1fr}}
+.fd-page-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:12px;overflow:hidden;transition:all .2s;
+}
+.fd-page-card:hover{border-color:rgba(255,140,0,.25)}
+.fd-page-screenshot{width:100%;aspect-ratio:16/10;background:var(--bg-elev);overflow:hidden;position:relative}
+.fd-page-screenshot img{width:100%;height:100%;object-fit:cover;display:block}
+.fd-page-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--text-3)}
+.fd-page-fb{color:rgba(59,130,246,.5)}
+.fd-page-badge{
+  font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;
+  background:rgba(255,140,0,.12);color:var(--accent);
+}
+.fd-page-info{padding:14px 16px}
+.fd-page-label{font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px}
+.fd-page-url{font-size:10px;color:var(--accent);word-break:break-all;background:rgba(0,0,0,.3);padding:8px 10px;border-radius:6px;font-family:'JetBrains Mono',monospace;margin-bottom:8px;display:block;max-height:36px;overflow:hidden}
+.fd-page-actions{display:flex;gap:8px}
+
+/* SECTION LABEL */
+.tool-sec-label{display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.tool-sec-label::before,.tool-sec-label::after{display:none}
+.tool-sec-label span{color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
 
 /* STATUS BAR (landing style) */
 .status-bar-wrap{width:100%;display:flex;flex-direction:column;gap:14px;max-width:420px;margin:0 auto;padding:0 20px 28px;animation:fadein .4s var(--ease-out)}
@@ -1440,25 +2206,18 @@ body::after{
 /* HISTORY CARDS */
 .history-grid{display:flex;flex-direction:column;gap:8px}
 .history-card{
-  display:flex;align-items:center;gap:14px;padding:14px 18px;
-  background:linear-gradient(180deg,rgba(20,20,28,.5),rgba(15,15,20,.3));
-  border:1px solid rgba(255,255,255,.06);
-  backdrop-filter:blur(20px);
-  border-radius:14px;cursor:pointer;
-  transition:all .35s var(--ease-out);
+  display:flex;align-items:center;gap:14px;padding:14px 16px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);cursor:pointer;
+  transition:all .15s ease;
   position:relative;overflow:hidden;
 }
-.history-card::before{
-  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
-  background:linear-gradient(180deg,var(--accent),transparent);
-  opacity:0;transition:opacity .35s;
-}
+.history-card::before{display:none}
 .history-card:hover{
-  border-color:rgba(255,107,0,.25);
-  background:linear-gradient(180deg,rgba(25,25,35,.7),rgba(20,20,28,.5));
-  transform:translateX(4px);
+  border-color:var(--border-2);
+  background:var(--bg-elev);
 }
-.history-card:hover::before{opacity:1}
 .hc-score{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;flex-shrink:0;letter-spacing:-.02em}
 .hc-score.green{background:linear-gradient(135deg,rgba(34,197,94,.18),rgba(34,197,94,.06));color:#22c55e;border:1px solid rgba(34,197,94,.2);box-shadow:0 0 16px rgba(34,197,94,.1)}
 .hc-score.yellow{background:linear-gradient(135deg,rgba(234,179,8,.18),rgba(234,179,8,.06));color:#eab308;border:1px solid rgba(234,179,8,.2);box-shadow:0 0 16px rgba(234,179,8,.1)}
@@ -1468,8 +2227,8 @@ body::after{
 .hc-meta{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
 
 /* ═══ RADAR — full width ═══ */
-.rdr-full{max-width:100%!important;padding:24px 32px 80px!important}
-@media(max-width:768px){.rdr-full{padding:16px 16px 60px!important}}
+.rdr-full{max-width:100%;padding:24px 32px 80px}
+@media(max-width:768px){.rdr-full{padding:16px 16px 60px}}
 .rdr-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap;animation:contentFade .45s var(--ease-out)}
 .rdr-search-wrap{
   display:flex;align-items:center;gap:12px;
@@ -1510,19 +2269,13 @@ body::after{
 @media(max-width:768px){.rdr-metrics{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.rdr-metrics{grid-template-columns:1fr}}
 .rdr-mc{
-  background:linear-gradient(180deg,rgba(20,20,28,.6),rgba(15,15,20,.4));
-  border:1px solid rgba(255,255,255,.06);
-  backdrop-filter:blur(20px);
-  border-radius:14px;padding:20px 22px;
-  transition:all .3s var(--ease-out);position:relative;overflow:hidden;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);padding:20px;
+  transition:all .2s ease;
 }
-.rdr-mc::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(255,107,0,.3),transparent);
-  opacity:0;transition:opacity .3s;
-}
-.rdr-mc:hover{border-color:rgba(255,107,0,.18)}
-.rdr-mc:hover::before{opacity:1}
+.rdr-mc::before{display:none}
+.rdr-mc:hover{border-color:var(--border-2)}
 .rdr-mc-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .rdr-mc-label{font-size:12px;color:var(--text-3);font-weight:500}
 .rdr-mc-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -1536,23 +2289,17 @@ body::after{
 
 /* Offer card */
 .rc{
-  background:linear-gradient(180deg,rgba(20,20,28,.6),rgba(15,15,20,.4));
-  border:1px solid rgba(255,255,255,.06);
-  backdrop-filter:blur(20px);
-  border-radius:14px;padding:16px;
-  transition:all .3s var(--ease-out);position:relative;overflow:hidden;
-  animation:fadein .35s var(--ease-out);
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px;
+  transition:all .2s ease;position:relative;overflow:hidden;
+  animation:fadein .3s ease;
 }
-.rc::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(255,107,0,.4),transparent);
-  opacity:0;transition:opacity .3s;
-}
+.rc::before{display:none}
 .rc:hover{
-  border-color:rgba(255,107,0,.2);
-  box-shadow:0 8px 24px rgba(0,0,0,.25);
+  border-color:var(--border-2);
+  box-shadow:0 4px 12px rgba(0,0,0,.2);
 }
-.rc:hover::before{opacity:1}
 .rc-hd{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
 .rc-fb{
   width:30px;height:30px;border-radius:8px;
@@ -1635,11 +2382,9 @@ body::after{
 
 /* MINE */
 .mine-filters{
-  background:rgba(15,15,20,.6);
-  border:1px solid rgba(255,255,255,.08);
-  backdrop-filter:blur(20px);
-  border-radius:20px;padding:28px;
-  box-shadow:0 16px 40px rgba(0,0,0,.3);
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);padding:24px;
 }
 .mine-nichos{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px}
 .nicho-btn{padding:10px 18px;border-radius:999px;border:1px solid var(--border-2);background:rgba(255,255,255,.02);color:var(--text-2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .3s var(--ease-out)}
@@ -1651,42 +2396,35 @@ body::after{
 .filter-btn{padding:7px 14px;border-radius:8px;border:1px solid var(--border-2);background:rgba(255,255,255,.02);color:var(--text-3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all .25s}
 .filter-btn.active{border-color:rgba(255,107,0,.4);background:rgba(255,107,0,.08);color:var(--accent)}
 .mine-btn{
-  padding:14px 32px;background:linear-gradient(135deg,#FF6B00,#FF8C42);
-  border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:14px;
-  font-weight:800;cursor:pointer;transition:all .3s var(--ease-out);
-  display:inline-flex;align-items:center;gap:10px;letter-spacing:-.01em;
-  box-shadow:0 8px 24px rgba(255,107,0,.35),inset 0 1px 0 rgba(255,255,255,.2);
+  padding:14px 32px;background:var(--accent);
+  border:none;border-radius:var(--radius);color:#fff;font-family:inherit;font-size:14px;
+  font-weight:700;cursor:pointer;transition:all .15s ease;
+  display:inline-flex;align-items:center;gap:10px;
 }
-.mine-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 32px rgba(255,107,0,.45),inset 0 1px 0 rgba(255,255,255,.25)}
+.mine-btn:hover:not(:disabled){background:#e05e00}
 .mine-btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* Minerador hero */
 .mine-hero{text-align:center;margin-bottom:32px;animation:contentFade .5s var(--ease-out)}
-.mine-title{font-size:clamp(32px,4vw,48px);font-weight:900;letter-spacing:-.04em;margin-bottom:10px;background:linear-gradient(180deg,#fff 0%,#a1a1aa 100%);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.1}
+.mine-title{font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:-.03em;margin-bottom:10px;color:#fff;line-height:1.1}
 .mine-sub{font-size:15px;color:var(--text-2);font-weight:500}
 .mine-status{text-align:center;font-size:14px;color:var(--text-2);margin-top:-12px;margin-bottom:18px;animation:fadein .35s var(--ease-out);font-weight:500}
 .mine-hint{text-align:center;font-size:13px;color:var(--text-3);margin-top:-12px;margin-bottom:18px;font-weight:500}
 .mine-results-wrap{margin-top:12px}
 .mine-results{display:flex;flex-direction:column;gap:14px}
 .mrc{
-  background:#06080f;
-  border:1px solid rgba(255,140,0,.12);
-  border-radius:18px;padding:24px;
-  transition:all .4s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden;
-  animation:fadein .4s var(--ease-out);z-index:1;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);padding:20px;
+  transition:all .2s ease;position:relative;overflow:hidden;
+  animation:fadein .3s ease;
 }
-.mrc::after{content:'';position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.035) 1px,transparent 1px);background-size:22px 22px;pointer-events:none;z-index:0}
-.mrc::before{
-  content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
-  background:linear-gradient(rgba(255,140,0,.5) 0 0) top left/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top left/18px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top right/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) top right/18px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom left/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom left/18px 2px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom right/2px 18px no-repeat,linear-gradient(rgba(255,140,0,.5) 0 0) bottom right/18px 2px no-repeat;
-  transition:opacity .35s ease;opacity:.45;
-}
+.mrc::after{display:none}
+.mrc::before{display:none}
 .mrc:hover{
-  transform:translateY(-4px);
-  border-color:rgba(255,140,0,.32);background:#080b15;
-  box-shadow:0 28px 70px rgba(0,0,0,.7),0 0 0 1px rgba(255,140,0,.18);
+  border-color:var(--border-2);
+  box-shadow:0 4px 16px rgba(0,0,0,.3);
 }
-.mrc:hover::before{opacity:1}
 .mrc>*{position:relative;z-index:2}
 .mrc-top{display:flex;align-items:center;gap:16px;margin-bottom:10px}
 .mrc-score{
@@ -1721,6 +2459,47 @@ body::after{
   font-weight:700;cursor:pointer;transition:all .3s var(--ease-out);
 }
 .mrc-btn-outline:hover{border-color:rgba(255,107,0,.4);color:var(--accent);background:rgba(255,107,0,.06)}
+
+/* MINE PREVIEW — FB page avatar */
+.mrc-preview{width:48px;height:48px;border-radius:12px;overflow:hidden;flex-shrink:0;border:1px solid rgba(255,255,255,.08)}
+.mrc-preview img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* ═══ CRIATIVOS GRID ═══ */
+.criativos-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:24px}
+@media(max-width:600px){.criativos-grid{grid-template-columns:1fr}}
+.criativo-card{
+  background:linear-gradient(180deg,rgba(20,20,28,.6),rgba(15,15,20,.4));
+  border:1px solid rgba(255,255,255,.06);
+  backdrop-filter:blur(20px);
+  border-radius:16px;padding:18px;
+  transition:all .3s var(--ease-out);position:relative;overflow:hidden;
+}
+.criativo-card:hover{border-color:rgba(255,107,0,.2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.criativo-media{width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;margin-bottom:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.04)}
+.criativo-media img,.criativo-media video{width:100%;height:100%;object-fit:cover;display:block}
+.criativo-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.criativo-score{
+  width:36px;height:36px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:900;flex-shrink:0;
+}
+.criativo-score.green{background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(16,185,129,.06));color:#10B981;border:1px solid rgba(16,185,129,.2)}
+.criativo-score.yellow{background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(245,158,11,.06));color:#F59E0B;border:1px solid rgba(245,158,11,.2)}
+.criativo-score.red{background:linear-gradient(135deg,rgba(107,114,128,.15),rgba(107,114,128,.04));color:var(--text-3);border:1px solid rgba(107,114,128,.2)}
+.criativo-meta{display:flex;align-items:center;gap:8px}
+.criativo-formato{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--text-2);text-transform:uppercase;letter-spacing:.04em}
+.criativo-dias{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:rgba(255,107,0,.1);border:1px solid rgba(255,107,0,.2);color:var(--accent)}
+.criativo-hook{font-size:13px;color:var(--text);line-height:1.6;margin-bottom:8px;font-style:italic;font-weight:500;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.criativo-angulo{font-size:12px;color:var(--text-3);margin-bottom:14px;font-weight:500}
+.criativo-actions{display:flex;gap:8px;border-top:1px solid rgba(255,255,255,.06);padding-top:12px}
+.criativo-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 14px;background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);border-radius:8px;
+  color:var(--text-2);font-family:inherit;font-size:11px;font-weight:700;
+  cursor:pointer;transition:all .2s var(--ease-out);
+}
+.criativo-btn:hover{border-color:rgba(255,107,0,.4);color:var(--accent);background:rgba(255,107,0,.06)}
 
 /* MODALS */
 .modal-overlay{

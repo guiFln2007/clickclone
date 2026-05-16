@@ -7,9 +7,9 @@
 }
 
 body {
-  background: #08080f;
-  color: #fff;
-  font-family: 'Inter', sans-serif;
+  background: #06080f;
+  color: #fafafa;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 .editor-textarea {

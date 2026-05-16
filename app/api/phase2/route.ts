@@ -39,6 +39,49 @@ async function fetchPageText(url: string): Promise<string> {
   }
 }
 
+async function fetchPageMedia(url: string): Promise<{ images: string[], videos: string[], ogImage: string | null }> {
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(15000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    })
+    if (!res.ok) return { images: [], videos: [], ogImage: null }
+    const html = await res.text()
+
+    // Extract OG image
+    const ogMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+    const ogImage = ogMatch?.[1] || null
+
+    // Extract all image srcs
+    const imgRegex = /<img[^>]*(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*/gi
+    const images: string[] = []
+    let match
+    while ((match = imgRegex.exec(html)) !== null) {
+      const src = match[1]
+      if (src.startsWith('http') && !src.includes('data:') && !src.includes('pixel') && !src.includes('tracking') && !src.includes('facebook.com') && !src.includes('google-analytics')) {
+        images.push(src)
+      }
+    }
+
+    // Extract video srcs
+    const vidRegex = /<(?:video|source)[^>]*src=["']([^"']+)["']/gi
+    const videos: string[] = []
+    while ((match = vidRegex.exec(html)) !== null) {
+      if (match[1].startsWith('http')) videos.push(match[1])
+    }
+
+    return {
+      images: Array.from(new Set(images)).slice(0, 15),
+      videos: Array.from(new Set(videos)).slice(0, 5),
+      ogImage
+    }
+  } catch {
+    return { images: [], videos: [], ogImage: null }
+  }
+}
+
 const SYSTEM_PROMPT_PHASE2 = `Você é um especialista em construir funis de vendas de alta conversão no mercado brasileiro de infoprodutos low ticket.
 
 Sua tarefa: baseado na análise dos criativos (Fase 1) e no texto da página do concorrente, gere um PROMPT PRONTO para o usuário colar no Lovable/Bolt e ter o funil completo criado automaticamente.
@@ -56,18 +99,21 @@ Retorne APENAS o JSON abaixo, sem texto antes ou depois:
 
 REGRAS PARA O prompt_lovable:
 - Deve ser um prompt COMPLETO e DETALHADO que o usuário cola direto no Lovable ou Bolt.new
-- O prompt deve instruir a criação de um funil de vendas COMPLETO com:
-  1. Página de vendas responsiva com headline, subheadline, seções de benefícios, prova social, FAQ, garantia e CTA
-  2. Se o concorrente usa quiz/typebot, incluir o fluxo de quiz antes da página de vendas
-  3. Cores, fontes e tom de voz definidos no prompt
-  4. Copy completa de cada seção (não genérica — baseada no nicho e ângulo do concorrente)
-  5. Seções de urgência/escassez se o concorrente usar
-- O prompt deve MODELAR o que funciona do concorrente mas CORRIGIR os pontos fracos identificados na Fase 1
-- Usar o ângulo dominante e os gatilhos que o concorrente usa pra vender
-- A copy deve ser em português BR, tom informal/emocional (padrão low ticket)
+- O prompt DEVE instruir a usar as URLS DE MÍDIA REAIS fornecidas abaixo (imagens e vídeos do concorrente)
+- ESTRUTURA OBRIGATÓRIA DO FUNIL (nesta ordem exata):
+  1. Hero (primeira seção) — headline forte, subheadline, CTA principal, imagem hero do concorrente
+  2. O que você vai receber — lista de benefícios/módulos com ícones
+  3. Bônus Exclusivos — grid de bônus com valores riscados
+  4. Depoimentos — cards com foto, nome, cidade e resultado
+  5. Oferta — preço âncora, preço real, botão CTA grande
+  6. Garantia — selo de 7 dias, texto de confiança
+  7. Dúvidas Frequentes — accordion com 5+ perguntas
+  8. Rodapé — links, disclaimer, copyright
+- O prompt deve incluir as URLs de imagens reais para que o Lovable as use diretamente
+- Copy em português BR, tom informal/emocional (padrão low ticket)
 - NÃO incluir preços ou links de checkout — o usuário preenche depois
-- O prompt deve ter no mínimo 800 palavras para ser detalhado o suficiente
-- Incluir instruções de design: cores sugeridas, estilo visual, mobile-first
+- O prompt deve ter no mínimo 1000 palavras para ser detalhado o suficiente
+- Incluir instruções de design: cores sugeridas, estilo visual, mobile-first, dark mode
 
 REGRAS PARA estrutura_funil:
 - Liste as etapas do funil na ordem que o visitante percorre
@@ -116,7 +162,10 @@ export async function POST(req: NextRequest) {
 
         send({ type: 'progress', text: '\uD83D\uDD0D Escaneando p\u00e1gina do concorrente...' })
 
-        const pageText = await fetchPageText(url)
+        const [pageText, pageMedia] = await Promise.all([
+          fetchPageText(url),
+          fetchPageMedia(url),
+        ])
 
         send({ type: 'progress', text: pageText.length > 100
           ? `\u2705 P\u00e1gina escaneada (${pageText.length} chars)`
@@ -135,6 +184,13 @@ ${JSON.stringify(phase1Report, null, 2)}
 TEXTO DA P\u00c1GINA DE DESTINO DO CONCORRENTE (primeiros 15000 caracteres):
 ${pageText || '(p\u00e1gina n\u00e3o acess\u00edvel \u2014 gere o prompt com base nos dados dos an\u00fancios)'}
 
+M\u00cdDIAS REAIS DO CONCORRENTE (inclua estas URLs no prompt gerado):
+${pageMedia.ogImage ? `OG Image: ${pageMedia.ogImage}` : ''}
+Imagens (${pageMedia.images.length}): ${pageMedia.images.slice(0, 10).join('\n')}
+${pageMedia.videos.length > 0 ? `V\u00eddeos (${pageMedia.videos.length}): ${pageMedia.videos.join('\n')}` : 'Nenhum v\u00eddeo encontrado'}
+
+INSTRU\u00c7\u00c3O: O prompt_lovable DEVE referenciar estas URLs de imagens/v\u00eddeos para que o Lovable use as m\u00eddias reais do concorrente na p\u00e1gina gerada.
+
 Gere o prompt pronto para Lovable/Bolt com o funil completo modelado a partir deste concorrente. Retorne o JSON estruturado.`
 
         let rawText = ''
@@ -143,7 +199,7 @@ Gere o prompt pronto para Lovable/Bolt com o funil completo modelado a partir de
           try {
             const response = await client.messages.create({
               model: 'claude-sonnet-4-6',
-              max_tokens: 12000,
+              max_tokens: 16000,
               system: SYSTEM_PROMPT_PHASE2,
               messages: [{ role: 'user', content: prompt }],
             })
@@ -162,11 +218,33 @@ Gere o prompt pronto para Lovable/Bolt com o funil completo modelado a partir de
 
         let report: Record<string, unknown>
         try {
-          const jsonMatch = rawText.match(/\{[\s\S]*\}/)
-          report = JSON.parse(jsonMatch ? jsonMatch[0] : rawText)
+          // Try to find the outermost JSON object
+          let jsonStr = rawText
+          const firstBrace = rawText.indexOf('{')
+          const lastBrace = rawText.lastIndexOf('}')
+          if (firstBrace >= 0 && lastBrace > firstBrace) {
+            jsonStr = rawText.slice(firstBrace, lastBrace + 1)
+          }
+          report = JSON.parse(jsonStr)
         } catch {
-          console.error('[Phase2] JSON parse failed:', rawText.slice(0, 500))
-          throw new Error('Claude retornou JSON inválido na Fase 2')
+          // If JSON is truncated (stop_reason=max_tokens), try to fix it
+          console.error('[Phase2] JSON parse failed, attempting repair. Raw length:', rawText.length)
+          try {
+            let fixable = rawText.slice(rawText.indexOf('{'))
+            // Close any unclosed strings and braces
+            const openBraces = (fixable.match(/{/g) || []).length
+            const closeBraces = (fixable.match(/}/g) || []).length
+            if (openBraces > closeBraces) {
+              // Truncate at last complete field, close the JSON
+              const lastComma = fixable.lastIndexOf('",')
+              if (lastComma > 0) fixable = fixable.slice(0, lastComma + 1)
+              for (let i = 0; i < openBraces - closeBraces; i++) fixable += '}'
+            }
+            report = JSON.parse(fixable)
+          } catch {
+            console.error('[Phase2] Repair also failed:', rawText.slice(0, 500))
+            throw new Error('Claude retornou JSON inválido na Fase 2')
+          }
         }
 
         if (!report.url_analisada) report.url_analisada = url

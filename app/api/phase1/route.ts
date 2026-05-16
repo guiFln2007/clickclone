@@ -174,14 +174,29 @@ function buildAdsDigest(ads: Record<string, unknown>[]): string {
     const title = (snap?.title as string) || (ad.ad_creative_link_titles as string[])?.[0] || ''
     const cta = (snap?.cta_text as string) || ''
     const format = (snap?.videos as unknown[])?.length ? 'vídeo' : (snap?.images as unknown[])?.length ? 'imagem' : 'carrossel'
-    const startDate = ad.ad_delivery_start_time as string || ''
-    const days = startDate
-      ? Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000)
+
+    // Resolve start date from multiple possible fields
+    const tsRaw = ad.start_date as number | undefined
+    const formatted = ad.start_date_formatted as string | undefined
+    const deliveryStart = ad.ad_delivery_start_time as string | undefined
+    let startLabel = 'unknown'
+    if (typeof tsRaw === 'number' && tsRaw > 1000000000) {
+      startLabel = new Date(tsRaw * 1000).toISOString().slice(0, 10)
+    } else if (formatted) {
+      startLabel = formatted
+    } else if (deliveryStart) {
+      startLabel = deliveryStart
+    }
+
+    const days = startLabel !== 'unknown'
+      ? Math.floor((Date.now() - new Date(startLabel).getTime()) / 86400000)
       : null
 
-    return `[Anúncio ${i + 1}] Formato: ${format} | ${days !== null ? `Rodando há ${days} dias` : ''}
-Texto: ${String(body).slice(0, 200)}
-Título: ${String(title).slice(0, 100)}
+    // Primeiros 15 ads: texto completo (candidatos a top criativos). Restante: truncado.
+    const bodyText = i < 15 ? String(body) : String(body).slice(0, 300)
+    return `[Anúncio ${i + 1}] Formato: ${format} | Start: ${startLabel}${days !== null ? ` | Rodando há ${days} dias` : ''}
+Texto: ${bodyText}
+Título: ${String(title).slice(0, 150)}
 CTA: ${cta}`
   }).join('\n---\n')
 }
@@ -238,6 +253,17 @@ RETORNE APENAS O JSON ABAIXO, sem texto antes ou depois:
       "hook": "texto do hook",
       "corpo": "texto do corpo",
       "cta": "texto do CTA"
+    }
+  ],
+  "top_criativos": [
+    {
+      "index": 1,
+      "texto_completo": "full ad copy text",
+      "hook": "first sentence/hook of the ad",
+      "formato": "vídeo|imagem|carrossel",
+      "dias_rodando": 0,
+      "score": 0,
+      "angulo": "short angle description"
     }
   ]
 }
@@ -306,6 +332,18 @@ prontos pra gravar sem edição. Cada script com:
 
 Os scripts devem soar como uma pessoa real falando, não como copy de agência.
 Use gírias do nicho quando relevante. Máximo 150 palavras por script.
+
+━━━ TOP 6 CRIATIVOS MAIS ESCALADOS ━━━
+Dos anúncios recebidos, selecione os 6 MAIS ESCALADOS (priorizando: mais tempo rodando > mais variações de copy similar > formato vídeo).
+
+Para cada um:
+- index: posição (1 a 6)
+- texto_completo: o copy COMPLETO do anúncio (body text), sem cortar
+- hook: a primeira frase/gancho do anúncio
+- formato: vídeo, imagem ou carrossel
+- dias_rodando: quantos dias o anúncio está ativo (use o campo Start fornecido em cada anúncio, senão estime)
+- score: nota de 1-10 baseada em qualidade do copy (hook forte, CTA claro, gatilhos emocionais)
+- angulo: descrição curta do ângulo emocional (ex: "medo de perder", "curiosidade + prova social")
 
 ━━━ ANÁLISE GERAL ━━━
 - angulo_dominante: descreva em 2-3 frases detalhadas o ângulo emocional principal
@@ -401,7 +439,7 @@ IMPORTANTE: Use o dado "TEMPO RODANDO" acima para preencher dias_rodando e calcu
 
         const response = await client.messages.create({
           model: 'claude-sonnet-4-6',
-          max_tokens: 8000,
+          max_tokens: 16000,
           system: SYSTEM_PROMPT_PHASE1,
           messages: [{ role: 'user', content: prompt }],
         })
@@ -411,10 +449,31 @@ IMPORTANTE: Use o dado "TEMPO RODANDO" acima para preencher dias_rodando e calcu
 
         let report: Record<string, unknown>
         try {
-          const jsonMatch = rawText.match(/\{[\s\S]*\}/)
-          report = JSON.parse(jsonMatch ? jsonMatch[0] : rawText)
+          const firstBrace = rawText.indexOf('{')
+          const lastBrace = rawText.lastIndexOf('}')
+          const jsonStr = (firstBrace >= 0 && lastBrace > firstBrace) ? rawText.slice(firstBrace, lastBrace + 1) : rawText
+          report = JSON.parse(jsonStr)
         } catch {
-          throw new Error('Claude retornou JSON inválido na Fase 1')
+          // Try to repair truncated JSON
+          console.error('[Phase1] JSON parse failed, attempting repair. Length:', rawText.length, 'stop:', 'check logs')
+          try {
+            let fixable = rawText.slice(rawText.indexOf('{'))
+            const openBraces = (fixable.match(/{/g) || []).length
+            const closeBraces = (fixable.match(/}/g) || []).length
+            const openBrackets = (fixable.match(/\[/g) || []).length
+            const closeBrackets = (fixable.match(/]/g) || []).length
+            // Truncate at last complete value
+            const lastCleanCut = Math.max(fixable.lastIndexOf('",'), fixable.lastIndexOf('"],'), fixable.lastIndexOf('},'))
+            if (lastCleanCut > fixable.length * 0.5) fixable = fixable.slice(0, lastCleanCut + 1)
+            // Close arrays and braces
+            for (let i = 0; i < openBrackets - closeBrackets; i++) fixable += ']'
+            for (let i = 0; i < openBraces - closeBraces; i++) fixable += '}'
+            report = JSON.parse(fixable)
+            console.log('[Phase1] JSON repaired successfully')
+          } catch {
+            console.error('[Phase1] Repair failed. Raw:', rawText.slice(0, 500))
+            throw new Error('Claude retornou JSON inválido na Fase 1')
+          }
         }
 
         // Ensure fields are set with real data (override Claude's guesses)
@@ -458,6 +517,74 @@ IMPORTANTE: Use o dado "TEMPO RODANDO" acima para preencher dias_rodando e calcu
             console.log(`[Phase1] Tempo null: score = (${pontosObtidos}/${pontosPossiveis}) * 10 = ${notaEntrada.score}`)
           }
           report.nota_entrada = notaEntrada
+        }
+
+        // Attach real media URLs to top_criativos from the ads data
+        const topCriativos = report.top_criativos as { index: number; texto_completo: string; hook: string; formato: string; media_url?: string }[] | undefined
+        if (topCriativos && Array.isArray(topCriativos)) {
+          // Build a map of ad text → media URLs from raw ads
+          const adMediaMap = new Map<string, { images: string[]; videos: string[] }>()
+          for (const ad of ads) {
+            const snap = ad.snapshot as Record<string, unknown> | undefined
+            if (!snap) continue
+            const bodyText = ((snap.body as Record<string, unknown>)?.text as string) || ''
+            const key = bodyText.slice(0, 80).toLowerCase().trim()
+            if (!key) continue
+            const images: string[] = []
+            const videos: string[] = []
+            const snapImages = snap.images as Array<Record<string, string>> | undefined
+            if (Array.isArray(snapImages)) {
+              for (const img of snapImages) {
+                const url = img.original_image_url || img.resized_image_url || img.url || ''
+                if (url.startsWith('http')) images.push(url)
+              }
+            }
+            const snapVideos = snap.videos as Array<Record<string, string>> | undefined
+            if (Array.isArray(snapVideos)) {
+              for (const vid of snapVideos) {
+                const url = vid.video_hd_url || vid.video_sd_url || vid.video_preview_image_url || ''
+                if (url.startsWith('http')) videos.push(url)
+              }
+            }
+            // Also check cards (carousel)
+            const cards = snap.cards as Array<Record<string, unknown>> | undefined
+            if (Array.isArray(cards)) {
+              for (const card of cards) {
+                const imgUrl = (card.original_image_url || card.resized_image_url) as string
+                if (imgUrl?.startsWith('http')) images.push(imgUrl)
+              }
+            }
+            if (images.length > 0 || videos.length > 0) {
+              adMediaMap.set(key, { images, videos })
+            }
+          }
+
+          // Match each top criativo to its media — track used URLs to avoid duplicates
+          const usedUrls = new Set<string>()
+          for (const criativo of topCriativos) {
+            const searchKey = (criativo.texto_completo || criativo.hook || '').slice(0, 80).toLowerCase().trim()
+            let media = adMediaMap.get(searchKey)
+            if (!media) {
+              for (const [key, val] of adMediaMap.entries()) {
+                if (searchKey.includes(key.slice(0, 40)) || key.includes(searchKey.slice(0, 40))) {
+                  media = val
+                  break
+                }
+              }
+            }
+            if (media) {
+              // Pick first unused URL — prefer video, then image
+              const allUrls = [...media.videos, ...media.images]
+              const unused = allUrls.find(u => !usedUrls.has(u))
+              if (unused) {
+                criativo.media_url = unused
+                usedUrls.add(unused)
+              } else {
+                criativo.media_url = allUrls[0] || undefined
+              }
+            }
+          }
+          report.top_criativos = topCriativos
         }
 
         // Deduct quota
