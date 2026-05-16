@@ -184,7 +184,8 @@ export async function POST(req: NextRequest) {
 
       let saved = 0
       for (const p of rawResults) {
-        // Apply filters (total_anuncios do mine = ads na busca, nao total real da page)
+        // Apply filters
+        if (p.total_anuncios < 10 || p.total_anuncios > 140) continue
         if (p.dias_rodando !== null && p.dias_rodando < 5) continue
 
         const nameLower = p.pagina_nome.toLowerCase()
@@ -192,7 +193,8 @@ export async function POST(req: NextRequest) {
         if (nameLower.endsWith(' oficial') || nameLower.endsWith(' brasil') || nameLower.includes('®') || nameLower.includes('™')) continue
 
         const url = (p.landing_url || '').toLowerCase()
-        if (url && BLOCKED_LANDING_DOMAINS.some(d => url.includes(d))) continue
+        if (!url) continue
+        if (BLOCKED_LANDING_DOMAINS.some(d => url.includes(d))) continue
         // Filtra App Store / Play Store / apps (só queremos sites de venda reais)
         if (url.includes('apps.apple.com') || url.includes('play.google.com') || url.includes('app.adjust.com') || url.includes('onelink.me') || url.includes('appsflyer.com') || url.includes('.app.link') || url.includes('branch.io')) continue
 

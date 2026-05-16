@@ -1,23 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { dbGetUserById, dbDecrementMineracoes } from '@/lib/db'
 
-const BRAND_BLACKLIST = [
-  'infinitepay', 'nubank', 'ifood', 'shopee', 'mercado livre', 'mercadolivre',
-  'kwai', 'tiktok', 'claro', 'vivo', 'tim', 'banco inter', 'c6 bank', 'c6bank',
-  'picpay', 'stone', 'pagbank', 'pagseguro', 'itau', 'itaú', 'bradesco',
-  'santander', 'banco do brasil', 'caixa', 'amazon', 'magazine luiza', 'magalu',
-  'americanas', 'casas bahia', 'samsung', 'apple', 'xiaomi', 'motorola',
-  'uber', 'rappi', '99', 'didi', 'google', 'meta', 'facebook', 'instagram',
-  'hotmart', 'kiwify', 'eduzz', 'monetizze', 'braip', 'perfect pay',
-  'shopify', 'wix', 'wordpress', 'canva', 'netflix', 'spotify', 'globo',
-  'record', 'sbt', 'band', 'uol', 'terra', 'r7', 'ig',
-  'coca-cola', 'coca cola', 'pepsi', 'nestle', 'nestlé', 'unilever',
-  'ambev', 'heineken', 'budweiser', 'skol', 'brahma',
-  'renner', 'riachuelo', 'c&a', 'zara', 'shein',
-  'neon', 'will bank', 'original', 'next', 'digio',
-  'cloudflare', 'aws', 'azure', 'hostinger', 'locaweb',
-]
-
 const SCRAPER_URL = process.env.SCRAPER_URL || ''
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
 const APIFY_TOKEN = process.env.APIFY_TOKEN || ''
@@ -156,6 +139,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { keyword } = await req.json()
+  const minAnuncios = 3
+  const minDias = 5
   if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
   const kw = keyword.trim()
@@ -164,7 +149,7 @@ export async function POST(req: NextRequest) {
   const cachedRunId = getCachedRun(kw)
   if (cachedRunId) {
     console.log(`[Mine] Cache HIT pra "${kw}", reusando runId ${cachedRunId}`)
-    return NextResponse.json({ runId: cachedRunId, keyword: kw, cached: true })
+    return NextResponse.json({ runId: cachedRunId, keyword: kw, minAnuncios, minDias, cached: true })
   }
 
   // Decrementa quota de mineracao
@@ -187,7 +172,7 @@ export async function POST(req: NextRequest) {
           console.log('[Mine] Local scraper job started:', jobId)
           const runId = `local:${jobId}`
           setCachedRun(kw, runId)
-          return NextResponse.json({ runId, keyword: kw })
+          return NextResponse.json({ runId, keyword: kw, minAnuncios, minDias })
         }
       }
     } catch {
@@ -195,7 +180,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Fallback Apify desabilitado — custo alto
+  // FALLBACK APIFY DESABILITADO — custo inviavel ($0.30-0.80 por chamada)
+  // Quando scraper local nao tiver disponivel, retorna erro claro
   return NextResponse.json({
     error: 'Minerador temporariamente offline. Tente novamente mais tarde.'
   }, { status: 503 })
@@ -207,7 +193,9 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const runId = req.nextUrl.searchParams.get('runId')
-  const minDias = 3
+  const minAnuncios = 10
+  const maxAnuncios = 80
+  const minDias = 5
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
 
   // So bloqueia redes sociais como landing (sem bio links, sem expert filter)
@@ -250,13 +238,13 @@ export async function GET(req: NextRequest) {
 
     const ofertas = results
       .map(p => {
-        // Score baseado em dias rodando (sinal mais confiavel) + bonus por volume
-        // Tempo (peso principal): 90+ = 5, 60+ = 4, 30+ = 3, 15+ = 2, 5+ = 1
-        const tempoPts = p.dias_rodando === null ? 2 : p.dias_rodando >= 90 ? 5 : p.dias_rodando >= 60 ? 4 : p.dias_rodando >= 30 ? 3 : p.dias_rodando >= 15 ? 2 : p.dias_rodando >= 5 ? 1 : 0
-        // Volume (bonus): 5+ ads na busca = +2, 3+ = +1, 1+ = +0
-        const volBonus = p.total_anuncios >= 5 ? 2 : p.total_anuncios >= 3 ? 1 : 0
-        // Score 1-10
-        const score = Math.max(1, Math.min(10, Math.round((tempoPts + volBonus) * 10 / 7)))
+        // Score recalibrado pra refletir o novo modelo de count (que e um floor)
+        // Volume: 30+ = excelente, 20+ = bom, 15+ = ok, 10+ = limite
+        const volPts = p.total_anuncios >= 30 ? 4 : p.total_anuncios >= 20 ? 3 : p.total_anuncios >= 15 ? 2 : p.total_anuncios >= 10 ? 1 : 0
+        // Tempo: 60+ dias = excelente, 30+ = bom, 15+ = ok, 10+ = limite
+        const tempoPts = p.dias_rodando === null ? 1 : p.dias_rodando >= 60 ? 4 : p.dias_rodando >= 30 ? 3 : p.dias_rodando >= 15 ? 2 : p.dias_rodando >= 10 ? 1 : 0
+        // Score 1-10: (volPts + tempoPts) * 10 / 8 (max=8)
+        const score = Math.max(1, Math.min(10, Math.round((volPts + tempoPts) * 10 / 8)))
 
         // ad_library_url: se temos page_id numerico real, abre direto a biblioteca da pagina.
         // Se nao (slug), faz busca por nome exato (mais preciso que busca solta).
@@ -277,22 +265,27 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(p => {
+        // Minimo: 10 anuncios, maximo: 80 (acima = marca grande)
+        if (p.total_anuncios < minAnuncios) return false
+        if (p.total_anuncios > maxAnuncios) return false
         // Filter out big brands
         const nameLower = p.pagina_nome.toLowerCase()
         if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) return false
         // Filter pages with "oficial" or "brasil" suffix (usually corporate)
         if (nameLower.endsWith(' oficial') || nameLower.endsWith(' brasil') || nameLower.includes('® ') || nameLower.includes('™')) return false
-        // Minimo dias rodando
+        // Minimo: 5 dias rodando
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
-        // Se tem landing, bloqueia redes sociais (mas landing vazia e ok — mine nem sempre extrai)
+        // Tem que ter landing
         const url = (p.landing_url || '').toLowerCase()
-        if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
+        if (!url) return false
+        // Sem redes sociais
+        if (BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
         return true
       })
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
       .slice(0, 30)
 
-    console.log(`[Mine] Returning ${ofertas.length} offers (filtered ${minDias}+ days)`)
+    console.log(`[Mine] Returning ${ofertas.length} offers (filtered ${minAnuncios}+ ads, ${minDias}+ days)`)
     return NextResponse.json({ status: 'done', ofertas })
   } catch (e) {
     return NextResponse.json({ status: 'failed', error: (e as Error).message })
