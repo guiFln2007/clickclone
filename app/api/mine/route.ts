@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { dbGetUserById, dbDecrementMineracoes } from '@/lib/db'
 
+const BRAND_BLACKLIST = [
+  'infinitepay', 'nubank', 'ifood', 'shopee', 'mercado livre', 'mercadolivre',
+  'kwai', 'tiktok', 'claro', 'vivo', 'tim', 'banco inter', 'c6 bank', 'c6bank',
+  'picpay', 'stone', 'pagbank', 'pagseguro', 'itau', 'itaú', 'bradesco',
+  'santander', 'banco do brasil', 'caixa', 'amazon', 'magazine luiza', 'magalu',
+  'americanas', 'casas bahia', 'samsung', 'apple', 'xiaomi', 'motorola',
+  'uber', 'rappi', '99', 'didi', 'google', 'meta', 'facebook', 'instagram',
+  'hotmart', 'kiwify', 'eduzz', 'monetizze', 'braip', 'perfect pay',
+  'shopify', 'wix', 'wordpress', 'canva', 'netflix', 'spotify', 'globo',
+  'record', 'sbt', 'band', 'uol', 'terra', 'r7', 'ig',
+  'coca-cola', 'coca cola', 'pepsi', 'nestle', 'nestlé', 'unilever',
+  'ambev', 'heineken', 'budweiser', 'skol', 'brahma',
+  'renner', 'riachuelo', 'c&a', 'zara', 'shein',
+  'neon', 'will bank', 'original', 'next', 'digio',
+  'cloudflare', 'aws', 'azure', 'hostinger', 'locaweb',
+]
+
 const SCRAPER_URL = process.env.SCRAPER_URL || ''
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
 const APIFY_TOKEN = process.env.APIFY_TOKEN || ''
@@ -11,6 +28,9 @@ type MineResult = {
   total_anuncios: number
   dias_rodando: number | null
   landing_url: string | null
+  fb_followers?: number | null
+  ig_followers?: number | null
+  ig_handle?: string | null
 }
 
 // ── APIFY FALLBACK ──
@@ -194,8 +214,9 @@ export async function GET(req: NextRequest) {
 
   const runId = req.nextUrl.searchParams.get('runId')
   const minAnuncios = 10
-  const maxAnuncios = 80
-  const minDias = 5
+  const maxAnuncios = 140
+  const minDias = 3
+  const maxFollowers = 10000
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
 
   // So bloqueia redes sociais como landing (sem bio links, sem expert filter)
@@ -253,6 +274,9 @@ export async function GET(req: NextRequest) {
           ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
           : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent('"' + p.pagina_nome + '"')}&search_type=keyword_exact_phrase`
 
+        const fbFollowers = p.fb_followers ?? null
+        const igFollowers = p.ig_followers ?? null
+
         return {
           pagina_nome: p.pagina_nome,
           ad_library_url: adLibraryUrl,
@@ -260,32 +284,35 @@ export async function GET(req: NextRequest) {
           total_anuncios: p.total_anuncios,
           dias_rodando: p.dias_rodando,
           score_escalabilidade: score,
+          fb_followers: fbFollowers,
+          ig_followers: igFollowers,
+          ig_handle: p.ig_handle || null,
           nicho,
           resumo_angulo: '',
         }
       })
       .filter(p => {
-        // Minimo: 10 anuncios, maximo: 80 (acima = marca grande)
+        // 10-140 anuncios reais
         if (p.total_anuncios < minAnuncios) return false
         if (p.total_anuncios > maxAnuncios) return false
-        // Filter out big brands
+        // Sem marcas grandes
         const nameLower = p.pagina_nome.toLowerCase()
         if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) return false
-        // Filter pages with "oficial" or "brasil" suffix (usually corporate)
         if (nameLower.endsWith(' oficial') || nameLower.endsWith(' brasil') || nameLower.includes('® ') || nameLower.includes('™')) return false
-        // Minimo: 5 dias rodando
+        // 3+ dias rodando
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
-        // Tem que ter landing
+        // Seguidores < 10k (se tiver dado)
+        const followers = p.fb_followers ?? p.ig_followers ?? null
+        if (followers !== null && followers >= maxFollowers) return false
+        // Sem redes sociais como landing
         const url = (p.landing_url || '').toLowerCase()
-        if (!url) return false
-        // Sem redes sociais
-        if (BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
+        if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
         return true
       })
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
       .slice(0, 30)
 
-    console.log(`[Mine] Returning ${ofertas.length} offers (filtered ${minAnuncios}+ ads, ${minDias}+ days)`)
+    console.log(`[Mine] Returning ${ofertas.length} offers (${minAnuncios}-${maxAnuncios} ads, ${minDias}+ days, <${maxFollowers} followers)`)
     return NextResponse.json({ status: 'done', ofertas })
   } catch (e) {
     return NextResponse.json({ status: 'failed', error: (e as Error).message })

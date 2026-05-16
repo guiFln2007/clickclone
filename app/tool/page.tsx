@@ -59,6 +59,9 @@ interface MineResult {
   total_anuncios: number
   dias_rodando: number | null
   score_escalabilidade: number
+  fb_followers?: number | null
+  ig_followers?: number | null
+  ig_handle?: string | null
   nicho: string
   resumo_angulo?: string
 }
@@ -975,7 +978,7 @@ export default function ToolPage() {
                   disabled={mining}
                   style={{ width: '100%', padding: '12px 16px', fontSize: 15, borderRadius: 8, border: '1px solid #444', background: '#1a1a1a', color: '#fff', marginBottom: 20, outline: 'none' }}
                 />
-                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros usados pelos maiores players do mercado para encontrar ofertas escaladas: <span style={{ color: '#e8a040' }}>10+ an{'\u00FA'}ncios ativos</span>, <span style={{ color: '#e8a040' }}>5+ dias rodando</span> e <span style={{ color: '#e8a040' }}>apenas sites de venda reais</span>.</p>
+                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros usados pelos maiores players: <span style={{ color: '#e8a040' }}>10-140 an{'\u00FA'}ncios</span>, <span style={{ color: '#e8a040' }}>3+ dias rodando</span>, <span style={{ color: '#e8a040' }}>&lt;10k seguidores</span>, sem marcas grandes.</p>
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
                   <button className="mine-btn" onClick={handleMine} disabled={!mineKeyword.trim() || mining}>
                     {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : <>{'\u26CF\uFE0F'} Minerar Agora</>}
@@ -1008,7 +1011,7 @@ export default function ToolPage() {
                             <div className={`mrc-score ${cls}`}>{sc}</div>
                             <div className="mrc-info">
                               <div className="mrc-name">{o.pagina_nome}</div>
-                              <div className="mrc-meta">{o.dias_rodando !== null ? `${o.dias_rodando} dias` : '?'} &middot; {o.total_anuncios} an{'\u00FA'}ncios</div>
+                              <div className="mrc-meta">{o.dias_rodando !== null ? `${o.dias_rodando} dias` : '?'} &middot; {o.total_anuncios} an{'\u00FA'}ncios{(() => { const f = o.fb_followers ?? o.ig_followers; return f ? ` \u00B7 ${f >= 1000 ? (f / 1000).toFixed(1).replace('.0', '') + 'k' : f} seg.` : '' })()}</div>
                             </div>
                             {o.nicho && <span className="mrc-nicho">{o.nicho}</span>}
                           </div>
