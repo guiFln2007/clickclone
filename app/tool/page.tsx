@@ -66,6 +66,23 @@ interface MineResult {
   resumo_angulo?: string
 }
 
+interface FeedOffer {
+  id: number
+  pagina_nome: string
+  ad_library_url: string
+  landing_url: string | null
+  nicho: string | null
+  total_anuncios: number
+  dias_rodando: number | null
+  ig_handle: string | null
+  ig_followers: number | null
+  fb_followers: number | null
+  landing_screenshot: string | null
+  creative_urls: string | null
+  ad_copies: string | null
+  enriched: number
+}
+
 /* ─────────── HELPERS ─────────── */
 
 function getSessionId(): string {
@@ -120,8 +137,7 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
   const pontosFortes: string[] = phase1.pontos_fortes_criativos || []
   const pontosFracos: string[] = phase1.pontos_fracos_criativos || []
   const modelar = phase1.o_que_modelar || { manter: [], corrigir: [] }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scripts: { numero: number; formato: string; hook: string; corpo: string; cta: string }[] = phase1.scripts_ctv || []
+  const topCriativos: { index: number; texto_completo: string; hook: string; formato: string; dias_rodando: number; score: number; angulo: string; media_url?: string }[] = phase1.top_criativos || []
   const anguloD: string = phase1.angulo_dominante || ''
   const usaPraVender: string[] = phase1.o_que_usa_pra_vender || []
   const angulosNaoExplorados: string[] = phase1.angulos_nao_explorados || []
@@ -167,7 +183,40 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
           {nota.justificativa && <div className="nota-just">{nota.justificativa as string}</div>}
         </div>
 
-        {/* ══ BLOCO 2 — AN{'\u00C1'}LISE DOS CRIATIVOS ══ */}
+        {/* ══ BLOCO 2 — TOP CRIATIVOS ESCALADOS ══ */}
+        {topCriativos.length > 0 && (<>
+          <div className="rpt-divider" />
+          <div className="rpt-sec-title">TOP CRIATIVOS ESCALADOS <span className="rpt-sec-count">{topCriativos.length} criativos</span></div>
+          <div className="top-criativos-grid">
+            {topCriativos.map((c, i) => (
+              <div key={i} className="tc-card">
+                {c.media_url && (
+                  <div className="tc-media">
+                    {c.media_url.includes('.mp4') || c.media_url.includes('video') ? (
+                      <video src={c.media_url} controls preload="metadata" style={{ width: '100%', borderRadius: 8, maxHeight: 200 }} />
+                    ) : (
+                      <img src={c.media_url} alt={`Criativo ${c.index}`} style={{ width: '100%', borderRadius: 8, maxHeight: 200, objectFit: 'cover' }} />
+                    )}
+                  </div>
+                )}
+                <div className="tc-header">
+                  <span className={`tc-score ${c.score >= 7 ? 'green' : c.score >= 5 ? 'yellow' : 'red'}`}>{c.score}</span>
+                  <div className="tc-meta">
+                    <span className="tc-formato">{c.formato}</span>
+                    <span className="tc-dias">{c.dias_rodando}d rodando</span>
+                  </div>
+                </div>
+                <div className="tc-hook">&ldquo;{c.hook}&rdquo;</div>
+                <div className="tc-angulo">{c.angulo}</div>
+                {c.texto_completo && c.texto_completo !== c.hook && (
+                  <details className="tc-full"><summary style={{ fontSize: 11, color: '#6B7280', cursor: 'pointer' }}>Ver copy completo</summary><div className="tc-full-text">{c.texto_completo}</div></details>
+                )}
+              </div>
+            ))}
+          </div>
+        </>)}
+
+        {/* ══ BLOCO 3 — PONTOS FORTES / FRACOS ══ */}
         <div className="rpt-divider" />
         <div className="rpt-sec-title">AN{'\u00C1'}LISE DOS CRIATIVOS <span className="rpt-sec-count">{phase1.total_ads_analyzed || '?'} an{'\u00FA'}ncios analisados</span></div>
 
@@ -182,39 +231,9 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
           </div>
         )}
 
-        {scripts.length > 0 && (
-          <div>
-            <div className="rpt-card-lbl" style={{ marginBottom: 12 }}>3 SCRIPTS DE CTV PRONTOS</div>
-            <div className="scripts-grid">
-              {scripts.map((s, i) => (
-                <div key={i} className="script-card">
-                  <div className="script-hd">CTV #{s.numero || i + 1} &mdash; {s.formato}</div>
-                  <div className="script-section"><div className="script-label">HOOK (0-3s):</div><div className="script-text">&ldquo;{s.hook}&rdquo;</div></div>
-                  <div className="script-section"><div className="script-label">CORPO (3-12s):</div><div className="script-text">&ldquo;{s.corpo}&rdquo;</div></div>
-                  <div className="script-section"><div className="script-label">CTA (12-15s):</div><div className="script-text">&ldquo;{s.cta}&rdquo;</div></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ══ BLOCO 3 — PROMPT LOVABLE/BOLT ══ */}
+        {/* ══ BLOCO 4 — PROMPT LOVABLE/BOLT ══ */}
         <div className="rpt-divider" />
         <div className="rpt-sec-title">PROMPT PRONTO {'\u2014'} LOVABLE / BOLT <span className="rpt-sec-count">{phase2.tipo_de_funil || ''}</span></div>
-
-        {estruturaFunil.length > 0 && (
-          <div className="rpt-card">
-            <div className="rpt-card-lbl">ESTRUTURA DO FUNIL</div>
-            <div className="rpt-list">{estruturaFunil.map((e, i) => <div key={i} className="rpt-list-item info"><span className="ic" style={{ color: '#FF6B00', fontWeight: 800 }}>{i + 1}.</span><span>{e}</span></div>)}</div>
-          </div>
-        )}
-
-        {diferenciaisAplicados.length > 0 && (
-          <div className="rpt-card rpt-card-orange">
-            <div className="rpt-card-lbl">MELHORIAS EM RELA{'\u00C7\u00C3'}O AO CONCORRENTE</div>
-            <div className="rpt-list">{diferenciaisAplicados.map((d, i) => <div key={i} className="rpt-list-item strong"><span className="ic">{'\u2713'}</span><span>{d}</span></div>)}</div>
-          </div>
-        )}
 
         {promptLovable && (
           <div className="rpt-card" style={{ position: 'relative' }}>
@@ -231,7 +250,21 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
           </div>
         )}
 
-        {/* ══ BLOCO 4 — AN{'\u00C1'}LISE GERAL ══ */}
+        {estruturaFunil.length > 0 && (
+          <div className="rpt-card">
+            <div className="rpt-card-lbl">ESTRUTURA DO FUNIL</div>
+            <div className="rpt-list">{estruturaFunil.map((e, i) => <div key={i} className="rpt-list-item info"><span className="ic" style={{ color: '#FF6B00', fontWeight: 800 }}>{i + 1}.</span><span>{e}</span></div>)}</div>
+          </div>
+        )}
+
+        {diferenciaisAplicados.length > 0 && (
+          <div className="rpt-card rpt-card-orange">
+            <div className="rpt-card-lbl">MELHORIAS EM RELA{'\u00C7\u00C3'}O AO CONCORRENTE</div>
+            <div className="rpt-list">{diferenciaisAplicados.map((d, i) => <div key={i} className="rpt-list-item strong"><span className="ic">{'\u2713'}</span><span>{d}</span></div>)}</div>
+          </div>
+        )}
+
+        {/* ══ BLOCO 5 — AN{'\u00C1'}LISE GERAL ══ */}
         <div className="rpt-divider" />
         <div className="rpt-sec-title">AN{'\u00C1'}LISE GERAL DA OFERTA</div>
 
@@ -258,8 +291,8 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
 /* ─────────── MAIN PAGE ─────────── */
 
 export default function ToolPage() {
-  type Tab = 'analise' | 'rastreamento' | 'minerador'
-  const [activeTab, setActiveTab] = useState<Tab>('analise')
+  type Tab = 'home' | 'ofertas' | 'analise' | 'rastreamento' | 'minerador'
+  const [activeTab, setActiveTab] = useState<Tab>('home')
   const [showReport, setShowReport] = useState(false)
 
   // Analysis
@@ -289,6 +322,11 @@ export default function ToolPage() {
   const [mineResults, setMineResults] = useState<MineResult[]>([])
   const [mineError, setMineError] = useState('')
   const [mineStatus, setMineStatus] = useState('')
+
+  // Offers feed
+  const [feedOffers, setFeedOffers] = useState<FeedOffer[]>([])
+  const [feedLoading, setFeedLoading] = useState(false)
+  const [feedSearch, setFeedSearch] = useState('')
 
   // Toast
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
@@ -353,6 +391,23 @@ export default function ToolPage() {
   }, [userId])
 
   useEffect(() => { loadRadar() }, [loadRadar])
+
+  // Load offers feed
+  const loadOffers = useCallback(async (search?: string) => {
+    setFeedLoading(true)
+    try {
+      const params = new URLSearchParams({ limit: '48', sort: 'ad_count' })
+      if (search) params.set('search', search)
+      const res = await fetch(`/api/offers?${params}`)
+      if (res.ok) {
+        const data = await res.json()
+        setFeedOffers(data.offers || [])
+      }
+    } catch { /* ok */ }
+    setFeedLoading(false)
+  }, [])
+
+  useEffect(() => { loadOffers() }, [loadOffers])
 
   // Click outside profile
   useEffect(() => {
@@ -637,49 +692,45 @@ export default function ToolPage() {
         {/* HEADER */}
         <header className="header">
           <div className="header-left">
-            <div className="header-logo-circle">
-              <img src="/logo.png" alt="RatoAds" />
+            <div className="header-logo-circle" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer' }}>
+              <img src="/rato-mascot.png" alt="RatoAds" style={{ height: 38, width: 'auto', filter: 'drop-shadow(0 0 8px rgba(255,140,0,.5))' }} />
             </div>
           </div>
           <nav className="header-tabs">
             {[
               {
-                id: 'minerador' as Tab,
-                label: 'Minera\u00e7\u00e3o Autom\u00e1tica',
+                id: 'ofertas' as Tab,
+                label: 'Ofertas',
                 svg: (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14.5 5.5l4 4"/>
-                    <path d="M10.5 9.5l-7 7v3h3l7-7"/>
-                    <path d="M17.5 8.5l3-3a2.121 2.121 0 0 0-3-3l-3 3"/>
-                    <path d="M9.5 8.5L8 7l1.5-1.5L11 7"/>
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+                  </svg>
+                ),
+              },
+              {
+                id: 'minerador' as Tab,
+                label: 'Minera\u00e7\u00e3o',
+                svg: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.5 5.5l4 4"/><path d="M10.5 9.5l-7 7v3h3l7-7"/><path d="M17.5 8.5l3-3a2.121 2.121 0 0 0-3-3l-3 3"/>
                   </svg>
                 ),
               },
               {
                 id: 'analise' as Tab,
-                label: 'An\u00e1lise de Biblioteca',
+                label: 'An\u00e1lise',
                 svg: (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="m21 21-4.35-4.35"/>
-                    <path d="M8 11h2"/>
-                    <path d="M11 8v6"/>
-                    <path d="M13 11h1"/>
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M8 11h6"/><path d="M11 8v6"/>
                   </svg>
                 ),
               },
               {
                 id: 'rastreamento' as Tab,
-                label: 'Rastreamento de Ofertas',
+                label: 'Radar',
                 svg: (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <circle cx="12" cy="12" r="6"/>
-                    <circle cx="12" cy="12" r="2"/>
-                    <line x1="12" y1="2" x2="12" y2="4"/>
-                    <line x1="12" y1="20" x2="12" y2="22"/>
-                    <line x1="2" y1="12" x2="4" y2="12"/>
-                    <line x1="20" y1="12" x2="22" y2="12"/>
+                    <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
                   </svg>
                 ),
                 badge: totalAlerts,
@@ -762,6 +813,102 @@ export default function ToolPage() {
               </div>
             )
           })()}
+
+          {/* ── ABA HOME ── */}
+          {activeTab === 'home' && (
+            <div className="tab-content home-content">
+              <div className="home-hero">
+                <img src="/rato-mascot.png" alt="RatoAds" className="home-mascot" />
+                <h1 className="home-title">Bem-vindo ao <span className="acc">RatoAds</span></h1>
+                <p className="home-sub">Intelig{'\u00ea'}ncia competitiva pra dominar o Meta Ads</p>
+              </div>
+              <div className="home-cards">
+                <button className="home-card" onClick={() => setActiveTab('ofertas')}>
+                  <div className="home-card-icon" style={{ background: 'rgba(255,107,0,.1)' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+                  </div>
+                  <div className="home-card-title">Ofertas</div>
+                  <div className="home-card-desc">Feed de ofertas mineradas automaticamente, prontas pra modelar</div>
+                  <span className="home-card-arrow">{'\u2192'}</span>
+                </button>
+                <button className="home-card" onClick={() => setActiveTab('minerador')}>
+                  <div className="home-card-icon" style={{ background: 'rgba(139,92,246,.1)' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2"><path d="M14.5 5.5l4 4"/><path d="M10.5 9.5l-7 7v3h3l7-7"/><path d="M17.5 8.5l3-3a2.121 2.121 0 0 0-3-3l-3 3"/></svg>
+                  </div>
+                  <div className="home-card-title">Minera{'\u00e7\u00e3'}o</div>
+                  <div className="home-card-desc">Encontre ofertas validadas no seu nicho por palavra-chave</div>
+                  <span className="home-card-arrow">{'\u2192'}</span>
+                </button>
+                <button className="home-card" onClick={() => setActiveTab('analise')}>
+                  <div className="home-card-icon" style={{ background: 'rgba(16,185,129,.1)' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M8 11h6"/><path d="M11 8v6"/></svg>
+                  </div>
+                  <div className="home-card-title">An{'\u00e1'}lise</div>
+                  <div className="home-card-desc">Analise a biblioteca de an{'\u00fa'}ncios e gere funis prontos</div>
+                  <span className="home-card-arrow">{'\u2192'}</span>
+                </button>
+                <button className="home-card" onClick={() => setActiveTab('rastreamento')}>
+                  <div className="home-card-icon" style={{ background: 'rgba(59,130,246,.1)' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                  </div>
+                  <div className="home-card-title">Radar</div>
+                  <div className="home-card-desc">Rastreie ofertas e receba alertas de mudan{'\u00e7'}as di{'\u00e1'}rias</div>
+                  <span className="home-card-arrow">{'\u2192'}</span>
+                </button>
+              </div>
+              <div className="home-stats">
+                <div className="home-stat"><span className="home-stat-num">{savedAnalyses.length}</span><span className="home-stat-lbl">an{'\u00e1'}lises</span></div>
+                <div className="home-stat"><span className="home-stat-num">{trackedOffers.length}</span><span className="home-stat-lbl">no radar</span></div>
+                <div className="home-stat"><span className="home-stat-num">{feedOffers.length}</span><span className="home-stat-lbl">ofertas</span></div>
+              </div>
+            </div>
+          )}
+
+          {/* ── ABA OFERTAS ── */}
+          {activeTab === 'ofertas' && (
+            <div className="tab-content" style={{ maxWidth: 1200 }}>
+              <div className="analyze-hero">
+                <div className="tool-sec-label"><span>Feed de ofertas</span></div>
+                <h1 className="analyze-title">Ofertas <span className="acc">Mineradas</span></h1>
+                <p className="analyze-sub">Ofertas encontradas automaticamente, filtradas e prontas pra modelar</p>
+                <div className="analyze-form" style={{ maxWidth: 520 }}>
+                  <div className="analyze-input-wrap">
+                    <svg className="analyze-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input className="analyze-input" placeholder="Buscar ofertas..." value={feedSearch} onChange={e => { setFeedSearch(e.target.value); loadOffers(e.target.value) }} />
+                  </div>
+                </div>
+              </div>
+              {feedLoading && <div className="empty-state">Carregando ofertas...</div>}
+              {!feedLoading && feedOffers.length === 0 && <div className="empty-state">Nenhuma oferta encontrada. As ofertas s{'\u00e3'}o mineradas automaticamente.</div>}
+              {!feedLoading && feedOffers.length > 0 && (
+                <div className="offers-grid">
+                  {feedOffers.map(o => {
+                    const creatives = o.creative_urls ? JSON.parse(o.creative_urls) as string[] : []
+                    const thumb = o.landing_screenshot || creatives[0] || null
+                    return (
+                      <div key={o.id} className="offer-card" onClick={() => { setUrl(o.ad_library_url); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, o.ad_library_url), 150) }}>
+                        <div className="offer-thumb">
+                          {thumb ? <img src={thumb} alt={o.pagina_nome} /> : <div className="offer-thumb-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>}
+                          <div className="offer-badges">
+                            <span className="offer-badge-ads">{o.total_anuncios} ads</span>
+                            <span className="offer-badge-br">BR</span>
+                          </div>
+                        </div>
+                        <div className="offer-info">
+                          <div className="offer-name">{o.pagina_nome}</div>
+                          <div className="offer-meta">
+                            {o.nicho && <span className="offer-nicho">{o.nicho}</span>}
+                            {o.dias_rodando && <span>{o.dias_rodando}d</span>}
+                            {o.ig_followers && <span>{o.ig_followers >= 1000 ? (o.ig_followers / 1000).toFixed(1).replace('.0', '') + 'k' : o.ig_followers} seg.</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── ABA ANALISE ── */}
           {activeTab === 'analise' && (
@@ -1211,9 +1358,9 @@ body::after{
 /* LAYOUT */
 .app{min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1}
 
-/* HEADER */
+/* HEADER — 3 column grid */
 .header{
-  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;
   padding:16px 32px;height:auto;
   background:rgba(0,0,0,.6);
   border-bottom:1px solid rgba(255,255,255,.04);
@@ -1222,11 +1369,11 @@ body::after{
 }
 .header-left{display:flex;align-items:center;flex-shrink:0}
 .header-logo-circle{display:flex;align-items:center;cursor:pointer}
-.header-logo-circle img{height:36px;width:auto;display:block;filter:drop-shadow(0 0 16px rgba(255,107,0,.45)) drop-shadow(0 0 4px rgba(255,107,0,.3));mix-blend-mode:lighten}
+.header-logo-circle img{height:36px;width:auto;display:block}
 
-/* PILL NAV */
+/* PILL NAV — centered */
 .header-tabs{
-  display:flex;align-items:center;gap:4px;
+  display:flex;align-items:center;justify-content:center;gap:4px;
   background:rgba(15,15,20,.7);
   border:1px solid rgba(255,255,255,.06);
   backdrop-filter:blur(20px) saturate(180%);
@@ -1235,6 +1382,7 @@ body::after{
   box-shadow:
     0 8px 32px rgba(0,0,0,.4),
     inset 0 1px 0 rgba(255,255,255,.05);
+  width:fit-content;margin:0 auto;
 }
 .header-tab{
   display:flex;align-items:center;gap:8px;padding:10px 18px;
@@ -1306,10 +1454,12 @@ body::after{
 .pq-val{color:var(--text);font-weight:700;font-variant-numeric:tabular-nums}
 .pq-renew .pq-val{color:var(--accent)}
 @media(max-width:900px){
-  .header{padding:14px 16px 0;flex-wrap:wrap}
-  .header-tabs{order:3;width:100%;justify-content:center;margin-top:12px}
+  .header{padding:14px 16px 0;grid-template-columns:1fr;gap:8px;justify-items:center}
+  .header-left{display:none}
+  .header-tabs{width:auto}
   .tab-label{display:none}
   .header-tab{padding:10px 14px}
+  .header-right{position:absolute;top:14px;right:16px}
 }
 
 /* CONTENT */
@@ -1960,4 +2110,76 @@ body::after{
 .rpt-pf-impact.medio{background:rgba(234,179,8,.1);color:#eab308;border:1px solid rgba(234,179,8,.2)}
 .rpt-pf-impact.baixo{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
 .rpt-pf-fix{font-size:11px;color:#52525b;line-height:1.5;padding-left:26px}
+
+/* ═══ HOME ═══ */
+.home-content{display:flex;flex-direction:column;align-items:center;padding-top:60px!important}
+.home-hero{text-align:center;margin-bottom:48px}
+.home-mascot{
+  width:120px;height:auto;margin-bottom:24px;
+  filter:drop-shadow(0 0 0 rgba(255,170,0,1)) drop-shadow(1px 0 0 rgba(255,160,0,.9)) drop-shadow(-1px 0 0 rgba(255,160,0,.9)) drop-shadow(0 1px 0 rgba(255,160,0,.9)) drop-shadow(0 -1px 0 rgba(255,160,0,.9)) drop-shadow(0 0 12px rgba(255,140,0,.5));
+}
+.home-title{font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:-.04em;margin-bottom:10px;color:#fff;line-height:1.1}
+.home-sub{font-size:15px;color:var(--text-2);font-weight:500}
+.home-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:900px;width:100%;margin-bottom:40px}
+@media(max-width:768px){.home-cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.home-cards{grid-template-columns:1fr}}
+.home-card{
+  background:rgba(15,15,20,.6);border:1px solid rgba(255,255,255,.06);
+  border-radius:16px;padding:28px 22px;text-align:left;cursor:pointer;
+  transition:all .35s var(--ease-out);position:relative;
+  display:flex;flex-direction:column;gap:12px;
+  font-family:inherit;color:inherit;
+}
+.home-card:hover{border-color:rgba(255,107,0,.25);transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.3)}
+.home-card-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center}
+.home-card-title{font-size:17px;font-weight:800;color:var(--text);letter-spacing:-.02em}
+.home-card-desc{font-size:13px;color:var(--text-3);line-height:1.5;flex:1}
+.home-card-arrow{font-size:18px;color:var(--accent);font-weight:700;transition:transform .3s}
+.home-card:hover .home-card-arrow{transform:translateX(4px)}
+.home-stats{display:flex;gap:32px}
+.home-stat{display:flex;flex-direction:column;align-items:center;gap:2px}
+.home-stat-num{font-size:28px;font-weight:900;color:#fff;letter-spacing:-.03em}
+.home-stat-lbl{font-size:12px;color:var(--text-3);font-weight:500}
+
+/* ═══ OFFERS FEED ═══ */
+.offers-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+@media(max-width:1200px){.offers-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:900px){.offers-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.offers-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:400px){.offers-grid{grid-template-columns:1fr}}
+.offer-card{
+  background:rgba(15,15,20,.6);border:1px solid rgba(255,255,255,.06);
+  border-radius:12px;overflow:hidden;cursor:pointer;
+  transition:all .3s var(--ease-out);
+}
+.offer-card:hover{border-color:rgba(255,107,0,.25);transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.3)}
+.offer-thumb{position:relative;width:100%;aspect-ratio:16/10;background:#111;overflow:hidden}
+.offer-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.offer-thumb-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#0a0a0a}
+.offer-badges{position:absolute;bottom:6px;left:6px;display:flex;gap:4px}
+.offer-badge-ads{background:rgba(255,107,0,.9);color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px}
+.offer-badge-br{background:rgba(16,185,129,.9);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px}
+.offer-info{padding:10px 12px}
+.offer-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.offer-meta{display:flex;gap:8px;font-size:11px;color:var(--text-3);align-items:center;flex-wrap:wrap}
+.offer-nicho{background:rgba(255,107,0,.1);color:var(--accent);padding:1px 7px;border-radius:4px;font-weight:600;font-size:10px}
+
+/* ═══ TOP CRIATIVOS ═══ */
+.top-criativos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:768px){.top-criativos-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.top-criativos-grid{grid-template-columns:1fr}}
+.tc-card{background:#09090b;border:1px solid #1a1a1e;border-radius:12px;overflow:hidden;padding:14px}
+.tc-media{margin-bottom:12px;border-radius:8px;overflow:hidden}
+.tc-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.tc-score{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0}
+.tc-score.green{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
+.tc-score.yellow{background:rgba(234,179,8,.15);color:#eab308;border:1px solid rgba(234,179,8,.2)}
+.tc-score.red{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
+.tc-meta{display:flex;flex-direction:column;gap:2px}
+.tc-formato{font-size:12px;font-weight:700;color:var(--text);text-transform:capitalize}
+.tc-dias{font-size:11px;color:var(--text-3)}
+.tc-hook{font-size:13px;color:var(--accent-2);font-style:italic;line-height:1.5;margin-bottom:8px}
+.tc-angulo{font-size:11px;color:var(--text-3);line-height:1.4;margin-bottom:6px}
+.tc-full{margin-top:6px}
+.tc-full-text{font-size:11px;color:#52525b;line-height:1.5;margin-top:6px;white-space:pre-wrap;word-break:break-word}
 `
