@@ -715,8 +715,8 @@ export default function ToolPage() {
                 id: 'minerador' as Tab,
                 label: 'Minera\u00e7\u00e3o',
                 svg: (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14.5 5.5l4 4"/><path d="M10.5 9.5l-7 7v3h3l7-7"/><path d="M17.5 8.5l3-3a2.121 2.121 0 0 0-3-3l-3 3"/>
+                  <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="currentColor"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="currentColor"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="currentColor"/>
                   </svg>
                 ),
               },
@@ -724,8 +724,8 @@ export default function ToolPage() {
                 id: 'analise' as Tab,
                 label: 'An\u00e1lise',
                 svg: (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M8 11h6"/><path d="M11 8v6"/>
+                  <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="19" cy="19" r="15" stroke="currentColor" strokeWidth="4.5"/><rect x="9" y="22" width="4" height="7" rx="1" fill="currentColor"/><rect x="15" y="18" width="4" height="11" rx="1" fill="currentColor"/><rect x="21" y="14" width="4" height="15" rx="1" fill="currentColor"/><line x1="30" y1="30" x2="44" y2="44" stroke="currentColor" strokeWidth="5.5" strokeLinecap="round"/>
                   </svg>
                 ),
               },
@@ -733,8 +733,8 @@ export default function ToolPage() {
                 id: 'rastreamento' as Tab,
                 label: 'Radar',
                 svg: (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+                  <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round"/><circle cx="24" cy="18" r="6" stroke="currentColor" strokeWidth="3" fill="none"/><circle cx="24" cy="18" r="1.8" fill="currentColor"/>
                   </svg>
                 ),
                 badge: totalAlerts,
@@ -829,9 +829,9 @@ export default function ToolPage() {
                 <div className="home-path">
                   {[
                     { id: 'ofertas' as Tab, n: 'OFERTAS', t: 'Feed de Ofertas', d: 'Ofertas mineradas automaticamente 24h. Navegue, filtre e encontre oportunidades prontas.', cta: 'Explorar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="#FF8C00" strokeWidth="1.8" style={{ width: 22, height: 22 }}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> },
-                    { id: 'minerador' as Tab, n: 'PASSO 01', t: 'Minera\u00e7\u00e3o Autom\u00e1tica', d: 'Busque por palavra-chave espec\u00edfica e encontre ofertas escaladas do nicho.', cta: 'Minerar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="#FF8C00" strokeWidth="1.8" style={{ width: 22, height: 22 }}><path d="M14.5 5.5l4 4"/><path d="M10.5 9.5l-7 7v3h3l7-7"/><path d="M17.5 8.5l3-3a2.121 2.121 0 0 0-3-3l-3 3"/></svg> },
-                    { id: 'analise' as Tab, n: 'PASSO 02', t: 'An\u00e1lise Completa', d: 'Score de 1 a 10, transcri\u00e7\u00e3o dos criativos mais escalados, scripts de CTV e prompt pra clonar a p\u00e1gina.', cta: 'Analisar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="#FF8C00" strokeWidth="1.8" style={{ width: 22, height: 22 }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> },
-                    { id: 'rastreamento' as Tab, n: 'PASSO 03', t: 'Rastreamento da oferta', d: 'Adicione no rastreamento e acompanhe em tempo real os ads ativos e como eles variam diariamente.', cta: 'Ver radar', icon: <svg viewBox="0 0 24 24" fill="none" stroke="#FF8C00" strokeWidth="1.8" style={{ width: 22, height: 22 }}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> },
+                    { id: 'minerador' as Tab, n: 'PASSO 01', t: 'Minera\u00e7\u00e3o Autom\u00e1tica', d: 'Busque por palavra-chave espec\u00edfica e encontre ofertas escaladas do nicho.', cta: 'Minerar', icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 22, height: 22 }}><path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="#FF8C00"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="#FF8C00"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="#FF8C00"/></svg> },
+                    { id: 'analise' as Tab, n: 'PASSO 02', t: 'An\u00e1lise Completa', d: 'Score de 1 a 10, transcri\u00e7\u00e3o dos criativos mais escalados, scripts de CTV e prompt pra clonar a p\u00e1gina.', cta: 'Analisar', icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 22, height: 22 }}><circle cx="19" cy="19" r="15" fill="rgba(255,140,0,.08)"/><circle cx="19" cy="19" r="15" stroke="#FF8C00" strokeWidth="4.5"/><rect x="9" y="22" width="4" height="7" rx="1" fill="#FF8C00"/><rect x="15" y="18" width="4" height="11" rx="1" fill="#FF8C00"/><rect x="21" y="14" width="4" height="15" rx="1" fill="#FF8C00"/><line x1="30" y1="30" x2="44" y2="44" stroke="#FF8C00" strokeWidth="5.5" strokeLinecap="round"/></svg> },
+                    { id: 'rastreamento' as Tab, n: 'PASSO 03', t: 'Rastreamento da oferta', d: 'Adicione no rastreamento e acompanhe em tempo real os ads ativos e como eles variam diariamente.', cta: 'Ver radar', icon: <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 22, height: 22 }}><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" fill="rgba(255,140,0,.08)"/><path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" stroke="#FF8C00" strokeWidth="4.5" strokeLinejoin="round"/><circle cx="24" cy="18" r="6" stroke="#FF8C00" strokeWidth="3" fill="none"/><circle cx="24" cy="18" r="1.8" fill="#FF8C00"/></svg> },
                   ].map(step => (
                     <div key={step.id} className="home-step" onClick={() => setActiveTab(step.id)}>
                       <div className="home-step-num">{step.n}</div>
