@@ -8,6 +8,18 @@ app.use(express.json())
 const PORT = process.env.PORT || 3000
 const SECRET = process.env.SCRAPER_SECRET || ''
 const CHROMIUM_PATH = process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser'
+const PROXY_URL = process.env.PROXY_URL || '' // ex: http://user:pass@host:port
+
+// Parse proxy URL into components for Chrome
+let proxyServer = ''
+let proxyAuth = null
+if (PROXY_URL) {
+  try {
+    const u = new URL(PROXY_URL)
+    proxyServer = `${u.protocol}//${u.hostname}:${u.port}`
+    if (u.username) proxyAuth = { username: decodeURIComponent(u.username), password: decodeURIComponent(u.password) }
+  } catch { proxyServer = PROXY_URL }
+}
 
 // Auth middleware
 function auth(req, res, next) {
@@ -23,21 +35,45 @@ app.use(auth)
 let browserInstance = null
 async function getBrowser() {
   if (browserInstance && browserInstance.connected) return browserInstance
+  const launchArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--disable-extensions',
+    '--disable-background-networking',
+    '--single-process',
+    '--no-zygote',
+    '--lang=pt-BR',
+  ]
+  if (proxyServer) launchArgs.push(`--proxy-server=${proxyServer}`)
   browserInstance = await puppeteer.launch({
     executablePath: CHROMIUM_PATH,
     headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--disable-extensions',
-      '--disable-background-networking',
-      '--single-process',
-      '--no-zygote',
-    ],
+    args: launchArgs,
   })
   return browserInstance
+}
+
+// Handle Facebook cookie consent and country selection
+async function handleFacebookDialogs(page) {
+  await sleep(2000)
+  // Accept cookies
+  await page.evaluate(() => {
+    const btns = [...document.querySelectorAll('button, [role="button"]')]
+    const accept = btns.find(b => {
+      const t = (b.textContent || '').toLowerCase()
+      return t.includes('allow') || t.includes('aceitar') || t.includes('accept') || t.includes('permitir') || t.includes('consent')
+    })
+    if (accept) accept.click()
+  })
+  await sleep(1000)
+  // Close any popup/modal
+  await page.evaluate(() => {
+    const close = document.querySelector('[aria-label="Close"], [aria-label="Fechar"]')
+    if (close) close.click()
+  })
+  await sleep(500)
 }
 
 // Concurrency queue — max 2 concurrent scrapes
@@ -171,117 +207,222 @@ function parseFollowers(text) {
   return Math.round(num)
 }
 
-async function scrapePageAbout(pageId) {
-  const url = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${pageId}`
-  const browser = await getBrowser()
-  const page = await browser.newPage()
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+async function setupPage(page) {
+  if (proxyAuth) await page.authenticate(proxyAuth)
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
+  await page.setExtraHTTPHeaders({ 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8' })
+  await page.setCookie(
+    { name: 'datr', value: 'scraper_' + Date.now(), domain: '.facebook.com' },
+    { name: 'locale', value: 'pt_BR', domain: '.facebook.com' },
+  )
 
+  // Block heavy resources — saves ~80% bandwidth, speeds up page loads
+  await page.setRequestInterception(true)
+  page.on('request', (req) => {
+    const type = req.resourceType()
+    const url = req.url()
+    // Block images, CSS, fonts, media, websockets
+    if (['image', 'stylesheet', 'font', 'media', 'texttrack', 'eventsource', 'websocket', 'manifest'].includes(type)) {
+      return req.abort()
+    }
+    // Block Facebook CDN assets (videos, images, static resources)
+    if (url.includes('fbcdn.net/v/') || url.includes('scontent') || url.includes('video.')) {
+      return req.abort()
+    }
+    // Block tracking/analytics
+    if (url.includes('/tr?') || url.includes('/impression.php') || url.includes('connect.facebook.net/signals') || url.includes('analytics') || url.includes('pixel')) {
+      return req.abort()
+    }
+    // Block non-essential JS (tracking, signals, ads SDK) but ALLOW main React bundle for pagination
+    if (type === 'script' && (url.includes('connect.facebook.net') || url.includes('/signals/') || url.includes('/logging/') || url.includes('analytics'))) {
+      return req.abort()
+    }
+    req.continue()
+  })
+}
+
+async function scrapePageAbout(pageId) {
+  // HTTP-only: fetch SSR HTML directly, extract page info from embedded JSON — saves ~10MB per call
+  const url = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${pageId}`
   const result = { page_name: '', fb_followers: null, ig_handle: null, ig_followers: null, category: null, created_date: null }
 
   try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await sleep(3000)
-
-    result.page_name = await page.evaluate(() => {
-      const h = document.querySelector('h1, [role="heading"]')
-      return h?.textContent?.trim() || ''
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+      signal: AbortSignal.timeout(15000),
     })
+    const html = await res.text()
 
-    // Click "Sobre" tab
-    const sobreClicked = await page.evaluate(() => {
-      const els = [...document.querySelectorAll('a, span, div, button')]
-      const sobre = els.find(el => {
-        const t = el.textContent?.trim().toLowerCase() || ''
-        return t === 'sobre' || t === 'about'
-      })
-      if (sobre) { sobre.click(); return true }
-      return false
-    })
+    // Extract page name from SSR
+    const nameMatch = html.match(/"page_name"\s*:\s*"([^"]+)"/) || html.match(/page_name["\s:]+([^"<,]+)/)
+    if (nameMatch) result.page_name = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, m => String.fromCharCode(parseInt(m.slice(2), 16)))
 
-    if (sobreClicked) await sleep(3000)
+    // Extract IG handle from SSR — look for instagram.com links or @handle patterns
+    const igMatch = html.match(/instagram\.com\/([a-zA-Z0-9_.]+)/) || html.match(/"ig_handle"\s*:\s*"([^"]+)"/)
+    if (igMatch) result.ig_handle = '@' + igMatch[1]
 
-    const data = await page.evaluate(() => {
-      const text = document.body.innerText || ''
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+    // Extract followers from SSR JSON — look for "page_like_count" or "followers_count"
+    const likesMatch = html.match(/"page_like_count"\s*:\s*(\d+)/) || html.match(/"likes"\s*:\s*(\d+)/)
+    if (likesMatch) result.fb_followers = parseInt(likesMatch[1])
 
-      let fbFollowers = null, igHandle = null, igFollowers = null, category = null, createdDate = null
+    const igFollowMatch = html.match(/"ig_followers"\s*:\s*(\d+)/) || html.match(/"edge_followed_by.+?count"\s*:\s*(\d+)/)
+    if (igFollowMatch) result.ig_followers = parseInt(igFollowMatch[1])
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        if (line.match(/^[\d.,]+\s*(mil|milhão|milhões|mi)?\s*seguidor/i) && !igHandle) fbFollowers = line
-        if (line.startsWith('@') && !line.includes(' ')) {
-          igHandle = line
-          if (i + 1 < lines.length && lines[i + 1].match(/seguidor/i)) igFollowers = lines[i + 1]
-        }
-        if (fbFollowers && !category && line.includes('\u2022')) {
-          const parts = line.split('\u2022')
-          if (parts.length > 1) category = parts[parts.length - 1].trim()
-        }
-        if (line.match(/p.gina criada/i)) createdDate = line.replace(/p.gina criada\s*/i, '').trim()
-      }
-      return { fbFollowers, igHandle, igFollowers, category, createdDate }
-    })
+    // Extract category
+    const catMatch = html.match(/"page_category"\s*:\s*"([^"]+)"/) || html.match(/"category_name"\s*:\s*"([^"]+)"/)
+    if (catMatch) result.category = catMatch[1]
 
-    if (data.fbFollowers) result.fb_followers = parseFollowers(data.fbFollowers)
-    if (data.igHandle) result.ig_handle = data.igHandle
-    if (data.igFollowers) result.ig_followers = parseFollowers(data.igFollowers)
-    if (data.category) result.category = data.category
-    if (data.createdDate) result.created_date = data.createdDate
-
-    console.log(`[PageAbout] ${result.page_name}: FB=${result.fb_followers}, IG=${result.ig_followers} ${result.ig_handle || ''}`)
+    console.log(`[PageAbout] ${result.page_name || pageId}: FB=${result.fb_followers}, IG=${result.ig_followers} ${result.ig_handle || ''}`)
     return result
-  } finally {
-    await page.close()
+  } catch (e) {
+    console.log(`[PageAbout] ${pageId}: failed (${e.message})`)
+    return result
   }
+}
+
+// Extract ads from SSR HTML (Facebook embeds data in script tags)
+function extractAdsFromHTML(html) {
+  const ads = []
+  const seenIds = new Set()
+
+  // Find all JSON blocks in script tags
+  const scriptRegex = /\{["\u005c][^<]{500,}?\}/g
+  const jsonCandidates = html.match(scriptRegex) || []
+
+  // Also try to find ad_archive_id blocks directly
+  const archiveRegex = /"ad_archive_id"\s*:\s*"(\d+)"/g
+  let match
+  while ((match = archiveRegex.exec(html)) !== null) {
+    const id = match[1]
+    if (seenIds.has(id)) continue
+    seenIds.add(id)
+
+    // Extract surrounding context (up to 5000 chars around the match)
+    const start = Math.max(0, match.index - 2000)
+    const end = Math.min(html.length, match.index + 3000)
+    const context = html.slice(start, end)
+
+    const get = (key) => {
+      const m = context.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, 's'))
+      return m ? m[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16))) : ''
+    }
+    const getNum = (key) => {
+      const m = context.match(new RegExp(`"${key}"\\s*:\\s*(\\d+)`))
+      return m ? parseInt(m[1]) : null
+    }
+
+    const pageId = get('page_id') || ''
+    const pageName = get('page_name') || ''
+    const bodyText = get('body_text') || get('body') || ''
+    const title = get('title') || ''
+    const ctaText = get('cta_text') || ''
+    const linkUrl = get('link_url') || get('cta_link') || ''
+    const startDate = getNum('start_date')
+
+    // Extract image URLs
+    const images = []
+    const imgRegex = /original_image_url"\s*:\s*"(https?:[^"]+)"/g
+    let imgMatch
+    while ((imgMatch = imgRegex.exec(context)) !== null) {
+      images.push({ original_image_url: imgMatch[1].replace(/\\\//g, '/'), resized_image_url: '' })
+    }
+    const resizedRegex = /resized_image_url"\s*:\s*"(https?:[^"]+)"/g
+    while ((imgMatch = resizedRegex.exec(context)) !== null) {
+      if (images.length === 0) images.push({ original_image_url: '', resized_image_url: imgMatch[1].replace(/\\\//g, '/') })
+    }
+
+    // Extract video URLs
+    const videos = []
+    const vidHdRegex = /video_hd_url"\s*:\s*"(https?:[^"]+)"/g
+    let vidMatch
+    while ((vidMatch = vidHdRegex.exec(context)) !== null) {
+      videos.push({ video_hd_url: vidMatch[1].replace(/\\\//g, '/'), video_sd_url: '', video_preview_image_url: '' })
+    }
+    const vidSdRegex = /video_sd_url"\s*:\s*"(https?:[^"]+)"/g
+    while ((vidMatch = vidSdRegex.exec(context)) !== null) {
+      if (videos.length === 0) videos.push({ video_hd_url: '', video_sd_url: vidMatch[1].replace(/\\\//g, '/'), video_preview_image_url: '' })
+    }
+
+    ads.push({
+      page_id: pageId,
+      page_name: pageName,
+      start_date: startDate,
+      start_date_formatted: startDate ? new Date(startDate * 1000).toISOString().slice(0, 19).replace('T', ' ') : '',
+      snapshot: { body_text: bodyText, title, cta_text: ctaText, link_url: linkUrl, images, videos, cards: [] },
+    })
+  }
+
+  return ads
 }
 
 async function scrapeAds(url, maxAds) {
   const browser = await getBrowser()
   const page = await browser.newPage()
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+  await setupPage(page)
 
   const ads = []
   const seenIds = new Set()
 
   try {
-    // Intercept GraphQL responses
+    // Intercept GraphQL responses (still useful for scroll-loaded data)
     page.on('response', async (response) => {
       try {
         const reqUrl = response.url()
         if (!reqUrl.includes('/api/graphql') && !reqUrl.includes('ads_library')) return
         if (response.status() !== 200) return
-
-        const ct = response.headers()['content-type'] || ''
-        if (!ct.includes('json') && !ct.includes('text')) return
-
         const text = await response.text().catch(() => '')
-        if (!text) return
-
-        // Facebook returns multiple JSON objects separated by newlines
-        const jsonBlocks = text.split('\n').filter(l => l.trim().startsWith('{'))
-        for (const block of jsonBlocks) {
-          try {
-            const json = JSON.parse(block)
-            extractAdsFromGraphQL(json, ads, seenIds)
-          } catch { /* skip invalid JSON */ }
+        if (!text || text.length < 500) return
+        const newAds = extractAdsFromHTML(text)
+        for (const ad of newAds) {
+          if (!seenIds.has(ad.page_id + ad.start_date)) {
+            seenIds.add(ad.page_id + ad.start_date)
+            ads.push(ad)
+          }
         }
-      } catch { /* ignore response errors */ }
+      } catch { /* ignore */ }
     })
 
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
-    await sleep(4000)
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 })
+    await handleFacebookDialogs(page)
+    await sleep(3000)
+
+    // Extract from initial SSR HTML
+    const html = await page.evaluate(() => document.documentElement?.innerHTML || '')
+    const ssrAds = extractAdsFromHTML(html)
+    for (const ad of ssrAds) {
+      const key = (ad.snapshot?.body_text || '').slice(0, 50) + ad.start_date
+      if (!seenIds.has(key)) {
+        seenIds.add(key)
+        ads.push(ad)
+      }
+    }
+    console.log(`[scrape-ads] SSR: ${ssrAds.length} ads`)
 
     // Scroll to load more ads
-    let lastCount = 0
+    let lastCount = ads.length
     let staleScrolls = 0
     const maxScrolls = Math.ceil(maxAds / 10) + 5
 
     for (let i = 0; i < maxScrolls && ads.length < maxAds; i++) {
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-      await sleep(2000)
+      await page.evaluate(() => { if (document.body) window.scrollTo(0, document.body.scrollHeight) })
+      await sleep(2500)
 
-      // Click "Ver mais" button if present
+      // Extract from updated DOM
+      const newHtml = await page.evaluate(() => document.documentElement?.innerHTML || '')
+      const newAds = extractAdsFromHTML(newHtml)
+      for (const ad of newAds) {
+        const key = (ad.snapshot?.body_text || '').slice(0, 50) + ad.start_date
+        if (!seenIds.has(key)) {
+          seenIds.add(key)
+          ads.push(ad)
+        }
+      }
+
+      // Click "Ver mais"
       await page.evaluate(() => {
         const btns = [...document.querySelectorAll('button, [role="button"], a')]
         const more = btns.find(b => {
@@ -300,7 +441,7 @@ async function scrapeAds(url, maxAds) {
       }
     }
 
-    console.log(`[scrape-ads] Got ${ads.length} ads from ${url.slice(0, 80)}`)
+    console.log(`[scrape-ads] Total: ${ads.length} ads from ${url.slice(0, 80)}`)
     return { ads: ads.slice(0, maxAds) }
   } finally {
     await page.close()
@@ -401,37 +542,39 @@ function extractAdsFromGraphQL(json, ads, seenIds) {
 }
 
 async function countAds(pageId) {
+  // HTTP-only: fetch SSR HTML directly, no Chromium — saves ~10MB per call
   const url = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${pageId}`
-  const browser = await getBrowser()
-  const page = await browser.newPage()
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-
   try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await sleep(3000)
-
-    const count = await page.evaluate(() => {
-      const text = document.body.innerText || ''
-      // "Exibindo resultados para aproximadamente 47 anúncios"
-      // "Approximately 47 ads"
-      const m = text.match(/(?:aproximadamente|approximately|exibindo)\s*(\d[\d.,]*)\s*(?:anúncios|ads|resultados)/i)
-      if (m) return parseInt(m[1].replace(/[.,]/g, ''))
-      // Fallback: count ad cards
-      const cards = document.querySelectorAll('[class*="AdCard"], [class*="ad-card"], [data-testid*="ad"]')
-      return cards.length || 0
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+      signal: AbortSignal.timeout(15000),
     })
-
-    console.log(`[count-ads] ${pageId}: ${count}`)
-    return count
-  } finally {
-    await page.close()
+    const html = await res.text()
+    // Try count from text like "Aproximadamente X anúncios"
+    const countMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
+    if (countMatch) {
+      const count = parseInt(countMatch[1].replace(/[.,]/g, ''))
+      console.log(`[count-ads] ${pageId}: ${count}`)
+      return count
+    }
+    // Fallback: count ads from SSR HTML
+    const ads = extractAdsFromHTML(html)
+    console.log(`[count-ads] ${pageId}: ${ads.length} (SSR)`)
+    return ads.length
+  } catch (e) {
+    console.log(`[count-ads] ${pageId}: failed (${e.message})`)
+    return null
   }
 }
 
 async function scrapeLanding(url) {
   const browser = await getBrowser()
   const page = await browser.newPage()
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+  await setupPage(page)
 
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
@@ -463,78 +606,107 @@ async function runMineJob(jobId, keyword, count) {
   const job = jobs.get(jobId)
   const searchUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered`
 
+  // Chromium with domcontentloaded (skip waiting for JS framework to finish) + resource blocking
+  // Loads ~15-20MB instead of ~100MB. No scroll, no enrich — just SSR extraction.
   const browser = await getBrowser()
   const page = await browser.newPage()
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+  await setupPage(page)
 
   const pages = new Map() // pageId → { name, count, earliestDate, landing }
 
   try {
-    // Intercept GraphQL to collect page data
+    // Also capture GraphQL responses that arrive during initial load
     page.on('response', async (response) => {
       try {
         const reqUrl = response.url()
         if (!reqUrl.includes('/api/graphql') && !reqUrl.includes('ads_library')) return
         if (response.status() !== 200) return
-
         const text = await response.text().catch(() => '')
-        if (!text) return
-
-        const jsonBlocks = text.split('\n').filter(l => l.trim().startsWith('{'))
-        for (const block of jsonBlocks) {
-          try {
-            const json = JSON.parse(block)
-            extractPagesFromGraphQL(json, pages)
-          } catch { /* skip */ }
+        if (!text || text.length < 500) return
+        const ads = extractAdsFromHTML(text)
+        for (const ad of ads) {
+          if (!ad.page_id) continue
+          const existing = pages.get(ad.page_id) || { name: ad.page_name || '?', count: 0, earliestDate: null, landing: null }
+          existing.count++
+          if (ad.start_date) {
+            const ts = ad.start_date * 1000
+            if (!existing.earliestDate || ts < existing.earliestDate) existing.earliestDate = ts
+          }
+          if (!existing.landing && ad.snapshot?.link_url) existing.landing = ad.snapshot.link_url
+          pages.set(ad.page_id, existing)
         }
       } catch { /* ignore */ }
     })
 
-    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
-    await sleep(5000)
+    // Capture the initial HTML response directly — avoid waiting for JS framework
+    let capturedHtml = ''
+    page.on('response', async (resp) => {
+      try {
+        if (resp.url().includes('/ads/library') && resp.request().resourceType() === 'document') {
+          capturedHtml = await resp.text().catch(() => '')
+        }
+      } catch { /* ignore */ }
+    })
 
-    // Scroll to collect pages
-    let lastSize = 0
+    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 60000 })
+    await handleFacebookDialogs(page)
+    await sleep(2000)
+
+    // Use captured HTML (raw SSR, no JS eval needed) or fallback to DOM
+    const html = capturedHtml || await page.evaluate(() => document.documentElement?.innerHTML || '')
+    const ssrAds = extractAdsFromHTML(html)
+    for (const ad of ssrAds) {
+      if (!ad.page_id) continue
+      const existing = pages.get(ad.page_id) || { name: ad.page_name || '?', count: 0, earliestDate: null, landing: null }
+      existing.count++
+      if (ad.start_date) {
+        const ts = ad.start_date * 1000
+        if (!existing.earliestDate || ts < existing.earliestDate) existing.earliestDate = ts
+      }
+      if (!existing.landing && ad.snapshot?.link_url) existing.landing = ad.snapshot.link_url
+      pages.set(ad.page_id, existing)
+    }
+    console.log(`[mine] SSR: ${ssrAds.length} ads, ${pages.size} pages`)
+
+    // Scroll to load more — JS is blocked so each scroll just triggers GraphQL JSON (~50-100KB)
+    let lastSize = pages.size
     let staleScrolls = 0
-    const maxScrolls = Math.ceil(count / 10) + 10
-
-    for (let i = 0; i < maxScrolls; i++) {
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-      await sleep(2500)
-
-      // Click "Ver mais"
-      await page.evaluate(() => {
-        const btns = [...document.querySelectorAll('button, [role="button"], a')]
-        const more = btns.find(b => {
-          const t = (b.textContent || '').toLowerCase()
-          return t.includes('ver mais') || t.includes('see more') || t.includes('mostrar mais')
-        })
-        if (more) more.click()
-      })
-
-      const currentSize = pages.size
-      if (currentSize === lastSize) {
+    for (let i = 0; i < 15 && pages.size < count; i++) {
+      await page.evaluate(() => { if (document.body) window.scrollTo(0, document.body.scrollHeight) }).catch(() => {})
+      await sleep(2000)
+      if (pages.size === lastSize) {
         staleScrolls++
-        if (staleScrolls >= 5) break
+        if (staleScrolls >= 3) break
       } else {
         staleScrolls = 0
-        lastSize = currentSize
+        lastSize = pages.size
       }
-
-      if (currentSize >= count) break
     }
+    if (pages.size > ssrAds.length) console.log(`[mine] After scroll: ${pages.size} pages (was ${ssrAds.length} from SSR)`)
 
-    // Convert to results
+    // Convert to preliminary results
     const now = Date.now()
-    const results = Array.from(pages.entries()).map(([pageId, info]) => ({
-      pagina_nome: info.name,
-      page_id: pageId,
-      total_anuncios: info.count,
-      dias_rodando: info.earliestDate ? Math.floor((now - info.earliestDate) / 86400000) : null,
-      landing_url: info.landing,
+    const preliminary = Array.from(pages.entries())
+      .filter(([id]) => /^\d+$/.test(id)) // only numeric page IDs (real pages)
+      .map(([pageId, info]) => ({
+        pagina_nome: info.name,
+        page_id: pageId,
+        total_anuncios: info.count,
+        dias_rodando: info.earliestDate ? Math.floor((now - info.earliestDate) / 86400000) : null,
+        landing_url: info.landing,
+      }))
+
+    console.log(`[mine] "${keyword}": ${preliminary.length} pages found (no enrich — using scroll data directly)`)
+
+    // Skip enrich — ad counts from scroll are accurate enough, saves ~300MB bandwidth per mine
+    // Followers will be checked later by the filter-followers cron (uses Chromium only for ouro candidates)
+    const results = preliminary.slice(0, 60).map(p => ({
+      ...p,
+      fb_followers: null,
+      ig_followers: null,
+      ig_handle: null,
     }))
 
-    console.log(`[mine] "${keyword}": ${results.length} pages found`)
     job.status = 'done'
     job.results = results
   } catch (e) {
@@ -588,4 +760,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Scraper] Running on port ${PORT}`)
   console.log(`[Scraper] Chromium: ${CHROMIUM_PATH}`)
   console.log(`[Scraper] Auth: ${SECRET ? 'enabled' : 'DISABLED'}`)
+  console.log(`[Scraper] Proxy: ${PROXY_URL ? PROXY_URL.replace(/\/\/.*@/, '//***@') : 'NONE'}`)
 })
