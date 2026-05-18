@@ -67,20 +67,22 @@ interface MineResult {
 }
 
 interface FeedOffer {
-  id: number
-  pagina_nome: string
-  ad_library_url: string
+  id: string
+  page_name: string
+  page_id: string
+  ad_count: number
   landing_url: string | null
+  thumbnail_url: string | null
+  creative_urls: string | null
   nicho: string | null
-  total_anuncios: number
   dias_rodando: number | null
   ig_handle: string | null
   ig_followers: number | null
   fb_followers: number | null
   landing_screenshot: string | null
-  creative_urls: string | null
   ad_copies: string | null
   enriched: number
+  status: string
 }
 
 /* ─────────── HELPERS ─────────── */
@@ -862,17 +864,20 @@ export default function ToolPage() {
               {!feedLoading && feedOffers.length > 0 && (
                 <div className="of-grid">
                   {feedOffers.map(o => {
-                    const creatives = o.creative_urls ? JSON.parse(o.creative_urls) as string[] : []
-                    const thumb = o.landing_screenshot || creatives[0] || null
+                    const creatives = o.creative_urls ? (() => { try { return JSON.parse(o.creative_urls) as string[] } catch { return [] } })() : []
+                    const thumb = o.landing_screenshot || o.thumbnail_url || creatives[0] || null
+                    const adLibUrl = /^\d+$/.test(o.page_id)
+                      ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${o.page_id}`
+                      : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(o.page_name)}&search_type=keyword_unordered`
                     return (
-                      <div key={o.id} className="of-card" onClick={() => { setUrl(o.ad_library_url); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, o.ad_library_url), 150) }}>
+                      <div key={o.id} className="of-card" onClick={() => { setUrl(adLibUrl); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, adLibUrl), 150) }}>
                         <div className="of-card-img">
-                          {thumb ? <img src={thumb} alt={o.pagina_nome} /> : <div className="of-card-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>}
+                          {thumb ? <img src={thumb} alt={o.page_name} /> : <div className="of-card-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>}
                         </div>
                         <div className="of-card-body">
-                          <div className="of-card-name">{o.pagina_nome}</div>
+                          <div className="of-card-name">{o.page_name}</div>
                           <div className="of-card-footer">
-                            <div className="of-card-ads">{o.total_anuncios}<span>ads</span></div>
+                            <div className="of-card-ads">{o.ad_count}<span>ads</span></div>
                             <img className="of-card-flag" src="https://flagcdn.com/w40/br.png" alt="BR" />
                           </div>
                         </div>

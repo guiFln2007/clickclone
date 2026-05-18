@@ -126,9 +126,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'SCRAPER_URL not configured' }, { status: 500 })
   }
 
-  // Pick a random subset of keywords to mine this run (5 at a time to stay within timeout)
+  // Pick a random subset of keywords to mine this run (10 at a time — resource blocking makes it fast)
   const shuffled = [...MINING_KEYWORDS].sort(() => Math.random() - 0.5)
-  const batch = shuffled.slice(0, 3)
+  const batch = shuffled.slice(0, 10)
 
   const results: { keyword: string; found: number; saved: number; error?: string }[] = []
 
