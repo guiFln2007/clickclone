@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { keyword } = await req.json()
-  const minAnuncios = 3
+  const minAnuncios = 10
   const minDias = 5
   if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
@@ -213,7 +213,7 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const runId = req.nextUrl.searchParams.get('runId')
-  const minAnuncios = 3
+  const minAnuncios = 10
   const maxAnuncios = 140
   const minDias = 3
   const maxFollowers = 10000
