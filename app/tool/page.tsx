@@ -326,6 +326,7 @@ export default function ToolPage() {
   const [mineResults, setMineResults] = useState<MineResult[]>([])
   const [mineError, setMineError] = useState('')
   const [mineStatus, setMineStatus] = useState('')
+  const [mineProgress, setMineProgress] = useState(0)
 
   // Offers feed
   const [feedOffers, setFeedOffers] = useState<FeedOffer[]>([])
@@ -563,7 +564,7 @@ export default function ToolPage() {
   // ── MINE ──
   async function handleMine() {
     if (!mineKeyword.trim() || mining) return
-    setMining(true); setMineError(''); setMineResults([]); setMineStatus('Conectando \u00E0 biblioteca de an\u00FAncios...')
+    setMining(true); setMineError(''); setMineResults([]); setMineProgress(5); setMineStatus('Conectando \u00E0 biblioteca de an\u00FAncios...')
     try {
       // 1. Start the mining run
       const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ keyword: mineKeyword.trim() }) })
@@ -571,13 +572,16 @@ export default function ToolPage() {
       const { runId } = await startRes.json()
       if (!runId) throw new Error('Falha ao iniciar busca')
 
-      setMineStatus('Minerando an\u00FAncios na biblioteca...')
+      setMineStatus('Minerando an\u00FAncios na biblioteca...'); setMineProgress(15)
 
       // 2. Poll every 5s until done
       const statusMsgs = ['Vasculhando bibliotecas de an\u00FAncios...', 'Analisando p\u00E1ginas encontradas...', 'Filtrando ofertas validadas...', 'Isso pode levar alguns minutos...', 'Processando resultados...', 'Quase l\u00E1...']
       let msgIdx = 0
       for (let attempt = 0; attempt < 240; attempt++) { // max 20 min
         await new Promise(r => setTimeout(r, 5000))
+        // Progresso gradual: 15% -> 92% ao longo dos polls
+        const prog = Math.min(92, 15 + attempt * 3)
+        setMineProgress(prog)
         if (attempt % 6 === 5) { msgIdx = Math.min(msgIdx + 1, statusMsgs.length - 1); setMineStatus(statusMsgs[msgIdx]) }
 
         const pollRes = await fetch(`/api/mine?runId=${runId}&nicho=${encodeURIComponent(mineKeyword.trim())}`, { headers: authHeaders() })
@@ -587,13 +591,14 @@ export default function ToolPage() {
         if (data.status === 'running') continue
         if (data.status === 'failed') throw new Error(data.error || 'Minera\u00E7\u00E3o falhou')
         if (data.status === 'done') {
+          setMineProgress(100)
           setMineResults(data.ofertas || [])
           if (!data.ofertas?.length) setMineError('Nenhuma oferta encontrada com esses filtros. Tente diminuir o m\u00EDnimo de an\u00FAncios.')
-          setMining(false); setMineStatus(''); return
+          setMining(false); setMineStatus(''); setMineProgress(0); return
         }
       }
       throw new Error('Tempo esgotado. Tente novamente.')
-    } catch (err) { setMineError(err instanceof Error ? err.message : 'Erro') } finally { setMining(false); setMineStatus('') }
+    } catch (err) { setMineError(err instanceof Error ? err.message : 'Erro') } finally { setMining(false); setMineStatus(''); setMineProgress(0) }
   }
 
   // toggleNicho removido — agora usa input de keyword
@@ -1117,7 +1122,7 @@ export default function ToolPage() {
               <RatMascot isAnalyzing={mining} />
               {mining && mineStatus && (
                 <div className="status-bar-wrap">
-                  <div className="status-track"><div className="status-fill" style={{ width: '60%' }} /></div>
+                  <div className="status-track"><div className="status-fill" style={{ width: `${mineProgress}%` }} /></div>
                   <div className="status-text"><span className="st-pulse" /><span>{mineStatus}</span></div>
                 </div>
               )}
