@@ -714,6 +714,7 @@ async function runMineJob(jobId, keyword, count) {
           pagina_nome: info.name,
           page_id: pageId,
           total_anuncios: info.count,
+          keyword_hits: info.count, // quantas vezes apareceu na busca por keyword
           dias_rodando: dias,
           landing_url: info.landing,
         }

@@ -26,6 +26,7 @@ type MineResult = {
   pagina_nome: string
   page_id: string
   total_anuncios: number
+  keyword_hits?: number
   dias_rodando: number | null
   landing_url: string | null
   fb_followers?: number | null
@@ -315,6 +316,11 @@ export async function GET(req: NextRequest) {
         if (followers !== null && followers >= maxFollowers) { console.log(`[Mine] CUT ${p.pagina_nome}: ${followers} followers >= ${maxFollowers}`); return false }
         if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) { console.log(`[Mine] CUT ${p.pagina_nome}: blocked landing ${url.slice(0, 60)}`); return false }
         if (nonBrPatterns.test(p.pagina_nome)) { console.log(`[Mine] CUT ${p.pagina_nome}: non-BR name`); return false }
+        // Relevancia: pagina precisa ter aparecido 2+ vezes na busca OU nome conter parte da keyword
+        const kwWords = nicho.toLowerCase().split(/\s+/).filter(w => w.length >= 3)
+        const nameHasKw = kwWords.length > 0 && kwWords.some(w => nameLower.includes(w))
+        const hits = (p as unknown as Record<string, unknown>).keyword_hits as number | undefined
+        if (!nameHasKw && (hits ?? 0) < 2) { console.log(`[Mine] CUT ${p.pagina_nome}: irrelevante (hits=${hits}, name no match)`); return false }
         return true
       })
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
