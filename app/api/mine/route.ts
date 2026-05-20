@@ -213,7 +213,7 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const runId = req.nextUrl.searchParams.get('runId')
-  const minAnuncios = 10
+  const minAnuncios = 3
   const maxAnuncios = 140
   const minDias = 3
   const maxFollowers = 10000
