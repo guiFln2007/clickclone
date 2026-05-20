@@ -246,6 +246,14 @@ export async function GET(req: NextRequest) {
         signal: AbortSignal.timeout(10000),
       })
       const data = await res.json() as Record<string, unknown>
+
+      if (!res.ok) {
+        const msg = res.status === 404
+          ? 'Mineração expirou. Clique em Minerar novamente.'
+          : `Minerador temporariamente offline (HTTP ${res.status}). Tente novamente.`
+        return NextResponse.json({ status: 'failed', error: msg })
+      }
+
       const status = data.status as string
 
       if (status === 'running') return NextResponse.json({ status: 'running' })
