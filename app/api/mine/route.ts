@@ -16,6 +16,10 @@ const BRAND_BLACKLIST = [
   'renner', 'riachuelo', 'c&a', 'zara', 'shein',
   'neon', 'will bank', 'original', 'next', 'digio',
   'cloudflare', 'aws', 'azure', 'hostinger', 'locaweb',
+  'gillette', 'premier league', 'la liga', 'nba', 'nfl', 'fifa',
+  'disney', 'warner', 'paramount', 'hbo', 'marvel', 'dc comics',
+  'nike', 'adidas', 'puma', 'reebok', 'new balance',
+  'loreal', "l'oréal", 'maybelline', 'avon', 'natura', 'boticário', 'o boticario',
 ]
 
 const SCRAPER_URL = process.env.SCRAPER_URL || ''

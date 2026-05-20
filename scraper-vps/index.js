@@ -298,11 +298,24 @@ function extractAdsFromHTML(html) {
   const ads = []
   const seenIds = new Set()
 
-  // Find all JSON blocks in script tags
-  const scriptRegex = /\{["\u005c][^<]{500,}?\}/g
-  const jsonCandidates = html.match(scriptRegex) || []
+  // 1. Construir mapa page_id → page_name confiável
+  //    Busca pares page_id/page_name que estão próximos (< 300 chars)
+  const pageNameMap = new Map()
+  const pidRegex = /"page_id"\s*:\s*"(\d+)"/g
+  let pidMatch
+  while ((pidMatch = pidRegex.exec(html)) !== null) {
+    const pid = pidMatch[1]
+    if (pageNameMap.has(pid)) continue
+    // Busca page_name dentro de 300 chars depois do page_id
+    const nearby = html.slice(pidMatch.index, pidMatch.index + 300)
+    const nameM = nearby.match(/"page_name"\s*:\s*"([^"]+)"/)
+    if (nameM) {
+      const decoded = nameM[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
+      pageNameMap.set(pid, decoded)
+    }
+  }
 
-  // Also try to find ad_archive_id blocks directly
+  // 2. Extrair ads
   const archiveRegex = /"ad_archive_id"\s*:\s*"(\d+)"/g
   let match
   while ((match = archiveRegex.exec(html)) !== null) {
@@ -310,9 +323,9 @@ function extractAdsFromHTML(html) {
     if (seenIds.has(id)) continue
     seenIds.add(id)
 
-    // Extract surrounding context (up to 5000 chars around the match)
-    const start = Math.max(0, match.index - 2000)
-    const end = Math.min(html.length, match.index + 3000)
+    // Context pequeno pra pegar page_id do MESMO ad (500 chars antes)
+    const start = Math.max(0, match.index - 500)
+    const end = Math.min(html.length, match.index + 2000)
     const context = html.slice(start, end)
 
     const get = (key) => {
@@ -325,7 +338,8 @@ function extractAdsFromHTML(html) {
     }
 
     const pageId = get('page_id') || ''
-    const pageName = get('page_name') || ''
+    // Usar o mapa confiável pra nome, fallback pro context
+    const pageName = pageNameMap.get(pageId) || get('page_name') || ''
     const bodyText = get('body_text') || get('body') || ''
     const title = get('title') || ''
     const ctaText = get('cta_text') || ''
