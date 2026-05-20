@@ -214,7 +214,7 @@ export async function GET(req: NextRequest) {
 
   const runId = req.nextUrl.searchParams.get('runId')
   const minAnuncios = 10
-  const maxAnuncios = 140
+  const maxAnuncios = 500
   const minDias = 3
   const maxFollowers = 10000
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
@@ -302,30 +302,25 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(p => {
-        // 10-140 anuncios reais
-        if (p.total_anuncios < minAnuncios) return false
-        if (p.total_anuncios > maxAnuncios) return false
-        // Sem marcas grandes
         const nameLower = p.pagina_nome.toLowerCase()
-        if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) return false
-        if (nameLower.endsWith(' oficial') || nameLower.endsWith(' brasil') || nameLower.includes('® ') || nameLower.includes('™')) return false
-        // 3+ dias rodando
-        if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
-        // Seguidores < 10k (se tiver dado)
-        const followers = p.fb_followers ?? p.ig_followers ?? null
-        if (followers !== null && followers >= maxFollowers) return false
-        // Sem redes sociais / app stores como landing
         const url = (p.landing_url || '').toLowerCase()
-        if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
-        // Filtrar paginas claramente nao-BR (nome 100% ingles/espanhol, sem caractere PT)
         const nonBrPatterns = /^(the |my |our |get |free |best |top |new |super |play |game |win |buy |shop |official |welcome|over \d)/i
-        if (nonBrPatterns.test(p.pagina_nome)) return false
+
+        if (p.total_anuncios < minAnuncios) { console.log(`[Mine] CUT ${p.pagina_nome}: ${p.total_anuncios} ads < ${minAnuncios}`); return false }
+        if (p.total_anuncios > maxAnuncios) { console.log(`[Mine] CUT ${p.pagina_nome}: ${p.total_anuncios} ads > ${maxAnuncios}`); return false }
+        if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) { console.log(`[Mine] CUT ${p.pagina_nome}: brand blacklist`); return false }
+        if (nameLower.endsWith(' oficial') || nameLower.endsWith(' brasil') || nameLower.includes('® ') || nameLower.includes('™')) { console.log(`[Mine] CUT ${p.pagina_nome}: oficial/brasil/®/™`); return false }
+        if (p.dias_rodando !== null && p.dias_rodando < minDias) { console.log(`[Mine] CUT ${p.pagina_nome}: ${p.dias_rodando} dias < ${minDias}`); return false }
+        const followers = p.fb_followers ?? p.ig_followers ?? null
+        if (followers !== null && followers >= maxFollowers) { console.log(`[Mine] CUT ${p.pagina_nome}: ${followers} followers >= ${maxFollowers}`); return false }
+        if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) { console.log(`[Mine] CUT ${p.pagina_nome}: blocked landing ${url.slice(0, 60)}`); return false }
+        if (nonBrPatterns.test(p.pagina_nome)) { console.log(`[Mine] CUT ${p.pagina_nome}: non-BR name`); return false }
         return true
       })
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
       .slice(0, 30)
 
-    console.log(`[Mine] Returning ${ofertas.length} offers (${minAnuncios}-${maxAnuncios} ads, ${minDias}+ days, <${maxFollowers} followers)`)
+    console.log(`[Mine] Returning ${ofertas.length}/${results.length} offers (${minAnuncios}-${maxAnuncios} ads, ${minDias}+ days, <${maxFollowers} followers)`)
 
     // Bug fix: não cachear resultado vazio — permite re-minerar sem esperar 6h
     if (ofertas.length === 0 && runId) {
