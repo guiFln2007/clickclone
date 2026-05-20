@@ -305,7 +305,7 @@ export async function GET(req: NextRequest) {
       .filter(p => {
         const nameLower = p.pagina_nome.toLowerCase()
         const url = (p.landing_url || '').toLowerCase()
-        const nonBrPatterns = /^(the |my |our |get |free |best |top |new |super |play |game |win |buy |shop |official |welcome|over \d)/i
+        const hits = (p as unknown as Record<string, unknown>).keyword_hits as number | undefined
 
         if (p.total_anuncios < minAnuncios) { console.log(`[Mine] CUT ${p.pagina_nome}: ${p.total_anuncios} ads < ${minAnuncios}`); return false }
         if (p.total_anuncios > maxAnuncios) { console.log(`[Mine] CUT ${p.pagina_nome}: ${p.total_anuncios} ads > ${maxAnuncios}`); return false }
@@ -315,11 +315,14 @@ export async function GET(req: NextRequest) {
         const followers = p.fb_followers ?? p.ig_followers ?? null
         if (followers !== null && followers >= maxFollowers) { console.log(`[Mine] CUT ${p.pagina_nome}: ${followers} followers >= ${maxFollowers}`); return false }
         if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) { console.log(`[Mine] CUT ${p.pagina_nome}: blocked landing ${url.slice(0, 60)}`); return false }
-        if (nonBrPatterns.test(p.pagina_nome)) { console.log(`[Mine] CUT ${p.pagina_nome}: non-BR name`); return false }
-        // Relevancia: pagina precisa ter aparecido 2+ vezes na busca OU nome conter parte da keyword
+        // Nomes claramente estrangeiros (ingles/espanhol completo)
+        const foreignPatterns = /^(the |my |our |get |free |best |top |new |super |play |game |win |buy |official |welcome|over \d|premier |world |global |dream|lucky |crazy |epic )/i
+        const spanishPatterns = /\b(del|los|las|aprende|emprende|futbolero|maestros|taller)\b/i
+        if (foreignPatterns.test(p.pagina_nome)) { console.log(`[Mine] CUT ${p.pagina_nome}: nome estrangeiro`); return false }
+        if (spanishPatterns.test(nameLower) && !/[àáâãéêíóôõúüç]/.test(p.pagina_nome)) { console.log(`[Mine] CUT ${p.pagina_nome}: espanhol`); return false }
+        // Relevancia: 2+ hits na busca OU nome contem palavra da keyword
         const kwWords = nicho.toLowerCase().split(/\s+/).filter(w => w.length >= 3)
         const nameHasKw = kwWords.length > 0 && kwWords.some(w => nameLower.includes(w))
-        const hits = (p as unknown as Record<string, unknown>).keyword_hits as number | undefined
         if (!nameHasKw && (hits ?? 0) < 2) { console.log(`[Mine] CUT ${p.pagina_nome}: irrelevante (hits=${hits}, name no match)`); return false }
         return true
       })
