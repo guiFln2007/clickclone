@@ -219,11 +219,13 @@ export async function GET(req: NextRequest) {
   const maxFollowers = 10000
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
 
-  // So bloqueia redes sociais como landing (sem bio links, sem expert filter)
+  // Bloqueia redes sociais e app stores como landing
   const BLOCKED_LANDING_DOMAINS = [
     'instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com',
     'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com',
     't.me', 'telegram',
+    'itunes.apple.com', 'apps.apple.com', 'play.google.com', 'app.adjust.com',
+    'onelink.me', 'bit.ly', 'linktr.ee',
   ]
 
   if (!runId) return NextResponse.json({ error: 'runId obrigatório' }, { status: 400 })
@@ -312,9 +314,12 @@ export async function GET(req: NextRequest) {
         // Seguidores < 10k (se tiver dado)
         const followers = p.fb_followers ?? p.ig_followers ?? null
         if (followers !== null && followers >= maxFollowers) return false
-        // Sem redes sociais como landing
+        // Sem redes sociais / app stores como landing
         const url = (p.landing_url || '').toLowerCase()
         if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
+        // Filtrar paginas claramente nao-BR (nome 100% ingles/espanhol, sem caractere PT)
+        const nonBrPatterns = /^(the |my |our |get |free |best |top |new |super |play |game |win |buy |shop |official |welcome|over \d)/i
+        if (nonBrPatterns.test(p.pagina_nome)) return false
         return true
       })
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)
