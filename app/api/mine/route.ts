@@ -214,8 +214,8 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const runId = req.nextUrl.searchParams.get('runId')
-  const minAnuncios = 10
-  const maxAnuncios = 140
+  const minAnuncios = 3
+  const maxAnuncios = 999
   const minDias = 3
   const maxFollowers = 10000
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
@@ -270,11 +270,11 @@ export async function GET(req: NextRequest) {
 
     const ofertas = results
       .map(p => {
-        // Score recalibrado pra refletir o novo modelo de count (que e um floor)
-        // Volume: 30+ = excelente, 20+ = bom, 15+ = ok, 10+ = limite
-        const volPts = p.total_anuncios >= 30 ? 4 : p.total_anuncios >= 20 ? 3 : p.total_anuncios >= 15 ? 2 : p.total_anuncios >= 10 ? 1 : 0
-        // Tempo: 60+ dias = excelente, 30+ = bom, 15+ = ok, 10+ = limite
-        const tempoPts = p.dias_rodando === null ? 1 : p.dias_rodando >= 60 ? 4 : p.dias_rodando >= 30 ? 3 : p.dias_rodando >= 15 ? 2 : p.dias_rodando >= 10 ? 1 : 0
+        // Score: keyword hits (sem enrich, numeros menores sao normais)
+        // Volume: 10+ = excelente, 7+ = bom, 5+ = ok, 3+ = limite
+        const volPts = p.total_anuncios >= 10 ? 4 : p.total_anuncios >= 7 ? 3 : p.total_anuncios >= 5 ? 2 : p.total_anuncios >= 3 ? 1 : 0
+        // Tempo: 60+ dias = excelente, 30+ = bom, 15+ = ok, 5+ = limite
+        const tempoPts = p.dias_rodando === null ? 1 : p.dias_rodando >= 60 ? 4 : p.dias_rodando >= 30 ? 3 : p.dias_rodando >= 15 ? 2 : p.dias_rodando >= 5 ? 1 : 0
         // Score 1-10: (volPts + tempoPts) * 10 / 8 (max=8)
         const score = Math.max(1, Math.min(10, Math.round((volPts + tempoPts) * 10 / 8)))
 
@@ -305,25 +305,14 @@ export async function GET(req: NextRequest) {
       .filter(p => {
         const nameLower = p.pagina_nome.toLowerCase()
         const url = (p.landing_url || '').toLowerCase()
-        const hits = (p as unknown as Record<string, unknown>).keyword_hits as number | undefined
-
-        if (p.total_anuncios < minAnuncios) { console.log(`[Mine] CUT ${p.pagina_nome}: ${p.total_anuncios} ads < ${minAnuncios}`); return false }
-        if (p.total_anuncios > maxAnuncios) { console.log(`[Mine] CUT ${p.pagina_nome}: ${p.total_anuncios} ads > ${maxAnuncios}`); return false }
-        if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) { console.log(`[Mine] CUT ${p.pagina_nome}: brand blacklist`); return false }
-        if (nameLower.endsWith(' oficial') || nameLower.endsWith(' brasil') || nameLower.includes('® ') || nameLower.includes('™')) { console.log(`[Mine] CUT ${p.pagina_nome}: oficial/brasil/®/™`); return false }
-        if (p.dias_rodando !== null && p.dias_rodando < minDias) { console.log(`[Mine] CUT ${p.pagina_nome}: ${p.dias_rodando} dias < ${minDias}`); return false }
+        // Filtros simples: min ads (keyword hits), brand blacklist, dias, followers, landing
+        if (p.total_anuncios < minAnuncios) return false
+        if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) return false
+        if (nameLower.endsWith(' oficial') || nameLower.includes('® ') || nameLower.includes('™')) return false
+        if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
         const followers = p.fb_followers ?? p.ig_followers ?? null
-        if (followers !== null && followers >= maxFollowers) { console.log(`[Mine] CUT ${p.pagina_nome}: ${followers} followers >= ${maxFollowers}`); return false }
-        if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) { console.log(`[Mine] CUT ${p.pagina_nome}: blocked landing ${url.slice(0, 60)}`); return false }
-        // Nomes claramente estrangeiros (ingles/espanhol completo)
-        const foreignPatterns = /^(the |my |our |get |free |best |top |new |super |play |game |win |buy |official |welcome|over \d|premier |world |global |dream|lucky |crazy |epic )/i
-        const spanishPatterns = /\b(del|los|las|aprende|emprende|futbolero|maestros|taller)\b/i
-        if (foreignPatterns.test(p.pagina_nome)) { console.log(`[Mine] CUT ${p.pagina_nome}: nome estrangeiro`); return false }
-        if (spanishPatterns.test(nameLower) && !/[àáâãéêíóôõúüç]/.test(p.pagina_nome)) { console.log(`[Mine] CUT ${p.pagina_nome}: espanhol`); return false }
-        // Relevancia: 2+ hits na busca OU nome contem palavra da keyword
-        const kwWords = nicho.toLowerCase().split(/\s+/).filter(w => w.length >= 3)
-        const nameHasKw = kwWords.length > 0 && kwWords.some(w => nameLower.includes(w))
-        if (!nameHasKw && (hits ?? 0) < 2) { console.log(`[Mine] CUT ${p.pagina_nome}: irrelevante (hits=${hits}, name no match)`); return false }
+        if (followers !== null && followers >= maxFollowers) return false
+        if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
         return true
       })
       .sort((a, b) => b.score_escalabilidade - a.score_escalabilidade)

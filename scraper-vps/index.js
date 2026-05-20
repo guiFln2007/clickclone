@@ -720,77 +720,10 @@ async function runMineJob(jobId, keyword, count) {
         }
       })
 
-    console.log(`[mine] "${keyword}": ${preliminary.length} pages found from search, enriching with real counts...`)
-
-    // ENRICH: navegar em cada página pra contar ads reais
-    // Enriquecer todas as páginas encontradas (até 40)
-    const toEnrich = preliminary.slice(0, 40)
-    // Usa nova aba pra enrich (evita conflito com listeners da busca)
-    const enrichPage = await browser.newPage()
-    await setupPage(enrichPage)
-
-    for (const p of toEnrich) {
-      try {
-        const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
-        const pageAds = new Set()
-        const adListener = async (response) => {
-          try {
-            const url = response.url()
-            if (!url.includes('/api/graphql') && !url.includes('ads_library')) return
-            if (response.status() !== 200) return
-            const text = await response.text().catch(() => '')
-            if (!text || text.length < 200) return
-            const matches = text.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
-            for (const m of matches) pageAds.add(m[1])
-          } catch { /* ignore */ }
-        }
-        enrichPage.on('response', adListener)
-
-        await enrichPage.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 25000 })
-        await sleep(3000)
-
-        // Count from rendered HTML
-        const pageHtml = await enrichPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-        const htmlMatches = pageHtml.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
-        for (const m of htmlMatches) pageAds.add(m[1])
-
-        // Corrigir page_name direto da página individual
-        const nameMatch = pageHtml.match(/"page_name"\s*:\s*"([^"]+)"/)
-        if (nameMatch) {
-          const decoded = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
-          if (decoded && decoded !== '?' && decoded.length > 1) p.pagina_nome = decoded
-        }
-
-        // Extrair "Aproximadamente X anúncios" do DOM
-        let approxCount = 0
-        const approxMatch = pageHtml.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
-        if (approxMatch) approxCount = parseInt(approxMatch[1].replace(/[.,]/g, ''))
-
-        // Scroll 2x pra carregar mais ads
-        for (let s = 0; s < 2; s++) {
-          await enrichPage.evaluate(() => { if (document.body) window.scrollTo(0, document.body.scrollHeight) }).catch(() => {})
-          await sleep(1500)
-        }
-        // Re-extract after scroll
-        const afterScrollHtml = await enrichPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-        const scrollMatches = afterScrollHtml.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
-        for (const m of scrollMatches) pageAds.add(m[1])
-
-        enrichPage.off('response', adListener)
-
-        const realCount = Math.max(pageAds.size, approxCount)
-        if (realCount > 0) {
-          console.log(`[mine] ${p.pagina_nome}: ${p.total_anuncios} -> ${realCount} ads (real=${pageAds.size}, approx=${approxCount})`)
-          p.total_anuncios = realCount
-        }
-      } catch (e) {
-        console.log(`[mine] Enrich failed for ${p.pagina_nome}: ${e.message}`)
-      }
-    }
-    await enrichPage.close().catch(() => {})
-
-    const over10 = preliminary.filter(p => p.total_anuncios >= 10)
-    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${over10.length} with 10+ ads after enrich`)
+    // Sem enrich — keyword_hits já é a métrica de relevância
+    // Páginas com mais hits = mais ads delas mencionam a keyword = oferta escalada
+    const over3 = preliminary.filter(p => p.total_anuncios >= 3)
+    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${over3.length} with 3+ keyword hits`)
 
     const results = preliminary.slice(0, 60).map(p => ({
       ...p,
