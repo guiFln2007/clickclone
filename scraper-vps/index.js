@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express from 'express'
 import puppeteer from 'puppeteer-core'
 import { randomUUID } from 'crypto'
@@ -688,18 +689,90 @@ async function runMineJob(jobId, keyword, count) {
     const now = Date.now()
     const preliminary = Array.from(pages.entries())
       .filter(([id]) => /^\d+$/.test(id)) // only numeric page IDs (real pages)
-      .map(([pageId, info]) => ({
-        pagina_nome: info.name,
-        page_id: pageId,
-        total_anuncios: info.count,
-        dias_rodando: info.earliestDate ? Math.floor((now - info.earliestDate) / 86400000) : null,
-        landing_url: info.landing,
-      }))
+      .map(([pageId, info]) => {
+        let dias = info.earliestDate ? Math.floor((now - info.earliestDate) / 86400000) : null
+        // Bug fix: start_date em formato errado gera valores absurdos (ex: 20389 dias)
+        if (dias !== null && (dias < 0 || dias > 3650)) dias = null
+        return {
+          pagina_nome: info.name,
+          page_id: pageId,
+          total_anuncios: info.count,
+          dias_rodando: dias,
+          landing_url: info.landing,
+        }
+      })
 
-    console.log(`[mine] "${keyword}": ${preliminary.length} pages found (no enrich — using scroll data directly)`)
+    console.log(`[mine] "${keyword}": ${preliminary.length} pages found from search, enriching with real counts...`)
 
-    // Skip enrich — ad counts from scroll are accurate enough, saves ~300MB bandwidth per mine
-    // Followers will be checked later by the filter-followers cron (uses Chromium only for ouro candidates)
+    // ENRICH: navigate to each page's ad library to count real ads
+    // Same browser session, same proxy. ~200-500KB per page with resource blocking.
+    // Bug fix: só enriquecer páginas que apareceram 2+ vezes na busca (filtra irrelevantes)
+    const toEnrich = preliminary.filter(p => p.total_anuncios >= 2).slice(0, 25)
+    for (const p of toEnrich) {
+      try {
+        const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
+
+        // Track ads from this page via GraphQL intercepts (already set up on page)
+        const pageAds = new Set()
+        const adListener = async (response) => {
+          try {
+            const url = response.url()
+            if (!url.includes('/api/graphql') && !url.includes('ads_library')) return
+            if (response.status() !== 200) return
+            const text = await response.text().catch(() => '')
+            if (!text || text.length < 200) return
+            const matches = text.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
+            for (const m of matches) pageAds.add(m[1])
+          } catch { /* ignore */ }
+        }
+        page.on('response', adListener)
+
+        await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 25000 })
+        await sleep(3000)
+
+        // Count from rendered HTML
+        const pageHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+        const htmlMatches = pageHtml.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
+        for (const m of htmlMatches) pageAds.add(m[1])
+
+        // Bug fix: extrair page_name direto da página individual (mais confiável que busca)
+        const nameMatch = pageHtml.match(/"page_name"\s*:\s*"([^"]+)"/)
+        if (nameMatch) {
+          const decoded = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
+          if (decoded && decoded !== '?' && decoded.length > 1) p.pagina_nome = decoded
+        }
+
+        // Bug fix: extrair "Aproximadamente X anúncios" do DOM (mais preciso que contar ads)
+        let approxCount = 0
+        const approxMatch = pageHtml.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
+        if (approxMatch) approxCount = parseInt(approxMatch[1].replace(/[.,]/g, ''))
+
+        // Bug fix: scrollar 3x pra carregar mais ads além dos ~30 iniciais
+        for (let s = 0; s < 3; s++) {
+          await page.evaluate(() => { if (document.body) window.scrollTo(0, document.body.scrollHeight) }).catch(() => {})
+          await sleep(2000)
+        }
+        // Re-extract after scroll
+        const afterScrollHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+        const scrollMatches = afterScrollHtml.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
+        for (const m of scrollMatches) pageAds.add(m[1])
+
+        page.off('response', adListener)
+
+        // Usar o maior valor: contagem real de ads OU texto "Aproximadamente X"
+        const realCount = Math.max(pageAds.size, approxCount)
+        if (realCount > 0) {
+          console.log(`[mine] ${p.pagina_nome}: ${p.total_anuncios} -> ${realCount} ads (real=${pageAds.size}, approx=${approxCount})`)
+          p.total_anuncios = realCount
+        }
+      } catch (e) {
+        console.log(`[mine] Enrich failed for ${p.pagina_nome}: ${e.message}`)
+      }
+    }
+
+    const over10 = preliminary.filter(p => p.total_anuncios >= 10)
+    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${over10.length} with 10+ ads after enrich`)
+
     const results = preliminary.slice(0, 60).map(p => ({
       ...p,
       fb_followers: null,

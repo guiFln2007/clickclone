@@ -321,6 +321,17 @@ export async function GET(req: NextRequest) {
       .slice(0, 30)
 
     console.log(`[Mine] Returning ${ofertas.length} offers (${minAnuncios}-${maxAnuncios} ads, ${minDias}+ days, <${maxFollowers} followers)`)
+
+    // Bug fix: não cachear resultado vazio — permite re-minerar sem esperar 6h
+    if (ofertas.length === 0 && runId) {
+      const keyword = req.nextUrl.searchParams.get('keyword') || ''
+      if (keyword) mineCache.delete(keyword.toLowerCase().trim())
+      // Tenta achar a keyword no cache pelo runId
+      for (const [k, v] of mineCache.entries()) {
+        if (v.runId === runId) { mineCache.delete(k); break }
+      }
+    }
+
     return NextResponse.json({ status: 'done', ofertas })
   } catch (e) {
     return NextResponse.json({ status: 'failed', error: (e as Error).message })
