@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import puppeteer from 'puppeteer-core'
 import { randomUUID } from 'crypto'
+import { ProxyAgent, fetch as undiciFetch } from 'undici'
 
 const app = express()
 app.use(express.json())
@@ -22,6 +23,12 @@ if (PROXY_URL) {
   } catch { proxyServer = PROXY_URL }
 }
 
+// Proxy agent for HTTP fetch (enrich) — usa undici que vem com Node 20
+function getProxyAgent() {
+  if (!PROXY_URL) return null
+  return new ProxyAgent(PROXY_URL)
+}
+
 // Auth middleware
 function auth(req, res, next) {
   if (!SECRET) return next()
@@ -36,6 +43,7 @@ app.use(auth)
 let browserInstance = null
 async function getBrowser() {
   if (browserInstance && browserInstance.connected) return browserInstance
+  const isWindows = process.platform === 'win32'
   const launchArgs = [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -43,9 +51,9 @@ async function getBrowser() {
     '--disable-gpu',
     '--disable-extensions',
     '--disable-background-networking',
-    '--single-process',
-    '--no-zygote',
     '--lang=pt-BR',
+    // single-process e no-zygote só no Linux (VPS) — no Windows causa crash
+    ...(isWindows ? [] : ['--single-process', '--no-zygote']),
   ]
   if (proxyServer) launchArgs.push(`--proxy-server=${proxyServer}`)
   browserInstance = await puppeteer.launch({
@@ -669,15 +677,24 @@ async function runMineJob(jobId, keyword, count) {
     }
     console.log(`[mine] SSR: ${ssrAds.length} ads, ${pages.size} pages`)
 
-    // Scroll to load more — JS is blocked so each scroll just triggers GraphQL JSON (~50-100KB)
+    // Scroll to load more — cada scroll carrega mais ads via GraphQL
     let lastSize = pages.size
     let staleScrolls = 0
-    for (let i = 0; i < 15 && pages.size < count; i++) {
+    for (let i = 0; i < 30 && pages.size < count; i++) {
       await page.evaluate(() => { if (document.body) window.scrollTo(0, document.body.scrollHeight) }).catch(() => {})
-      await sleep(2000)
+      await sleep(2500)
+      // Clicar "Ver mais" se existir
+      await page.evaluate(() => {
+        const btns = [...document.querySelectorAll('button, [role="button"], a')]
+        const more = btns.find(b => {
+          const t = (b.textContent || '').toLowerCase()
+          return t.includes('ver mais') || t.includes('see more') || t.includes('mostrar mais')
+        })
+        if (more) more.click()
+      }).catch(() => {})
       if (pages.size === lastSize) {
         staleScrolls++
-        if (staleScrolls >= 3) break
+        if (staleScrolls >= 5) break
       } else {
         staleScrolls = 0
         lastSize = pages.size
@@ -704,15 +721,16 @@ async function runMineJob(jobId, keyword, count) {
 
     console.log(`[mine] "${keyword}": ${preliminary.length} pages found from search, enriching with real counts...`)
 
-    // ENRICH: navigate to each page's ad library to count real ads
-    // Same browser session, same proxy. ~200-500KB per page with resource blocking.
-    // Bug fix: só enriquecer páginas que apareceram 2+ vezes na busca (filtra irrelevantes)
-    const toEnrich = preliminary.filter(p => p.total_anuncios >= 2).slice(0, 25)
+    // ENRICH: navegar em cada página pra contar ads reais
+    // Enriquecer todas as páginas encontradas (até 40)
+    const toEnrich = preliminary.slice(0, 40)
+    // Usa nova aba pra enrich (evita conflito com listeners da busca)
+    const enrichPage = await browser.newPage()
+    await setupPage(enrichPage)
+
     for (const p of toEnrich) {
       try {
         const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
-
-        // Track ads from this page via GraphQL intercepts (already set up on page)
         const pageAds = new Set()
         const adListener = async (response) => {
           try {
@@ -725,41 +743,40 @@ async function runMineJob(jobId, keyword, count) {
             for (const m of matches) pageAds.add(m[1])
           } catch { /* ignore */ }
         }
-        page.on('response', adListener)
+        enrichPage.on('response', adListener)
 
-        await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 25000 })
+        await enrichPage.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 25000 })
         await sleep(3000)
 
         // Count from rendered HTML
-        const pageHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+        const pageHtml = await enrichPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
         const htmlMatches = pageHtml.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
         for (const m of htmlMatches) pageAds.add(m[1])
 
-        // Bug fix: extrair page_name direto da página individual (mais confiável que busca)
+        // Corrigir page_name direto da página individual
         const nameMatch = pageHtml.match(/"page_name"\s*:\s*"([^"]+)"/)
         if (nameMatch) {
           const decoded = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
           if (decoded && decoded !== '?' && decoded.length > 1) p.pagina_nome = decoded
         }
 
-        // Bug fix: extrair "Aproximadamente X anúncios" do DOM (mais preciso que contar ads)
+        // Extrair "Aproximadamente X anúncios" do DOM
         let approxCount = 0
         const approxMatch = pageHtml.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
         if (approxMatch) approxCount = parseInt(approxMatch[1].replace(/[.,]/g, ''))
 
-        // Bug fix: scrollar 3x pra carregar mais ads além dos ~30 iniciais
-        for (let s = 0; s < 3; s++) {
-          await page.evaluate(() => { if (document.body) window.scrollTo(0, document.body.scrollHeight) }).catch(() => {})
-          await sleep(2000)
+        // Scroll 2x pra carregar mais ads
+        for (let s = 0; s < 2; s++) {
+          await enrichPage.evaluate(() => { if (document.body) window.scrollTo(0, document.body.scrollHeight) }).catch(() => {})
+          await sleep(1500)
         }
         // Re-extract after scroll
-        const afterScrollHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+        const afterScrollHtml = await enrichPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
         const scrollMatches = afterScrollHtml.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
         for (const m of scrollMatches) pageAds.add(m[1])
 
-        page.off('response', adListener)
+        enrichPage.off('response', adListener)
 
-        // Usar o maior valor: contagem real de ads OU texto "Aproximadamente X"
         const realCount = Math.max(pageAds.size, approxCount)
         if (realCount > 0) {
           console.log(`[mine] ${p.pagina_nome}: ${p.total_anuncios} -> ${realCount} ads (real=${pageAds.size}, approx=${approxCount})`)
@@ -769,6 +786,7 @@ async function runMineJob(jobId, keyword, count) {
         console.log(`[mine] Enrich failed for ${p.pagina_nome}: ${e.message}`)
       }
     }
+    await enrichPage.close().catch(() => {})
 
     const over10 = preliminary.filter(p => p.total_anuncios >= 10)
     console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${over10.length} with 10+ ads after enrich`)

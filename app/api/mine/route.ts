@@ -214,7 +214,7 @@ export async function GET(req: NextRequest) {
 
   const runId = req.nextUrl.searchParams.get('runId')
   const minAnuncios = 10
-  const maxAnuncios = 500
+  const maxAnuncios = 140
   const minDias = 3
   const maxFollowers = 10000
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
