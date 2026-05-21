@@ -41,6 +41,9 @@ app.use(auth)
 
 // Browser pool — reuse browser instance
 let browserInstance = null
+let useWarpProxy = false // quando true, Chrome usa SOCKS5 via WARP
+const WARP_PROXY = 'socks5://localhost:40000'
+
 async function getBrowser() {
   if (browserInstance && browserInstance.connected) return browserInstance
   const isWindows = process.platform === 'win32'
@@ -55,7 +58,12 @@ async function getBrowser() {
     // single-process e no-zygote só no Linux (VPS) — no Windows causa crash
     ...(isWindows ? [] : ['--single-process', '--no-zygote']),
   ]
-  if (proxyServer) launchArgs.push(`--proxy-server=${proxyServer}`)
+  if (useWarpProxy) {
+    launchArgs.push(`--proxy-server=${WARP_PROXY}`)
+    console.log(`[browser] Launching with WARP proxy`)
+  } else if (proxyServer) {
+    launchArgs.push(`--proxy-server=${proxyServer}`)
+  }
   browserInstance = await puppeteer.launch({
     executablePath: CHROMIUM_PATH,
     headless: true,
@@ -970,26 +978,12 @@ app.get('/auto-mine/status', (req, res) => {
   })
 })
 
-// ── WARP IP rotation ──
-const WARP_CLI = 'C:\\Program Files\\Cloudflare\\Cloudflare WARP\\warp-cli.exe'
-let warpConnected = false // track current WARP state
-
+// ── WARP IP rotation (proxy mode — não interfere no Cloudflare Tunnel) ──
 async function toggleWarp() {
-  const { execSync } = await import('child_process')
-  try {
-    if (warpConnected) {
-      execSync(`"${WARP_CLI}" disconnect`, { timeout: 10000 })
-      warpConnected = false
-      console.log(`[warp] Disconnected -> residential IP`)
-    } else {
-      execSync(`"${WARP_CLI}" connect`, { timeout: 10000 })
-      warpConnected = true
-      console.log(`[warp] Connected -> Cloudflare IP`)
-    }
-    await sleep(3000) // wait for IP change
-  } catch (e) {
-    console.log(`[warp] Toggle failed: ${e.message}`)
-  }
+  useWarpProxy = !useWarpProxy
+  console.log(`[warp] Proxy ${useWarpProxy ? 'ON → Cloudflare IP' : 'OFF → residential IP'}`)
+  // Fechar browser pra próximo getBrowser() usar a config nova
+  if (browserInstance) { await browserInstance.close().catch(() => {}); browserInstance = null }
 }
 
 async function runAutoMineLoop(callbackUrl) {
@@ -1018,8 +1012,6 @@ async function runAutoMineLoop(callbackUrl) {
           consecutiveEmpty++
           if (consecutiveEmpty >= 3) {
             console.log(`[auto-mine] Rate limit detectado (${consecutiveEmpty} keywords vazias). Trocando IP via WARP...`)
-            // Fechar browser pra limpar cookies/state
-            if (browserInstance) { await browserInstance.close().catch(() => {}); browserInstance = null }
             await toggleWarp()
             consecutiveEmpty = 0
             continue
