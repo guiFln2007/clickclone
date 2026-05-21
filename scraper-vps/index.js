@@ -734,16 +734,95 @@ async function runMineJob(jobId, keyword, count) {
         }
       })
 
-    // Sem enrich — keyword_hits já é a métrica de relevância
-    // Páginas com mais hits = mais ads delas mencionam a keyword = oferta escalada
-    const over3 = preliminary.filter(p => p.total_anuncios >= 3)
-    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${over3.length} with 3+ keyword hits`)
+    // Pegar contagem real via browser (navega, lê "~X resultados", fecha)
+    const toCount = preliminary.filter(p => p.keyword_hits >= 3).slice(0, 30)
+    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${toCount.length} with 3+ keyword hits, counting real ads...`)
+
+    const countPage = await browser.newPage()
+    await setupPage(countPage)
+    for (const p of toCount) {
+      try {
+        const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
+        await countPage.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
+        await sleep(3000)
+        const html = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+        // Pegar "Aproximadamente X anúncios" ou contar ad_archive_ids
+        const approxMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
+        let realCount = approxMatch ? parseInt(approxMatch[1].replace(/[.,]/g, '')) : 0
+        if (!realCount) {
+          const ids = new Set()
+          const m = html.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
+          for (const x of m) ids.add(x[1])
+          realCount = ids.size
+        }
+        // Corrigir page_name
+        const nameMatch = html.match(/"page_name"\s*:\s*"([^"]+)"/)
+        if (nameMatch) {
+          const decoded = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
+          if (decoded && decoded.length > 1) p.pagina_nome = decoded
+        }
+        // Extrair seguidores — navegar na aba "Sobre" da Ad Library
+        const aboutUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}&sort_data[direction]=desc&sort_data[mode]=relevancy_monthly_grouped&search_type=page&media_type=all`
+        // Clicar "Sobre" no DOM já carregado
+        await countPage.evaluate(() => {
+          const els = [...document.querySelectorAll('a, button, [role="tab"], [role="link"]')]
+          const sobre = els.find(l => {
+            const t = (l.textContent || '').trim().toLowerCase()
+            return t.includes('sobre') || t.includes('about')
+          })
+          if (sobre) { sobre.click(); return true }
+          return false
+        }).catch(() => false)
+        await sleep(4000)
+        // Pegar texto RENDERIZADO (innerText) — não tem tags HTML, regex funciona
+        const aboutText = await countPage.evaluate(() => document.body?.innerText || '').catch(() => '')
+        const aboutHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+        // Parsear seguidores do texto limpo
+        const allFollowers = []
+        // JSON: "page_like_count"
+        const likesMatch = (html + aboutHtml).match(/"page_like_count"\s*:\s*(\d+)/)
+        if (likesMatch) allFollowers.push({ src: 'fb_json', val: parseInt(likesMatch[1]) })
+        // Texto renderizado: "X,X mil seguidores"
+        const textMatches = aboutText.matchAll(/([\d.,]+)\s*(mil|milhão|milhões|mi)?\s*seguidores/gi)
+        for (const fm of textMatches) {
+          let num = parseFloat(fm[1].replace(/\./g, '').replace(',', '.'))
+          const mult = (fm[2] || '').toLowerCase()
+          if (mult === 'mil') num *= 1000
+          if (mult === 'milhão' || mult === 'milhões' || mult === 'mi') num *= 1000000
+          allFollowers.push({ src: 'text', val: Math.round(num) })
+        }
+        // Deduplica e ordena
+        const uniqueFollowers = [...new Set(allFollowers.map(f => f.val))].sort((a, b) => a - b)
+        if (uniqueFollowers.length >= 2) {
+          p.fb_followers = uniqueFollowers[0]
+          p.ig_followers = uniqueFollowers[uniqueFollowers.length - 1]
+        } else if (uniqueFollowers.length === 1) {
+          p.fb_followers = uniqueFollowers[0]
+        }
+        // IG handle
+        const igHandleMatch = (html + aboutHtml).match(/instagram\.com\/([a-zA-Z0-9_.]+)/)
+        if (igHandleMatch) p.ig_handle = '@' + igHandleMatch[1]
+
+        if (realCount > 0) {
+          const fStr = p.fb_followers ? `, fb=${p.fb_followers}` : ''
+          const igStr = p.ig_followers ? `, ig=${p.ig_followers}` : ''
+          console.log(`[mine] ${p.pagina_nome}: ${p.keyword_hits} hits -> ${realCount} real ads${fStr}${igStr}`)
+          p.total_anuncios = realCount
+        }
+      } catch (e) {
+        console.log(`[mine] Count failed for ${p.pagina_nome}: ${e.message}`)
+      }
+    }
+    await countPage.close().catch(() => {})
+
+    const over3 = preliminary.filter(p => p.keyword_hits >= 3)
+    console.log(`[mine] "${keyword}": ${over3.length} pages with real counts`)
 
     const results = preliminary.slice(0, 60).map(p => ({
       ...p,
-      fb_followers: null,
-      ig_followers: null,
-      ig_handle: null,
+      fb_followers: p.fb_followers || null,
+      ig_followers: p.ig_followers || null,
+      ig_handle: p.ig_handle || null,
     }))
 
     job.status = 'done'

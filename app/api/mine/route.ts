@@ -16,7 +16,8 @@ const BRAND_BLACKLIST = [
   'renner', 'riachuelo', 'c&a', 'zara', 'shein',
   'neon', 'will bank', 'original', 'next', 'digio',
   'cloudflare', 'aws', 'azure', 'hostinger', 'locaweb',
-  'gillette', 'premier league', 'la liga', 'nba', 'nfl', 'fifa',
+  'gillette', 'premier league', 'la liga', 'nba', 'nfl', 'fifa', 'brasil paralelo',
+  'espaçolaser', 'espacolaser', 'smart fit', 'growth supplements', 'growth suplementos',
   'disney', 'warner', 'paramount', 'hbo', 'marvel', 'dc comics',
   'nike', 'adidas', 'puma', 'reebok', 'new balance',
   'loreal', "l'oréal", 'maybelline', 'avon', 'natura', 'boticário', 'o boticario',
@@ -218,8 +219,8 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const runId = req.nextUrl.searchParams.get('runId')
-  const minAnuncios = 3
-  const maxAnuncios = 999
+  const minAnuncios = 10
+  const maxAnuncios = 140
   const minDias = 3
   const maxFollowers = 10000
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
@@ -255,6 +256,10 @@ export async function GET(req: NextRequest) {
       const data = await res.json() as Record<string, unknown>
 
       if (!res.ok) {
+        // Limpar cache pra essa keyword — runId expirou, próximo POST cria job novo
+        for (const [k, v] of mineCache.entries()) {
+          if (v.runId === runId) { mineCache.delete(k); break }
+        }
         const msg = res.status === 404
           ? 'Mineração expirou. Clique em Minerar novamente.'
           : `Minerador temporariamente offline (HTTP ${res.status}). Tente novamente.`
@@ -274,11 +279,11 @@ export async function GET(req: NextRequest) {
 
     const ofertas = results
       .map(p => {
-        // Score: keyword hits (sem enrich, numeros menores sao normais)
-        // Volume: 10+ = excelente, 7+ = bom, 5+ = ok, 3+ = limite
-        const volPts = p.total_anuncios >= 10 ? 4 : p.total_anuncios >= 7 ? 3 : p.total_anuncios >= 5 ? 2 : p.total_anuncios >= 3 ? 1 : 0
-        // Tempo: 60+ dias = excelente, 30+ = bom, 15+ = ok, 5+ = limite
-        const tempoPts = p.dias_rodando === null ? 1 : p.dias_rodando >= 60 ? 4 : p.dias_rodando >= 30 ? 3 : p.dias_rodando >= 15 ? 2 : p.dias_rodando >= 5 ? 1 : 0
+        // Score: contagem real de ads + tempo rodando
+        // Volume: 80+ = excelente, 50+ = bom, 30+ = ok, 10+ = limite
+        const volPts = p.total_anuncios >= 80 ? 4 : p.total_anuncios >= 50 ? 3 : p.total_anuncios >= 30 ? 2 : p.total_anuncios >= 10 ? 1 : 0
+        // Tempo: 60+ dias = excelente, 30+ = bom, 15+ = ok, 3+ = limite
+        const tempoPts = p.dias_rodando === null ? 1 : p.dias_rodando >= 60 ? 4 : p.dias_rodando >= 30 ? 3 : p.dias_rodando >= 15 ? 2 : p.dias_rodando >= 3 ? 1 : 0
         // Score 1-10: (volPts + tempoPts) * 10 / 8 (max=8)
         const score = Math.max(1, Math.min(10, Math.round((volPts + tempoPts) * 10 / 8)))
 
@@ -310,12 +315,11 @@ export async function GET(req: NextRequest) {
         const nameLower = p.pagina_nome.toLowerCase()
         const url = (p.landing_url || '').toLowerCase()
         // Filtros simples: min ads (keyword hits), brand blacklist, dias, followers, landing
-        if (p.total_anuncios < minAnuncios) return false
+        if (p.total_anuncios < minAnuncios || p.total_anuncios > maxAnuncios) return false
         if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) return false
         if (nameLower.endsWith(' oficial') || nameLower.includes('® ') || nameLower.includes('™')) return false
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
-        const followers = p.fb_followers ?? p.ig_followers ?? null
-        if (followers !== null && followers >= maxFollowers) return false
+        if ((p.fb_followers ?? 0) >= maxFollowers || (p.ig_followers ?? 0) >= maxFollowers) return false
         if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
         return true
       })

@@ -319,11 +319,17 @@ export default function ToolPage() {
   const [totalAlerts, setTotalAlerts] = useState(0)
 
   // Mine
-  const [mineKeyword, setMineKeyword] = useState('')
+  const [mineKeyword, setMineKeyword] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem('mineKeyword') || ''
+  })
   const [mineMinAds, setMineMinAds] = useState(20)
   const [mineMinDays, setMineMinDays] = useState(15)
   const [mining, setMining] = useState(false)
-  const [mineResults, setMineResults] = useState<MineResult[]>([])
+  const [mineResults, setMineResults] = useState<MineResult[]>(() => {
+    if (typeof window === 'undefined') return []
+    try { const s = localStorage.getItem('mineResults'); return s ? JSON.parse(s) : [] } catch { return [] }
+  })
   const [mineError, setMineError] = useState('')
   const [mineStatus, setMineStatus] = useState('')
   const [mineProgress, setMineProgress] = useState(0)
@@ -592,8 +598,10 @@ export default function ToolPage() {
         if (data.status === 'failed') throw new Error(data.error || 'Minera\u00E7\u00E3o falhou')
         if (data.status === 'done') {
           setMineProgress(100)
-          setMineResults(data.ofertas || [])
-          if (!data.ofertas?.length) setMineError('Nenhuma oferta encontrada com esses filtros. Tente diminuir o m\u00EDnimo de an\u00FAncios.')
+          const ofertas = data.ofertas || []
+          setMineResults(ofertas)
+          try { localStorage.setItem('mineResults', JSON.stringify(ofertas)); localStorage.setItem('mineKeyword', mineKeyword.trim()) } catch {}
+          if (!ofertas.length) setMineError('Nenhuma oferta encontrada com esses filtros. Tente diminuir o m\u00EDnimo de an\u00FAncios.')
           setMining(false); setMineStatus(''); setMineProgress(0); return
         }
       }
@@ -1139,9 +1147,14 @@ export default function ToolPage() {
                       return (
                         <div key={i} className="mrc">
                           <div className="mrc-top">
-                            <div className={`mrc-score ${cls}`}>{sc}</div>
+                            <img
+                              src={`https://graph.facebook.com/${o.ad_library_url?.match(/view_all_page_id=(\d+)/)?.[1] || '0'}/picture?type=large`}
+                              alt={o.pagina_nome}
+                              className="mrc-avatar"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                            />
                             <div className="mrc-info">
-                              <div className="mrc-name">{o.pagina_nome}</div>
+                              <div className="mrc-name">{o.pagina_nome} <span className={`mrc-score-badge ${cls}`}>{sc}</span></div>
                               <div className="mrc-meta">{o.dias_rodando !== null ? `${o.dias_rodando} dias` : '?'} &middot; {o.total_anuncios} an{'\u00FA'}ncios{(() => { const f = o.fb_followers ?? o.ig_followers; return f ? ` \u00B7 ${f >= 1000 ? (f / 1000).toFixed(1).replace('.0', '') + 'k' : f} seg.` : '' })()}</div>
                             </div>
                             {o.nicho && <span className="mrc-nicho">{o.nicho}</span>}
@@ -2073,14 +2086,16 @@ html,body{height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;bac
 }
 .mrc>*{position:relative;z-index:2}
 .mrc-top{display:flex;align-items:center;gap:16px;margin-bottom:10px}
-.mrc-score{
-  width:54px;height:54px;border-radius:14px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:20px;font-weight:900;flex-shrink:0;letter-spacing:-.03em;
+.mrc-avatar{
+  width:54px;height:54px;border-radius:14px;flex-shrink:0;object-fit:cover;
+  border:1px solid rgba(255,255,255,.08);background:var(--bg-elev);
 }
-.mrc-score.green{background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(16,185,129,.06));color:#10B981;border:1px solid rgba(16,185,129,.2);box-shadow:0 0 24px rgba(16,185,129,.12)}
-.mrc-score.yellow{background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(245,158,11,.06));color:#F59E0B;border:1px solid rgba(245,158,11,.2);box-shadow:0 0 24px rgba(245,158,11,.12)}
-.mrc-score.red{background:linear-gradient(135deg,rgba(107,114,128,.15),rgba(107,114,128,.04));color:var(--text-3);border:1px solid rgba(107,114,128,.2)}
+.mrc-score-badge{
+  font-size:12px;font-weight:800;padding:2px 8px;border-radius:6px;margin-left:8px;vertical-align:middle;
+}
+.mrc-score-badge.green{background:rgba(16,185,129,.15);color:#10B981}
+.mrc-score-badge.yellow{background:rgba(245,158,11,.15);color:#F59E0B}
+.mrc-score-badge.red{background:rgba(107,114,128,.12);color:var(--text-3)}
 .mrc-info{flex:1;min-width:0}
 .mrc-name{font-size:17px;font-weight:800;color:var(--text);margin-bottom:3px;letter-spacing:-.02em}
 .mrc-meta{font-size:13px;color:var(--text-2);font-weight:500}
