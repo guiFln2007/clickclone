@@ -761,35 +761,64 @@ async function runMineJob(jobId, keyword, count) {
           const decoded = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
           if (decoded && decoded.length > 1) p.pagina_nome = decoded
         }
-        // Extrair seguidores — navegar na aba "Sobre" da Ad Library
-        const aboutUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}&sort_data[direction]=desc&sort_data[mode]=relevancy_monthly_grouped&search_type=page&media_type=all`
-        // Clicar "Sobre" no DOM já carregado
-        await countPage.evaluate(() => {
-          const els = [...document.querySelectorAll('a, button, [role="tab"], [role="link"]')]
+        // Extrair seguidores — clicar "Sobre" + fallback navegar direto na página FB
+        // Tentar 1: clicar aba "Sobre" no DOM da Ad Library
+        const clickedSobre = await countPage.evaluate(() => {
+          const els = [...document.querySelectorAll('a, button, [role="tab"], [role="link"], span')]
           const sobre = els.find(l => {
             const t = (l.textContent || '').trim().toLowerCase()
-            return t.includes('sobre') || t.includes('about')
+            return t === 'sobre' || t === 'about' || t === 'sobre esta página' || t === 'about this page'
           })
           if (sobre) { sobre.click(); return true }
           return false
         }).catch(() => false)
-        await sleep(4000)
-        // Pegar texto RENDERIZADO (innerText) — não tem tags HTML, regex funciona
-        const aboutText = await countPage.evaluate(() => document.body?.innerText || '').catch(() => '')
-        const aboutHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-        // Parsear seguidores do texto limpo
+        if (clickedSobre) await sleep(5000)
+
+        let aboutText = await countPage.evaluate(() => document.body?.innerText || '').catch(() => '')
+        let aboutHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+
+        // Tentar 2: SEMPRE navegar na página FB pra pegar IG followers
+        // A aba "Sobre" da Ad Library só mostra FB followers, não IG
+        try {
+          await countPage.goto(`https://www.facebook.com/${p.page_id}`, { waitUntil: 'domcontentloaded', timeout: 15000 })
+          await sleep(4000)
+          const fbPageText = await countPage.evaluate(() => document.body?.innerText || '').catch(() => '')
+          const fbPageHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+          aboutText += '\n' + fbPageText
+          aboutHtml += fbPageHtml
+        } catch {}
+
+        // Parsear seguidores do texto limpo (PT + EN)
         const allFollowers = []
         // JSON: "page_like_count"
-        const likesMatch = (html + aboutHtml).match(/"page_like_count"\s*:\s*(\d+)/)
+        const likesMatch = (aboutHtml).match(/"page_like_count"\s*:\s*(\d+)/)
         if (likesMatch) allFollowers.push({ src: 'fb_json', val: parseInt(likesMatch[1]) })
-        // Texto renderizado: "X,X mil seguidores"
-        const textMatches = aboutText.matchAll(/([\d.,]+)\s*(mil|milhão|milhões|mi)?\s*seguidores/gi)
-        for (const fm of textMatches) {
+        // JSON: "followers_count" ou "ig_followers"
+        const igJsonMatch = (aboutHtml).match(/"(?:ig_followers|followers_count)"\s*:\s*(\d+)/)
+        if (igJsonMatch) allFollowers.push({ src: 'ig_json', val: parseInt(igJsonMatch[1]) })
+        // Texto PT: "X,X mil seguidores"
+        for (const fm of aboutText.matchAll(/([\d.,]+)\s*(mil|milhão|milhões|mi)?\s*seguidores/gi)) {
           let num = parseFloat(fm[1].replace(/\./g, '').replace(',', '.'))
           const mult = (fm[2] || '').toLowerCase()
           if (mult === 'mil') num *= 1000
           if (mult === 'milhão' || mult === 'milhões' || mult === 'mi') num *= 1000000
-          allFollowers.push({ src: 'text', val: Math.round(num) })
+          allFollowers.push({ src: 'text_pt', val: Math.round(num) })
+        }
+        // Texto EN: "X.XK followers", "X.XM followers", "X,XXX followers"
+        for (const fm of aboutText.matchAll(/([\d.,]+)\s*([KkMm])?\s*followers/gi)) {
+          let num = parseFloat(fm[1].replace(/,/g, ''))
+          const mult = (fm[2] || '').toUpperCase()
+          if (mult === 'K') num *= 1000
+          if (mult === 'M') num *= 1000000
+          allFollowers.push({ src: 'text_en', val: Math.round(num) })
+        }
+        // Texto: "X curtidas" / "X likes" (FB page likes como fallback)
+        for (const fm of aboutText.matchAll(/([\d.,]+)\s*(mil|milhão|milhões|mi|[KkMm])?\s*(?:curtidas|likes)/gi)) {
+          let num = parseFloat(fm[1].replace(/\./g, '').replace(',', '.'))
+          const mult = (fm[2] || '').toLowerCase()
+          if (mult === 'mil' || mult === 'k') num *= 1000
+          if (mult === 'milhão' || mult === 'milhões' || mult === 'mi' || mult === 'm') num *= 1000000
+          allFollowers.push({ src: 'likes', val: Math.round(num) })
         }
         // Deduplica e ordena
         const uniqueFollowers = [...new Set(allFollowers.map(f => f.val))].sort((a, b) => a - b)
@@ -800,7 +829,7 @@ async function runMineJob(jobId, keyword, count) {
           p.fb_followers = uniqueFollowers[0]
         }
         // IG handle
-        const igHandleMatch = (html + aboutHtml).match(/instagram\.com\/([a-zA-Z0-9_.]+)/)
+        const igHandleMatch = (aboutHtml).match(/instagram\.com\/([a-zA-Z0-9_.]+)/)
         if (igHandleMatch) p.ig_handle = '@' + igHandleMatch[1]
 
         if (realCount > 0) {
@@ -873,10 +902,183 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms))
 }
 
+// ── AUTO-MINE ──
+const AUTO_MINE_KEYWORDS = [
+  // Packs & Educação
+  "pack de aulas", "pack de atividades", "mega pack", "pack completo",
+  "pack professor", "pack educação", "pack infantil", "pack direito",
+  "pack enfermagem", "pack musical", "pack sublimação", "pack de artes",
+  "material pedagógico", "atividades prontas", "apostila concurso",
+  "simulado OAB", "simulado ENEM", "material pdf", "kit professor",
+  "atividades lúdicas", "planner digital", "pack canva",
+  // Emagrecimento
+  "truque pra emagrecer", "truque da gelatina", "truque do limão",
+  "truque da banana", "truque do café", "truque da maçã",
+  "café bariátrico", "emagrecer rápido", "secar barriga",
+  "perder barriga", "derreter gordura", "glicemia", "diabetes tipo 2",
+  "chá emagrecedor", "jejum intermitente", "protocolo jejum",
+  "receita detox", "suco verde", "metabolismo acelerado",
+  // Relacionamento
+  "reconquistar ex", "ex de volta", "mensagem secreta",
+  "mensagem que conquista", "como reconquistar", "frases de conquista",
+  "sedução", "relacionamento",
+  // Disfunção Erétil
+  "disfunção erétil", "impotência", "vigor masculino",
+  "desempenho masculino", "ereção", "libido masculina",
+  // Low Ticket Geral
+  "truque", "método comprovado", "segredo", "fórmula",
+  "protocolo", "descubra como", "por apenas",
+  "ebook", "curso online", "guia completo", "planilha",
+  // Plataformas
+  "inlead", "xquiz", "lovable.app", "typebot", "quizclass",
+  // Preços Low Ticket
+  "por apenas 10 reais", "por apenas 9 reais", "R$9,90",
+  "R$10", "R$17", "R$19,90", "R$27", "R$27,90",
+  "R$37", "R$39,90", "R$47", "por apenas 7 reais",
+  "por apenas 14 reais", "por apenas 29 reais",
+  // Outros Nichos
+  "crochê", "artesanato", "sublimação", "maquiagem",
+  "confeitaria", "adestrar cachorro", "treino em casa",
+  "renda extra", "ganhar dinheiro",
+]
+
+const CALLBACK_URL = process.env.CALLBACK_URL || '' // URL do Next.js pra salvar resultados
+let autoMineRunning = false
+let autoMineIndex = 0
+
+app.post('/auto-mine/start', (req, res) => {
+  if (autoMineRunning) return res.json({ status: 'already_running', index: autoMineIndex, total: AUTO_MINE_KEYWORDS.length })
+  const callbackUrl = req.body?.callbackUrl || CALLBACK_URL
+  if (!callbackUrl) return res.status(400).json({ error: 'callbackUrl required' })
+  autoMineRunning = true
+  autoMineIndex = 0
+  runAutoMineLoop(callbackUrl)
+  res.json({ status: 'started', total: AUTO_MINE_KEYWORDS.length })
+})
+
+app.post('/auto-mine/stop', (req, res) => {
+  autoMineRunning = false
+  res.json({ status: 'stopped', index: autoMineIndex })
+})
+
+app.get('/auto-mine/status', (req, res) => {
+  res.json({
+    running: autoMineRunning,
+    index: autoMineIndex,
+    total: AUTO_MINE_KEYWORDS.length,
+    currentKeyword: autoMineRunning ? AUTO_MINE_KEYWORDS[autoMineIndex % AUTO_MINE_KEYWORDS.length] : null,
+  })
+})
+
+// ── WARP IP rotation ──
+const WARP_CLI = 'C:\\Program Files\\Cloudflare\\Cloudflare WARP\\warp-cli.exe'
+let warpConnected = false // track current WARP state
+
+async function toggleWarp() {
+  const { execSync } = await import('child_process')
+  try {
+    if (warpConnected) {
+      execSync(`"${WARP_CLI}" disconnect`, { timeout: 10000 })
+      warpConnected = false
+      console.log(`[warp] Disconnected -> residential IP`)
+    } else {
+      execSync(`"${WARP_CLI}" connect`, { timeout: 10000 })
+      warpConnected = true
+      console.log(`[warp] Connected -> Cloudflare IP`)
+    }
+    await sleep(3000) // wait for IP change
+  } catch (e) {
+    console.log(`[warp] Toggle failed: ${e.message}`)
+  }
+}
+
+async function runAutoMineLoop(callbackUrl) {
+  console.log(`[auto-mine] Starting loop with ${AUTO_MINE_KEYWORDS.length} keywords, callback: ${callbackUrl}`)
+  let consecutiveEmpty = 0
+  while (autoMineRunning) {
+    const keyword = AUTO_MINE_KEYWORDS[autoMineIndex % AUTO_MINE_KEYWORDS.length]
+    console.log(`[auto-mine] [${autoMineIndex + 1}/${AUTO_MINE_KEYWORDS.length}] Mining "${keyword}"...`)
+    try {
+      const jobId = 'auto_' + Date.now().toString(36)
+      jobs.set(jobId, { status: 'running', results: null, error: null })
+      await runMineJob(jobId, keyword, 300)
+      const job = jobs.get(jobId)
+      if (job?.status === 'done' && job.results) {
+        const results = job.results
+        const filtered = results.filter(p =>
+          p.total_anuncios >= 5 && p.total_anuncios <= 140 &&
+          (p.fb_followers === null || p.fb_followers < 10000) &&
+          (p.ig_followers === null || p.ig_followers < 10000) &&
+          p.keyword_hits >= 3
+        )
+        console.log(`[auto-mine] "${keyword}": ${results.length} pages -> ${filtered.length} after filters`)
+
+        // Detectar rate limit: 0 resultados = Facebook bloqueou
+        if (results.length === 0) {
+          consecutiveEmpty++
+          if (consecutiveEmpty >= 3) {
+            console.log(`[auto-mine] Rate limit detectado (${consecutiveEmpty} keywords vazias). Trocando IP via WARP...`)
+            // Fechar browser pra limpar cookies/state
+            if (browserInstance) { await browserInstance.close().catch(() => {}); browserInstance = null }
+            await toggleWarp()
+            consecutiveEmpty = 0
+            continue
+          }
+        } else {
+          consecutiveEmpty = 0
+        }
+
+        if (filtered.length > 0 && callbackUrl) {
+          try {
+            const res = await fetch(callbackUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+              body: JSON.stringify({ keyword, offers: filtered }),
+              signal: AbortSignal.timeout(15000),
+            })
+            const data = await res.json().catch(() => ({}))
+            console.log(`[auto-mine] Callback: saved ${data.saved || 0}`)
+          } catch (e) {
+            console.log(`[auto-mine] Callback failed: ${e.message}`)
+          }
+        }
+      } else {
+        console.log(`[auto-mine] "${keyword}" failed: ${job?.error || 'unknown'}`)
+        consecutiveEmpty++
+      }
+      jobs.delete(jobId)
+    } catch (e) {
+      console.log(`[auto-mine] "${keyword}" error: ${e.message}`)
+      consecutiveEmpty++
+    }
+
+    autoMineIndex++
+    if (autoMineIndex >= AUTO_MINE_KEYWORDS.length) {
+      console.log(`[auto-mine] Cycle complete! Restarting...`)
+      autoMineIndex = 0
+    }
+    // 5 min entre keywords
+    await sleep(300000)
+  }
+  console.log(`[auto-mine] Loop stopped`)
+}
+
 // ── START ──
+const AUTO_MINE_CALLBACK = process.env.AUTO_MINE_CALLBACK || 'https://ratoads.com.br/api/auto-mine'
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Scraper] Running on port ${PORT}`)
   console.log(`[Scraper] Chromium: ${CHROMIUM_PATH}`)
   console.log(`[Scraper] Auth: ${SECRET ? 'enabled' : 'DISABLED'}`)
   console.log(`[Scraper] Proxy: ${PROXY_URL ? PROXY_URL.replace(/\/\/.*@/, '//***@') : 'NONE'}`)
+
+  // Auto-start mineração contínua após 30s (espera browser estar pronto)
+  setTimeout(() => {
+    if (!autoMineRunning) {
+      console.log(`[auto-mine] Auto-starting with callback: ${AUTO_MINE_CALLBACK}`)
+      autoMineRunning = true
+      autoMineIndex = 0
+      runAutoMineLoop(AUTO_MINE_CALLBACK)
+    }
+  }, 30000)
 })

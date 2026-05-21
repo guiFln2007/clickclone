@@ -1081,7 +1081,13 @@ export async function dbGetMinedOffers(opts: {
   sortBy?: 'ad_count' | 'dias_rodando' | 'last_seen'
 }): Promise<{ offers: AutoMinedOffer[]; total: number }> {
   await initDb()
-  const where: string[] = ["status IN ('ouro', 'ativa')"]
+  const where: string[] = [
+    "status IN ('ouro', 'ativa')",
+    "ad_count >= 5",
+    "ad_count <= 140",
+    "(fb_followers IS NULL OR fb_followers < 10000)",
+    "(ig_followers IS NULL OR ig_followers < 10000)",
+  ]
   const args: (string | number)[] = []
 
   if (opts.search) {

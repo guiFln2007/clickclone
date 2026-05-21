@@ -883,14 +883,20 @@ export default function ToolPage() {
                       ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${o.page_id}`
                       : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(o.page_name)}&search_type=keyword_unordered`
                     return (
-                      <div key={o.id} className="of-card" onClick={() => { setUrl(adLibUrl); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, adLibUrl), 150) }}>
-                        <div className="of-card-img">
-                          {thumb ? <img src={thumb} alt={o.page_name} /> : <div className="of-card-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>}
+                      <div key={o.id} className="of-card">
+                        <div className="of-card-img" onClick={() => { setUrl(adLibUrl); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, adLibUrl), 150) }}>
+                          {thumb ? <img src={thumb} alt={o.page_name} /> : (
+                            <img src={`https://graph.facebook.com/${o.page_id}/picture?type=large`} alt={o.page_name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                          )}
+                          <div className="of-card-fire">&#x1F525;</div>
+                          <button className="of-card-bm" onClick={(e) => { e.stopPropagation(); saveMinedToRadar({ pagina_nome: o.page_name, ad_library_url: adLibUrl, landing_url: o.landing_url, total_anuncios: o.ad_count, dias_rodando: o.dias_rodando, score_escalabilidade: 0, fb_followers: o.fb_followers, ig_followers: o.ig_followers, ig_handle: o.ig_handle, nicho: o.nicho || '', resumo_angulo: '' }) }} title="Salvar no Radar">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill={savedToRadar.has(o.page_name) ? '#FF8C00' : 'none'} stroke={savedToRadar.has(o.page_name) ? '#FF8C00' : 'currentColor'} strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                          </button>
                         </div>
-                        <div className="of-card-body">
+                        <div className="of-card-body" onClick={() => { setUrl(adLibUrl); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, adLibUrl), 150) }}>
                           <div className="of-card-name">{o.page_name}</div>
                           <div className="of-card-footer">
-                            <div className="of-card-ads">{o.ad_count}<span>ads</span></div>
+                            <div className="of-card-ads">{o.ad_count}<span>Ads</span></div>
                             <img className="of-card-flag" src="https://flagcdn.com/w40/br.png" alt="BR" />
                           </div>
                         </div>
@@ -1117,7 +1123,7 @@ export default function ToolPage() {
                   disabled={mining}
                   style={{ width: '100%', padding: '12px 16px', fontSize: 15, borderRadius: 8, border: '1px solid #444', background: '#1a1a1a', color: '#fff', marginBottom: 20, outline: 'none' }}
                 />
-                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros usados pelos maiores players: <span style={{ color: '#e8a040' }}>10-140 an{'\u00FA'}ncios</span>, <span style={{ color: '#e8a040' }}>3+ dias rodando</span>, <span style={{ color: '#e8a040' }}>&lt;10k seguidores</span>, sem marcas grandes.</p>
+                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros usados pelos maiores players: <span style={{ color: '#e8a040' }}>5-140 an{'\u00FA'}ncios</span>, <span style={{ color: '#e8a040' }}>3+ dias rodando</span>, <span style={{ color: '#e8a040' }}>&lt;10k seguidores</span>, sem marcas grandes.</p>
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
                   <button className="mine-btn" onClick={handleMine} disabled={!mineKeyword.trim() || mining}>
                     {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : <>{'\u26CF\uFE0F'} Minerar Agora</>}
@@ -1610,11 +1616,12 @@ html,body{height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;bac
 .of-layout{position:relative}
 .of-grid-area{width:100%}
 
-/* 5-column grid */
-.of-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
-@media(max-width:1200px){.of-grid{grid-template-columns:repeat(4,1fr)}}
-@media(max-width:900px){.of-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:600px){.of-grid{grid-template-columns:repeat(2,1fr);gap:10px}}
+/* 6-column grid */
+.of-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+@media(max-width:1400px){.of-grid{grid-template-columns:repeat(5,1fr)}}
+@media(max-width:1100px){.of-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:800px){.of-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:550px){.of-grid{grid-template-columns:repeat(2,1fr);gap:10px}}
 
 /* Card */
 .of-card{
@@ -1623,15 +1630,16 @@ html,body{height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;bac
   transition:all .25s cubic-bezier(.16,1,.3,1);
 }
 .of-card:hover{border-color:rgba(255,140,0,.35);transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,.45)}
-.of-card-img{width:100%;aspect-ratio:1;background:var(--bg-elev);position:relative;overflow:hidden}
+.of-card-img{width:100%;aspect-ratio:4/3;background:var(--bg-elev);position:relative;overflow:hidden}
 .of-card-img img{width:100%;height:100%;object-fit:cover;display:block}
 .of-card-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(10,10,20,.8),rgba(15,15,25,.6))}
-/* Play badge */
-.of-card-play{
-  position:absolute;top:10px;left:10px;width:28px;height:28px;
+/* Fire badge */
+.of-card-fire{
+  position:absolute;top:10px;left:10px;width:32px;height:32px;
   background:#FF6B00;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 2px 8px rgba(255,107,0,.5);
+  box-shadow:0 2px 10px rgba(255,107,0,.6);font-size:16px;
+  pointer-events:none;
 }
 /* Bookmark */
 .of-card-bm{
