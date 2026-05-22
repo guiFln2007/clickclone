@@ -41,7 +41,7 @@ app.use(auth)
 
 // Browser pool — reuse browser instance
 let browserInstance = null
-let useWarpProxy = false // quando true, Chrome usa SOCKS5 via WARP
+let useWarpProxy = true // inicia com WARP pq IP residencial tá bloqueado
 const WARP_PROXY = 'socks5://localhost:40000'
 
 async function getBrowser() {

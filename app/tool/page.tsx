@@ -966,9 +966,13 @@ export default function ToolPage() {
                   <div className="history-grid">
                     {savedAnalyses.slice(0, 8).map(a => {
                       const cls = a.score >= 7 ? 'green' : a.score >= 5 ? 'yellow' : 'red'
+                      const pageId = (a.phase1.page_id as string) || a.url?.match(/view_all_page_id=(\d+)/)?.[1] || ''
                       return (
                         <div key={a.id} className="history-card">
-                          <div className={`hc-score ${cls}`} onClick={() => openSavedAnalysis(a)}>{a.score || '?'}</div>
+                          <div style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }} onClick={() => openSavedAnalysis(a)}>
+                            <img src={pageId ? `https://graph.facebook.com/${pageId}/picture?type=large` : ''} alt="" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid #333', background: '#1a1a1a' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            <span className={`mrc-score-badge ${cls}`} style={{ position: 'absolute', bottom: -4, right: -4, fontSize: 10, fontWeight: 800, width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #111' }}>{a.score || '?'}</span>
+                          </div>
                           <div className="hc-info" onClick={() => openSavedAnalysis(a)} style={{ cursor: 'pointer' }}>
                             <div className="hc-name">{(a.phase1.pagina_nome as string) || a.url?.replace(/^https?:\/\//, '').split('/')[0] || a.name}</div>
                             <div className="hc-meta">{timeAgo(a.createdAt)} &middot; {new Date(a.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
