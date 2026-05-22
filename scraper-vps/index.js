@@ -769,76 +769,63 @@ async function runMineJob(jobId, keyword, count) {
           const decoded = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
           if (decoded && decoded.length > 1) p.pagina_nome = decoded
         }
-        // Extrair seguidores — clicar "Sobre" + fallback navegar direto na página FB
-        // Tentar 1: clicar aba "Sobre" no DOM da Ad Library
-        const clickedSobre = await countPage.evaluate(() => {
-          const els = [...document.querySelectorAll('a, button, [role="tab"], [role="link"], span')]
-          const sobre = els.find(l => {
-            const t = (l.textContent || '').trim().toLowerCase()
-            return t === 'sobre' || t === 'about' || t === 'sobre esta página' || t === 'about this page'
-          })
-          if (sobre) { sobre.click(); return true }
-          return false
-        }).catch(() => false)
-        if (clickedSobre) await sleep(5000)
-
-        let aboutText = await countPage.evaluate(() => document.body?.innerText || '').catch(() => '')
-        let aboutHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-
-        // Tentar 2: SEMPRE navegar na página FB pra pegar IG followers
-        // A aba "Sobre" da Ad Library só mostra FB followers, não IG
+        // Extrair seguidores — navegar na aba "Sobre" da Ad Library (URL direta)
+        const aboutUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}&sort_data[direction]=desc&sort_data[mode]=relevancy_monthly_grouped&search_type=page&media_type=all&content_languages[0]=pt`
         try {
-          await countPage.goto(`https://www.facebook.com/${p.page_id}`, { waitUntil: 'domcontentloaded', timeout: 15000 })
-          await sleep(4000)
-          const fbPageText = await countPage.evaluate(() => document.body?.innerText || '').catch(() => '')
-          const fbPageHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-          aboutText += '\n' + fbPageText
-          aboutHtml += fbPageHtml
-        } catch {}
+          // Navegar na página da Ad Library do page_id (se não estamos lá já)
+          const currentUrl = countPage.url()
+          if (!currentUrl.includes(p.page_id)) {
+            await countPage.goto(aboutUrl, { waitUntil: 'networkidle2', timeout: 20000 })
+            await sleep(3000)
+          }
+          // Clicar aba "Sobre"
+          const clicked = await countPage.evaluate(() => {
+            const all = [...document.querySelectorAll('a[href], span, div[role="tab"]')]
+            for (const el of all) {
+              const t = (el.textContent || '').trim()
+              if (t === 'Sobre' || t === 'About') { el.click(); return 'clicked:' + t }
+            }
+            return 'not_found'
+          })
+          if (clicked.startsWith('clicked')) {
+            await sleep(6000) // dar tempo pro conteúdo "Sobre" carregar
+          }
+          // Pegar texto renderizado + HTML
+          const aboutText = await countPage.evaluate(() => document.body?.innerText || '').catch(() => '')
+          const aboutHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
 
-        // Parsear seguidores do texto limpo (PT + EN)
-        const allFollowers = []
-        // JSON: "page_like_count"
-        const likesMatch = (aboutHtml).match(/"page_like_count"\s*:\s*(\d+)/)
-        if (likesMatch) allFollowers.push({ src: 'fb_json', val: parseInt(likesMatch[1]) })
-        // JSON: "followers_count" ou "ig_followers"
-        const igJsonMatch = (aboutHtml).match(/"(?:ig_followers|followers_count)"\s*:\s*(\d+)/)
-        if (igJsonMatch) allFollowers.push({ src: 'ig_json', val: parseInt(igJsonMatch[1]) })
-        // Texto PT: "X,X mil seguidores"
-        for (const fm of aboutText.matchAll(/([\d.,]+)\s*(mil|milhão|milhões|mi)?\s*seguidores/gi)) {
-          let num = parseFloat(fm[1].replace(/\./g, '').replace(',', '.'))
-          const mult = (fm[2] || '').toLowerCase()
-          if (mult === 'mil') num *= 1000
-          if (mult === 'milhão' || mult === 'milhões' || mult === 'mi') num *= 1000000
-          allFollowers.push({ src: 'text_pt', val: Math.round(num) })
+          // Parse "X seguidores" (PT)
+          const allFollowers = []
+          for (const fm of aboutText.matchAll(/([\d.,]+)\s*(mil|milhão|milhões|mi)?\s*seguidores/gi)) {
+            let num = parseFloat(fm[1].replace(/\./g, '').replace(',', '.'))
+            const mult = (fm[2] || '').toLowerCase()
+            if (mult === 'mil') num *= 1000
+            if (mult === 'milhão' || mult === 'milhões' || mult === 'mi') num *= 1000000
+            allFollowers.push(Math.round(num))
+          }
+          // Parse "X followers" (EN)
+          for (const fm of aboutText.matchAll(/([\d.,]+)\s*([KkMm])?\s*followers/gi)) {
+            let num = parseFloat(fm[1].replace(/,/g, ''))
+            if ((fm[2] || '').toUpperCase() === 'K') num *= 1000
+            if ((fm[2] || '').toUpperCase() === 'M') num *= 1000000
+            allFollowers.push(Math.round(num))
+          }
+          // JSON embedded
+          const likeM = aboutHtml.match(/"page_like_count"\s*:\s*(\d+)/)
+          if (likeM) allFollowers.push(parseInt(likeM[1]))
+
+          const unique = [...new Set(allFollowers)].sort((a, b) => a - b)
+          if (unique.length >= 2) { p.fb_followers = unique[0]; p.ig_followers = unique[unique.length - 1] }
+          else if (unique.length === 1) p.fb_followers = unique[0]
+
+          // IG handle
+          const igM = aboutHtml.match(/instagram\.com\/([a-zA-Z0-9_.]+)/)
+          if (igM) p.ig_handle = '@' + igM[1]
+
+          if (unique.length > 0) console.log(`[mine] ${p.pagina_nome} followers: ${JSON.stringify(unique)} (clicked: ${clicked})`)
+        } catch (e) {
+          console.log(`[mine] ${p.pagina_nome} followers error: ${e.message}`)
         }
-        // Texto EN: "X.XK followers", "X.XM followers", "X,XXX followers"
-        for (const fm of aboutText.matchAll(/([\d.,]+)\s*([KkMm])?\s*followers/gi)) {
-          let num = parseFloat(fm[1].replace(/,/g, ''))
-          const mult = (fm[2] || '').toUpperCase()
-          if (mult === 'K') num *= 1000
-          if (mult === 'M') num *= 1000000
-          allFollowers.push({ src: 'text_en', val: Math.round(num) })
-        }
-        // Texto: "X curtidas" / "X likes" (FB page likes como fallback)
-        for (const fm of aboutText.matchAll(/([\d.,]+)\s*(mil|milhão|milhões|mi|[KkMm])?\s*(?:curtidas|likes)/gi)) {
-          let num = parseFloat(fm[1].replace(/\./g, '').replace(',', '.'))
-          const mult = (fm[2] || '').toLowerCase()
-          if (mult === 'mil' || mult === 'k') num *= 1000
-          if (mult === 'milhão' || mult === 'milhões' || mult === 'mi' || mult === 'm') num *= 1000000
-          allFollowers.push({ src: 'likes', val: Math.round(num) })
-        }
-        // Deduplica e ordena
-        const uniqueFollowers = [...new Set(allFollowers.map(f => f.val))].sort((a, b) => a - b)
-        if (uniqueFollowers.length >= 2) {
-          p.fb_followers = uniqueFollowers[0]
-          p.ig_followers = uniqueFollowers[uniqueFollowers.length - 1]
-        } else if (uniqueFollowers.length === 1) {
-          p.fb_followers = uniqueFollowers[0]
-        }
-        // IG handle
-        const igHandleMatch = (aboutHtml).match(/instagram\.com\/([a-zA-Z0-9_.]+)/)
-        if (igHandleMatch) p.ig_handle = '@' + igHandleMatch[1]
 
         if (realCount > 0) {
           const fStr = p.fb_followers ? `, fb=${p.fb_followers}` : ''
