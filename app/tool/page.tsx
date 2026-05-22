@@ -305,6 +305,20 @@ export default function ToolPage() {
   const [termLines, setTermLines] = useState<{ text: string; type: string }[]>([])
   const [error, setError] = useState('')
   const [dashProgress, setDashProgress] = useState(0)
+  const [dashTarget, setDashTarget] = useState(0)
+
+  // Gradual progress bar — creeps toward target
+  useEffect(() => {
+    if (!analyzing) return
+    const iv = setInterval(() => {
+      setDashProgress(prev => {
+        if (prev >= dashTarget) return prev
+        const step = dashTarget <= 50 ? 0.5 : 0.3
+        return Math.min(prev + step, dashTarget)
+      })
+    }, 200)
+    return () => clearInterval(iv)
+  }, [analyzing, dashTarget])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [phase1Report, setPhase1Report] = useState<Record<string, any> | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -438,7 +452,7 @@ export default function ToolPage() {
     if (e) e.preventDefault()
     const analyzeUrl = overrideUrl || url
     if (!analyzeUrl.trim()) return
-    setShowReport(false); setAnalyzing(true); setError(''); setTermLines([]); setDashProgress(0)
+    setShowReport(false); setAnalyzing(true); setError(''); setTermLines([]); setDashProgress(0); setDashTarget(5)
     setPhase1Report(null); setPhase2Report(null); setPhase2Screenshots([])
     if (stepTimer.current) clearInterval(stepTimer.current)
 
@@ -463,8 +477,8 @@ export default function ToolPage() {
       let p1: Record<string, unknown> | null = null; let phase1Err: string | null = null
       await readSSE(res1, ev => {
         if (ev.type === 'error') { phase1Err = ev.message as string; return true }
-        if (ev.type === 'progress') { setTermLines(prev => [...prev, { text: `> ${ev.text}`, type: 'wait' }]); setDashProgress(30) }
-        if (ev.type === 'done') { p1 = ev.report as Record<string, unknown>; setTermLines(prev => [...prev, { text: '\u2713 Fase 1 concluida', type: 'done' }]); setDashProgress(50); return true }
+        if (ev.type === 'progress') { setTermLines(prev => [...prev, { text: `> ${ev.text}`, type: 'wait' }]); setDashTarget(30) }
+        if (ev.type === 'done') { p1 = ev.report as Record<string, unknown>; setTermLines(prev => [...prev, { text: '\u2713 Fase 1 concluida', type: 'done' }]); setDashTarget(50); return true }
         return false
       })
       if (phase1Err) throw new Error(phase1Err)
@@ -482,12 +496,12 @@ export default function ToolPage() {
       let p2: Record<string, unknown> | null = null; let shots: string[] = []; let phase2Err: string | null = null
       await readSSE(res2, ev => {
         if (ev.type === 'error') { phase2Err = ev.message as string; return true }
-        if (ev.type === 'progress') { setTermLines(prev => [...prev, { text: `> ${ev.text}`, type: 'wait' }]); setDashProgress(75) }
-        if (ev.type === 'done') { p2 = ev.report as Record<string, unknown>; shots = (ev.screenshots as string[]) || []; setTermLines(prev => [...prev, { text: '\u2713 Prompt do funil pronto', type: 'done' }]); setDashProgress(100); return true }
+        if (ev.type === 'progress') { setTermLines(prev => [...prev, { text: `> ${ev.text}`, type: 'wait' }]); setDashTarget(75) }
+        if (ev.type === 'done') { p2 = ev.report as Record<string, unknown>; shots = (ev.screenshots as string[]) || []; setTermLines(prev => [...prev, { text: '\u2713 Prompt do funil pronto', type: 'done' }]); setDashTarget(100); return true }
         return false
       })
-      if (phase2Err) throw new Error(phase2Err)
-      if (!p2) throw new Error('Fase 2 nao retornou relatorio')
+      if (phase2Err) throw new Error(`Fase 2: ${phase2Err}`)
+      if (!p2) throw new Error('Fase 2 nao retornou relatorio. Tente novamente.')
       setPhase2Report(p2); setPhase2Screenshots(shots)
 
       // Save to history

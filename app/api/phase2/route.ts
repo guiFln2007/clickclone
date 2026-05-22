@@ -6,7 +6,7 @@ export const maxDuration = 300
 async function fetchPageText(url: string): Promise<string> {
   try {
     const res = await fetch(url, {
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(8000),
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -42,7 +42,7 @@ async function fetchPageText(url: string): Promise<string> {
 async function fetchPageMedia(url: string): Promise<{ images: string[], videos: string[], ogImage: string | null }> {
   try {
     const res = await fetch(url, {
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(8000),
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
@@ -194,27 +194,25 @@ INSTRU\u00c7\u00c3O: O prompt_lovable DEVE referenciar estas URLs de imagens/v\u
 Gere o prompt pronto para Lovable/Bolt com o funil completo modelado a partir deste concorrente. Retorne o JSON estruturado.`
 
         let rawText = ''
-        let lastErr: Error | null = null
-        for (let attempt = 0; attempt < 2; attempt++) {
-          try {
-            const response = await client.messages.create({
-              model: 'claude-sonnet-4-6',
-              max_tokens: 16000,
-              system: SYSTEM_PROMPT_PHASE2,
-              messages: [{ role: 'user', content: prompt }],
-            })
-            const textBlock = response.content.find(b => b.type === 'text')
-            rawText = textBlock?.type === 'text' ? textBlock.text : ''
-            console.log(`[Phase2] Claude response: ${rawText.length} chars, stop: ${response.stop_reason}`)
-            if (rawText.length > 50) { lastErr = null; break }
-            lastErr = new Error(`Resposta muito curta (${rawText.length} chars)`)
-          } catch (e) {
-            lastErr = e as Error
-            console.error(`[Phase2] Attempt ${attempt + 1} failed:`, (e as Error).message)
-            if (attempt === 0) send({ type: 'progress', text: '⚠️ Retentando análise...' })
+        // Usar streaming pra manter conexão viva no Hostinger (evita timeout)
+        const stream = client.messages.stream({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 16000,
+          system: SYSTEM_PROMPT_PHASE2,
+          messages: [{ role: 'user', content: prompt }],
+        })
+        let chunkCount = 0
+        stream.on('text', (text) => {
+          rawText += text
+          chunkCount++
+          // Mandar keepalive a cada 20 chunks pra não dar timeout
+          if (chunkCount % 20 === 0) {
+            send({ type: 'progress', text: `Gerando funil... (${Math.round(rawText.length / 100)}%)` })
           }
-        }
-        if (lastErr) throw lastErr
+        })
+        const finalMessage = await stream.finalMessage()
+        console.log(`[Phase2] Claude response: ${rawText.length} chars, stop: ${finalMessage.stop_reason}`)
+        if (rawText.length < 50) throw new Error(`Resposta muito curta (${rawText.length} chars)`)
 
         let report: Record<string, unknown>
         try {
@@ -252,8 +250,10 @@ Gere o prompt pronto para Lovable/Bolt com o funil completo modelado a partir de
         send({ type: 'done', report })
         controller.close()
       } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Erro interno'
+        console.error('[Phase2] FATAL:', msg)
         controller.enqueue(encoder.encode(
-          `data: ${JSON.stringify({ type: 'error', message: err instanceof Error ? err.message : 'Erro interno' })}\n\n`
+          `data: ${JSON.stringify({ type: 'error', message: msg })}\n\n`
         ))
         controller.close()
       }
