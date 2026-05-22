@@ -14,14 +14,31 @@ function extractCustomer(body: Record<string, unknown>) {
 // Mapeia o valor pago pro plano correto
 // Starter: R$57,90 | Premium: R$147,90 (trimestral)
 function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
-  const amount = Number(body.amount || body.total || body.price || (body.charge as Record<string, unknown>)?.amount || 0)
-  // Valor em centavos ou reais — normaliza
-  const value = amount > 1000 ? amount / 100 : amount
-  // Premium = acima de R$100
-  if (value >= 100) return 'premium'
-  // Checa product name/id como fallback
-  const productName = String(body.product_name || body.offer_name || body.plan_name || '').toLowerCase()
-  if (productName.includes('premium') || productName.includes('trimestral')) return 'premium'
+  // Busca valor em todos os lugares possíveis do payload Kirvano
+  const purchase = (body.purchase || body.subscription || body.charge || body.order || {}) as Record<string, unknown>
+  const product = (body.product || body.offer || {}) as Record<string, unknown>
+  const candidates = [
+    body.amount, body.total, body.price, body.value,
+    purchase.amount, purchase.total, purchase.price, purchase.value,
+    product.price, product.amount,
+    (body.charge as Record<string, unknown>)?.amount,
+  ].filter(Boolean)
+
+  for (const raw of candidates) {
+    const num = Number(raw)
+    if (isNaN(num) || num <= 0) continue
+    const value = num > 1000 ? num / 100 : num
+    console.log(`[kirvano] detectPlan: found value ${num} -> R$${value.toFixed(2)}`)
+    if (value >= 100) return 'premium'
+    if (value >= 40) return 'starter'
+  }
+
+  // Fallback: checa nomes de produto/oferta
+  const allText = JSON.stringify(body).toLowerCase()
+  if (allText.includes('premium') || allText.includes('trimestral') || allText.includes('147')) return 'premium'
+
+  console.log(`[kirvano] detectPlan: no amount found, defaulting. Body keys: ${Object.keys(body).join(',')}`)
+  console.log(`[kirvano] detectPlan: full body: ${JSON.stringify(body).slice(0, 500)}`)
   return 'starter'
 }
 
