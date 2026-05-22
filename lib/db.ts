@@ -1085,8 +1085,8 @@ export async function dbGetMinedOffers(opts: {
     "status IN ('ouro', 'ativa')",
     "ad_count >= 5",
     "ad_count <= 140",
-    "(fb_followers IS NULL OR fb_followers < 10000)",
-    "(ig_followers IS NULL OR ig_followers < 10000)",
+    "(fb_followers IS NULL OR fb_followers < 30000)",
+    "(ig_followers IS NULL OR ig_followers < 30000)",
   ]
   const args: (string | number)[] = []
 

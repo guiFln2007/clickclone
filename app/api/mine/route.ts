@@ -222,12 +222,12 @@ export async function GET(req: NextRequest) {
   const minAnuncios = 5
   const maxAnuncios = 140
   const minDias = 3
-  const maxFollowers = 10000
+  const maxFollowers = 30000
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
 
   // Bloqueia redes sociais e app stores como landing
   const BLOCKED_LANDING_DOMAINS = [
-    'instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com',
+    'instagram.com', 'facebook.com', 'fb.com',
     'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com',
     't.me', 'telegram',
     'itunes.apple.com', 'apps.apple.com', 'play.google.com', 'app.adjust.com',

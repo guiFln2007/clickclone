@@ -26,10 +26,11 @@ const BRAND_BLACKLIST = [
 ]
 
 const BLOCKED_LANDING_DOMAINS = [
-  'instagram.com', 'whatsapp.com', 'wa.me', 'facebook.com', 'fb.com',
+  'instagram.com', 'facebook.com', 'fb.com',
   'tiktok.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com',
   't.me', 'telegram', 'itunes.apple.com', 'apps.apple.com', 'play.google.com',
   'app.adjust.com', 'onelink.me', 'bit.ly', 'linktr.ee',
+  'workers.dev', 'split-traffic', 'splittraffic', 'cloaker',
 ]
 
 // POST — Recebe ofertas do scraper auto-mine e salva no Turso
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) continue
     if (nameLower.endsWith(' oficial') || nameLower.includes('® ') || nameLower.includes('™')) continue
     if (o.dias_rodando !== null && o.dias_rodando < 3) continue
-    if ((o.fb_followers ?? 0) >= 10000 || (o.ig_followers ?? 0) >= 10000) continue
+    if ((o.fb_followers ?? 0) >= 30000 || (o.ig_followers ?? 0) >= 30000) continue
     if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) continue
 
     try {

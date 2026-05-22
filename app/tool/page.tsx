@@ -352,6 +352,7 @@ export default function ToolPage() {
   const [feedOffers, setFeedOffers] = useState<FeedOffer[]>([])
   const [feedLoading, setFeedLoading] = useState(false)
   const [feedSearch, setFeedSearch] = useState('')
+  const [selectedOffer, setSelectedOffer] = useState<FeedOffer | null>(null)
 
   // Toast
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
@@ -897,17 +898,14 @@ export default function ToolPage() {
                       ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${o.page_id}`
                       : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(o.page_name)}&search_type=keyword_unordered`
                     return (
-                      <div key={o.id} className="of-card">
-                        <div className="of-card-img" onClick={() => { setUrl(adLibUrl); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, adLibUrl), 150) }}>
+                      <div key={o.id} className="of-card" onClick={() => setSelectedOffer(o)}>
+                        <div className="of-card-img">
                           {thumb ? <img src={thumb} alt={o.page_name} /> : (
                             <img src={`https://graph.facebook.com/${o.page_id}/picture?type=large`} alt={o.page_name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                           )}
                           <div className="of-card-fire">&#x1F525;</div>
-                          <button className="of-card-bm" onClick={(e) => { e.stopPropagation(); saveMinedToRadar({ pagina_nome: o.page_name, ad_library_url: adLibUrl, landing_url: o.landing_url, total_anuncios: o.ad_count, dias_rodando: o.dias_rodando, score_escalabilidade: 0, fb_followers: o.fb_followers, ig_followers: o.ig_followers, ig_handle: o.ig_handle, nicho: o.nicho || '', resumo_angulo: '' }) }} title="Salvar no Radar">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill={savedToRadar.has(o.page_name) ? '#FF8C00' : 'none'} stroke={savedToRadar.has(o.page_name) ? '#FF8C00' : 'currentColor'} strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                          </button>
                         </div>
-                        <div className="of-card-body" onClick={() => { setUrl(adLibUrl); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, adLibUrl), 150) }}>
+                        <div className="of-card-body">
                           <div className="of-card-name">{o.page_name}</div>
                           <div className="of-card-footer">
                             <div className="of-card-ads">{o.ad_count}<span>Ads</span></div>
@@ -919,6 +917,82 @@ export default function ToolPage() {
                   })}
                 </div>
               )}
+
+              {/* Modal detalhe da oferta */}
+              {selectedOffer && (() => {
+                const o = selectedOffer
+                const adLibUrl = /^\d+$/.test(o.page_id)
+                  ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${o.page_id}`
+                  : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(o.page_name)}&search_type=keyword_unordered`
+                return (
+                  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setSelectedOffer(null)}>
+                    <div style={{ background: '#1a1a1a', borderRadius: 16, maxWidth: 480, width: '100%', overflow: 'hidden', border: '1px solid #333' }} onClick={e => e.stopPropagation()}>
+                      {/* Header com avatar */}
+                      <div style={{ padding: '24px 24px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <img src={`https://graph.facebook.com/${o.page_id}/picture?type=large`} alt="" style={{ width: 56, height: 56, borderRadius: '50%', border: '2px solid #333', background: '#111', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).src = '' }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.page_name}</div>
+                          {o.nicho && <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>{o.nicho}</div>}
+                          <a href={adLibUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#FF8C00', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4, background: 'rgba(255,140,0,.1)', padding: '3px 8px', borderRadius: 6 }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FF8C00" strokeWidth="2.5" style={{ flexShrink: 0 }}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Ver Biblioteca de An{'\u00FA'}ncios</a>
+                        </div>
+                        <button onClick={() => setSelectedOffer(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: 4, fontSize: 20, lineHeight: 1 }}>&times;</button>
+                      </div>
+
+                      {/* Stats grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '0 24px 16px' }}>
+                        <div style={{ background: '#111', borderRadius: 10, padding: '12px 14px' }}>
+                          <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>An{'\u00FA'}ncios ativos</div>
+                          <div style={{ fontSize: 22, fontWeight: 800, color: '#FF8C00' }}>{o.ad_count}</div>
+                        </div>
+                        <div style={{ background: '#111', borderRadius: 10, padding: '12px 14px' }}>
+                          <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Dias rodando</div>
+                          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>{o.dias_rodando ?? '?'}</div>
+                        </div>
+                        <div style={{ background: '#111', borderRadius: 10, padding: '12px 14px' }}>
+                          <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Seguidores FB</div>
+                          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>{o.fb_followers ? o.fb_followers.toLocaleString('pt-BR') : '--'}</div>
+                        </div>
+                        <div style={{ background: '#111', borderRadius: 10, padding: '12px 14px' }}>
+                          <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Seguidores IG</div>
+                          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>{o.ig_followers ? o.ig_followers.toLocaleString('pt-BR') : '--'}{o.ig_handle ? <span style={{ fontSize: 11, color: '#888', marginLeft: 6 }}>{o.ig_handle}</span> : ''}</div>
+                        </div>
+                      </div>
+
+                      {/* Keyword source */}
+                      {(o as Record<string, unknown>).keyword_source && (
+                        <div style={{ padding: '0 24px 12px', fontSize: 12, color: '#666' }}>
+                          Encontrada via: <span style={{ color: '#999' }}>{String((o as Record<string, unknown>).keyword_source)}</span>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div style={{ padding: '12px 24px 24px', display: 'flex', gap: 10 }}>
+                        <button
+                          onClick={() => { setSelectedOffer(null); setUrl(adLibUrl); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, adLibUrl), 150) }}
+                          style={{ flex: 1, padding: '12px 16px', borderRadius: 10, border: 'none', background: '#FF8C00', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                          Analisar
+                        </button>
+                        <button
+                          onClick={() => { saveMinedToRadar({ pagina_nome: o.page_name, ad_library_url: adLibUrl, landing_url: o.landing_url, total_anuncios: o.ad_count, dias_rodando: o.dias_rodando, score_escalabilidade: 0, fb_followers: o.fb_followers, ig_followers: o.ig_followers, ig_handle: o.ig_handle, nicho: o.nicho || '', resumo_angulo: '' }); setSelectedOffer(null) }}
+                          style={{ flex: 1, padding: '12px 16px', borderRadius: 10, border: '1px solid #333', background: 'transparent', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                          Salvar no Radar
+                        </button>
+                      </div>
+
+                      {/* Link ad library */}
+                      <div style={{ padding: '0 24px 20px', textAlign: 'center' }}>
+                        <a href={adLibUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#666', textDecoration: 'none' }}>
+                          Ver na Biblioteca de An{'\u00FA'}ncios &rarr;
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           )}
 
@@ -1141,7 +1215,7 @@ export default function ToolPage() {
                   disabled={mining}
                   style={{ width: '100%', padding: '12px 16px', fontSize: 15, borderRadius: 8, border: '1px solid #444', background: '#1a1a1a', color: '#fff', marginBottom: 20, outline: 'none' }}
                 />
-                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros usados pelos maiores players: <span style={{ color: '#e8a040' }}>5-140 an{'\u00FA'}ncios</span>, <span style={{ color: '#e8a040' }}>3+ dias rodando</span>, <span style={{ color: '#e8a040' }}>&lt;10k seguidores</span>, sem marcas grandes.</p>
+                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros usados pelos maiores players: <span style={{ color: '#e8a040' }}>5-140 an{'\u00FA'}ncios</span>, <span style={{ color: '#e8a040' }}>3+ dias rodando</span>, <span style={{ color: '#e8a040' }}>&lt;30k seguidores</span>, sem marcas grandes.</p>
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
                   <button className="mine-btn" onClick={handleMine} disabled={!mineKeyword.trim() || mining}>
                     {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : <>{'\u26CF\uFE0F'} Minerar Agora</>}

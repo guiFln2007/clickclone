@@ -743,8 +743,8 @@ async function runMineJob(jobId, keyword, count) {
       })
 
     // Pegar contagem real via browser (navega, lê "~X resultados", fecha)
-    const toCount = preliminary.filter(p => p.keyword_hits >= 3).slice(0, 30)
-    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${toCount.length} with 3+ keyword hits, counting real ads...`)
+    const toCount = preliminary.filter(p => p.keyword_hits >= 1).slice(0, 30)
+    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${toCount.length} with 1+ keyword hits, counting real ads...`)
 
     const countPage = await browser.newPage()
     await setupPage(countPage)
@@ -852,8 +852,8 @@ async function runMineJob(jobId, keyword, count) {
     }
     await countPage.close().catch(() => {})
 
-    const over3 = preliminary.filter(p => p.keyword_hits >= 3)
-    console.log(`[mine] "${keyword}": ${over3.length} pages with real counts`)
+    const counted = toCount.filter(p => p.total_anuncios > 0)
+    console.log(`[mine] "${keyword}": ${counted.length} pages with real counts`)
 
     const results = preliminary.slice(0, 60).map(p => ({
       ...p,
@@ -1001,9 +1001,9 @@ async function runAutoMineLoop(callbackUrl) {
         const results = job.results
         const filtered = results.filter(p =>
           p.total_anuncios >= 5 && p.total_anuncios <= 140 &&
-          (p.fb_followers === null || p.fb_followers < 10000) &&
-          (p.ig_followers === null || p.ig_followers < 10000) &&
-          p.keyword_hits >= 3
+          (p.fb_followers === null || p.fb_followers < 30000) &&
+          (p.ig_followers === null || p.ig_followers < 30000) &&
+          p.keyword_hits >= 1
         )
         console.log(`[auto-mine] "${keyword}": ${results.length} pages -> ${filtered.length} after filters`)
 
