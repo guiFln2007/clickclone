@@ -14,6 +14,9 @@ function extractCustomer(body: Record<string, unknown>) {
 // Mapeia o valor pago pro plano correto
 // Starter: R$57,90 | Premium: R$147,90 (trimestral)
 function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
+  // Log full body pra debug (sempre)
+  console.log(`[kirvano] detectPlan body: ${JSON.stringify(body).slice(0, 800)}`)
+
   // Busca valor em todos os lugares possíveis do payload Kirvano
   const purchase = (body.purchase || body.subscription || body.charge || body.order || {}) as Record<string, unknown>
   const product = (body.product || body.offer || {}) as Record<string, unknown>
@@ -30,15 +33,16 @@ function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
     const value = num > 1000 ? num / 100 : num
     console.log(`[kirvano] detectPlan: found value ${num} -> R$${value.toFixed(2)}`)
     if (value >= 100) return 'premium'
-    if (value >= 40) return 'starter'
+    return 'starter'
   }
 
-  // Fallback: checa nomes de produto/oferta
-  const allText = JSON.stringify(body).toLowerCase()
-  if (allText.includes('premium') || allText.includes('trimestral') || allText.includes('147')) return 'premium'
+  // Fallback SEGURO: só checa product_name/offer_name (NÃO body inteiro)
+  const productName = String(body.product_name || body.offer_name || body.plan_name || product.name || '').toLowerCase()
+  console.log(`[kirvano] detectPlan: no amount, checking product name: "${productName}"`)
+  if (productName.includes('premium') || productName.includes('trimestral')) return 'premium'
 
-  console.log(`[kirvano] detectPlan: no amount found, defaulting. Body keys: ${Object.keys(body).join(',')}`)
-  console.log(`[kirvano] detectPlan: full body: ${JSON.stringify(body).slice(0, 500)}`)
+  // Default = starter (mais seguro — nunca dar premium sem certeza)
+  console.log(`[kirvano] detectPlan: defaulting to starter. Keys: ${Object.keys(body).join(',')}`)
   return 'starter'
 }
 

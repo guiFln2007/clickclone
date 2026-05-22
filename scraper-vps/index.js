@@ -769,62 +769,48 @@ async function runMineJob(jobId, keyword, count) {
           const decoded = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
           if (decoded && decoded.length > 1) p.pagina_nome = decoded
         }
-        // Extrair seguidores — navegar na aba "Sobre" da Ad Library (URL direta)
-        const aboutUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}&sort_data[direction]=desc&sort_data[mode]=relevancy_monthly_grouped&search_type=page&media_type=all&content_languages[0]=pt`
-        try {
-          // Navegar na página da Ad Library do page_id (se não estamos lá já)
-          const currentUrl = countPage.url()
-          if (!currentUrl.includes(p.page_id)) {
-            await countPage.goto(aboutUrl, { waitUntil: 'networkidle2', timeout: 20000 })
-            await sleep(3000)
-          }
-          // Clicar aba "Sobre"
-          const clicked = await countPage.evaluate(() => {
-            const all = [...document.querySelectorAll('a[href], span, div[role="tab"]')]
-            for (const el of all) {
-              const t = (el.textContent || '').trim()
-              if (t === 'Sobre' || t === 'About') { el.click(); return 'clicked:' + t }
+        // ── EXTRAIR SEGUIDORES ──
+        // 1. FB followers: page_like_count do JSON no HTML (SSR ou browser)
+        const fullHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+        const likeM = (html + fullHtml).match(/"page_like_count"\s*:\s*(\d+)/)
+        if (likeM) p.fb_followers = parseInt(likeM[1])
+
+        // 2. IG handle: buscar no HTML renderizado pelo browser (mais completo que SSR)
+        const igM = (html + fullHtml).match(/instagram\.com\/([a-zA-Z0-9_.]{2,30})/)
+        if (igM && !['p', 'reel', 'reels', 'explore', 'stories', 'accounts', 'about', 'login'].includes(igM[1])) {
+          p.ig_handle = '@' + igM[1]
+        }
+
+        // 3. IG followers: fetch perfil público do Instagram (meta tags — funciona sem login)
+        if (p.ig_handle) {
+          try {
+            const igUser = p.ig_handle.replace('@', '')
+            const igRes = await fetch(`https://www.instagram.com/${igUser}/`, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml',
+                'Accept-Language': 'pt-BR,pt;q=0.9',
+              },
+              signal: AbortSignal.timeout(8000),
+            })
+            if (igRes.ok) {
+              const igHtml = await igRes.text()
+              // Meta tag: "X Followers, Y Following, Z Posts"
+              const metaMatch = igHtml.match(/content="([\d.,]+[KkMm]?)\s*Followers/i)
+              if (metaMatch) {
+                let igNum = parseFloat(metaMatch[1].replace(/,/g, ''))
+                if (/[Kk]/.test(metaMatch[1])) igNum *= 1000
+                if (/[Mm]/.test(metaMatch[1])) igNum *= 1000000
+                p.ig_followers = Math.round(igNum)
+                console.log(`[mine] ${p.pagina_nome} IG @${igUser}: ${p.ig_followers} followers`)
+              }
+              // Fallback: JSON embedded
+              if (!p.ig_followers) {
+                const fcMatch = igHtml.match(/"follower_count"\s*:\s*(\d+)/)
+                if (fcMatch) { p.ig_followers = parseInt(fcMatch[1]); console.log(`[mine] ${p.pagina_nome} IG @${igUser}: ${p.ig_followers} followers (json)`) }
+              }
             }
-            return 'not_found'
-          })
-          if (clicked.startsWith('clicked')) {
-            await sleep(6000) // dar tempo pro conteúdo "Sobre" carregar
-          }
-          // Pegar texto renderizado + HTML
-          const aboutText = await countPage.evaluate(() => document.body?.innerText || '').catch(() => '')
-          const aboutHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-
-          // Parse "X seguidores" (PT)
-          const allFollowers = []
-          for (const fm of aboutText.matchAll(/([\d.,]+)\s*(mil|milhão|milhões|mi)?\s*seguidores/gi)) {
-            let num = parseFloat(fm[1].replace(/\./g, '').replace(',', '.'))
-            const mult = (fm[2] || '').toLowerCase()
-            if (mult === 'mil') num *= 1000
-            if (mult === 'milhão' || mult === 'milhões' || mult === 'mi') num *= 1000000
-            allFollowers.push(Math.round(num))
-          }
-          // Parse "X followers" (EN)
-          for (const fm of aboutText.matchAll(/([\d.,]+)\s*([KkMm])?\s*followers/gi)) {
-            let num = parseFloat(fm[1].replace(/,/g, ''))
-            if ((fm[2] || '').toUpperCase() === 'K') num *= 1000
-            if ((fm[2] || '').toUpperCase() === 'M') num *= 1000000
-            allFollowers.push(Math.round(num))
-          }
-          // JSON embedded
-          const likeM = aboutHtml.match(/"page_like_count"\s*:\s*(\d+)/)
-          if (likeM) allFollowers.push(parseInt(likeM[1]))
-
-          const unique = [...new Set(allFollowers)].sort((a, b) => a - b)
-          if (unique.length >= 2) { p.fb_followers = unique[0]; p.ig_followers = unique[unique.length - 1] }
-          else if (unique.length === 1) p.fb_followers = unique[0]
-
-          // IG handle
-          const igM = aboutHtml.match(/instagram\.com\/([a-zA-Z0-9_.]+)/)
-          if (igM) p.ig_handle = '@' + igM[1]
-
-          if (unique.length > 0) console.log(`[mine] ${p.pagina_nome} followers: ${JSON.stringify(unique)} (clicked: ${clicked})`)
-        } catch (e) {
-          console.log(`[mine] ${p.pagina_nome} followers error: ${e.message}`)
+          } catch {}
         }
 
         if (realCount > 0) {
