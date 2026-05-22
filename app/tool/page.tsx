@@ -2236,8 +2236,8 @@ html,body{height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;bac
   transition:all .3s var(--ease-out);position:relative;overflow:hidden;
 }
 .criativo-card:hover{border-color:rgba(255,107,0,.2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
-.criativo-media{width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;margin-bottom:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.04)}
-.criativo-media img,.criativo-media video{width:100%;height:100%;object-fit:cover;display:block}
+.criativo-media{width:100%;border-radius:10px;overflow:hidden;margin-bottom:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.04)}
+.criativo-media img,.criativo-media video{width:100%;height:auto;display:block}
 .criativo-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .criativo-score{
   width:36px;height:36px;border-radius:10px;

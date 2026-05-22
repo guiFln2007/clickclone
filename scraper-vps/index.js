@@ -1046,13 +1046,61 @@ async function runAutoMineLoop(callbackUrl) {
 
     autoMineIndex++
     if (autoMineIndex >= AUTO_MINE_KEYWORDS.length) {
-      console.log(`[auto-mine] Cycle complete! Restarting...`)
+      console.log(`[auto-mine] Cycle complete! Refreshing ad counts...`)
+      await refreshOfferCounts(callbackUrl)
       autoMineIndex = 0
     }
     // 5 min entre keywords
     await sleep(300000)
   }
   console.log(`[auto-mine] Loop stopped`)
+}
+
+// ── REFRESH AD COUNTS ──
+async function refreshOfferCounts(callbackUrl) {
+  try {
+    // Buscar ofertas ativas do banco via API
+    const res = await fetch(callbackUrl.replace('/auto-mine', '/auto-mine/offers'), {
+      headers: { 'Authorization': `Bearer ${SECRET}` },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) { console.log(`[refresh] Failed to fetch offers: ${res.status}`); return }
+    const { offers } = await res.json()
+    if (!offers?.length) { console.log(`[refresh] No offers to refresh`); return }
+
+    console.log(`[refresh] Refreshing ${offers.length} offers...`)
+    const browser = await getBrowser()
+    const page = await browser.newPage()
+    await setupPage(page)
+
+    for (const o of offers) {
+      try {
+        const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${o.page_id}&sort_data[direction]=desc&sort_data[mode]=relevancy_monthly_grouped&search_type=page&media_type=all`
+        await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
+        await sleep(3000)
+        const html = await page.evaluate(() => document.documentElement?.innerHTML || '')
+        const approxMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
+        const newCount = approxMatch ? parseInt(approxMatch[1].replace(/[.,]/g, '')) : null
+        if (newCount !== null && newCount !== o.ad_count) {
+          // Atualizar via callback
+          await fetch(callbackUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
+            body: JSON.stringify({ keyword: '_refresh', offers: [{ pagina_nome: o.page_name, page_id: o.page_id, total_anuncios: newCount, landing_url: o.landing_url, dias_rodando: o.dias_rodando, fb_followers: o.fb_followers, ig_followers: o.ig_followers, keyword_hits: 1 }] }),
+            signal: AbortSignal.timeout(10000),
+          }).catch(() => {})
+          console.log(`[refresh] ${o.page_name}: ${o.ad_count} -> ${newCount} ads`)
+        }
+        await sleep(2000)
+      } catch (e) {
+        console.log(`[refresh] ${o.page_name}: error ${e.message}`)
+      }
+    }
+    await page.close().catch(() => {})
+    console.log(`[refresh] Done`)
+  } catch (e) {
+    console.log(`[refresh] Error: ${e.message}`)
+  }
 }
 
 // ── START ──
