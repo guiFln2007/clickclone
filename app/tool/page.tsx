@@ -86,7 +86,7 @@ interface FeedOffer {
 }
 
 /* ─────────── OFFER DETAIL MODAL ─────────── */
-function OfferDetailModal({ offer: o, onClose, onAnalyze, onRadar }: { offer: FeedOffer; onClose: () => void; onAnalyze: (url: string) => void; onRadar: (o: FeedOffer, url: string) => void }) {
+function OfferDetailModal({ offer: o, onClose, onAnalyze, onRadar, onDismiss, showDismiss }: { offer: FeedOffer; onClose: () => void; onAnalyze: (url: string) => void; onRadar: (o: FeedOffer, url: string) => void; onDismiss: (o: FeedOffer) => void; showDismiss?: boolean }) {
   const adLibUrl = /^\d+$/.test(o.page_id)
     ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${o.page_id}`
     : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(o.page_name)}&search_type=keyword_unordered`
@@ -123,15 +123,21 @@ function OfferDetailModal({ offer: o, onClose, onAnalyze, onRadar }: { offer: Fe
             <div style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>{o.ig_followers ? o.ig_followers.toLocaleString('pt-BR') : '--'}</div>
           </div>
         </div>
-        <div style={{ padding: '12px 24px 24px', display: 'flex', gap: 10 }}>
-          <button onClick={() => onAnalyze(adLibUrl)} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, border: 'none', background: '#FF8C00', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            Analisar
-          </button>
-          <button onClick={() => onRadar(o, adLibUrl)} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, border: '1px solid #333', background: 'transparent', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-            Salvar no Radar
-          </button>
+        <div style={{ padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => onAnalyze(adLibUrl)} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, border: 'none', background: '#FF8C00', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              Analisar
+            </button>
+            <button onClick={() => onRadar(o, adLibUrl)} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, border: '1px solid #333', background: 'transparent', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              Salvar no Radar
+            </button>
+          </div>
+          {showDismiss && <button onClick={() => onDismiss(o)} style={{ width: '100%', padding: '10px 16px', borderRadius: 10, border: '1px solid #333', background: 'transparent', color: '#888', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Descartar oferta
+          </button>}
         </div>
       </div>
     </div>
@@ -406,6 +412,7 @@ export default function ToolPage() {
   const [feedLoading, setFeedLoading] = useState(false)
   const [feedSearch, setFeedSearch] = useState('')
   const [selectedOffer, setSelectedOffer] = useState<FeedOffer | null>(null)
+  const isAdmin = typeof document !== 'undefined' && document.cookie.includes('cc_admin=')
 
   // Toast
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
@@ -972,7 +979,7 @@ export default function ToolPage() {
               )}
 
               {/* Modal detalhe da oferta */}
-              {selectedOffer && <OfferDetailModal offer={selectedOffer} onClose={() => setSelectedOffer(null)} onAnalyze={(adLibUrl) => { setSelectedOffer(null); setUrl(adLibUrl); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, adLibUrl), 150) }} onRadar={(o, adLibUrl) => { saveMinedToRadar({ pagina_nome: o.page_name, ad_library_url: adLibUrl, landing_url: o.landing_url, total_anuncios: o.ad_count, dias_rodando: o.dias_rodando, score_escalabilidade: 0, fb_followers: o.fb_followers, ig_followers: o.ig_followers, ig_handle: o.ig_handle, nicho: o.nicho || '', resumo_angulo: '' }); setSelectedOffer(null) }} />}
+              {selectedOffer && <OfferDetailModal offer={selectedOffer} onClose={() => setSelectedOffer(null)} onAnalyze={(adLibUrl) => { setSelectedOffer(null); setUrl(adLibUrl); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, adLibUrl), 150) }} onRadar={(o, adLibUrl) => { saveMinedToRadar({ pagina_nome: o.page_name, ad_library_url: adLibUrl, landing_url: o.landing_url, total_anuncios: o.ad_count, dias_rodando: o.dias_rodando, score_escalabilidade: 0, fb_followers: o.fb_followers, ig_followers: o.ig_followers, ig_handle: o.ig_handle, nicho: o.nicho || '', resumo_angulo: '' }); setSelectedOffer(null) }} onDismiss={async (o) => { await fetch(`/api/offers/${o.page_id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'descartada' }) }); setFeedOffers(prev => prev.filter(f => f.page_id !== o.page_id)); setSelectedOffer(null) }} showDismiss={isAdmin} />}
             </div>
           )}
 
