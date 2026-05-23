@@ -13,35 +13,58 @@ function extractCustomer(body: Record<string, unknown>) {
 
 // Mapeia o valor pago pro plano correto
 // Starter: R$57,90 | Premium: R$147,90 (trimestral)
-function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
-  // Log full body pra debug (sempre)
-  console.log(`[kirvano] detectPlan body: ${JSON.stringify(body).slice(0, 800)}`)
+// Offer IDs fixos do Kirvano (source of truth)
+const OFFER_PLAN_MAP: Record<string, 'starter' | 'premium'> = {
+  'c60822ee-79dc-4e2c-ab27-031d405ca57c': 'premium', // RatoAds Premium
+}
 
-  // Busca valor em todos os lugares possíveis do payload Kirvano
+function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
+  console.log(`[kirvano] detectPlan body: ${JSON.stringify(body).slice(0, 1200)}`)
+
+  // 1. Offer ID — mais confiavel, nunca erra
+  const products = body.products as Record<string, unknown>[] | undefined
+  if (products?.[0]) {
+    const offerId = String(products[0].offer_id || '')
+    if (OFFER_PLAN_MAP[offerId]) {
+      console.log(`[kirvano] detectPlan: matched offer_id ${offerId} -> ${OFFER_PLAN_MAP[offerId]}`)
+      return OFFER_PLAN_MAP[offerId]
+    }
+  }
+
+  // 2. Valor numerico — checa fiscal (onde Kirvano realmente manda o valor)
+  const fiscal = (body.fiscal || {}) as Record<string, unknown>
   const purchase = (body.purchase || body.subscription || body.charge || body.order || {}) as Record<string, unknown>
-  const product = (body.product || body.offer || {}) as Record<string, unknown>
+  const product = (body.product || body.offer || products?.[0] || {}) as Record<string, unknown>
   const candidates = [
-    body.amount, body.total, body.price, body.value,
+    fiscal.total_value, fiscal.original_value,
+    body.amount, body.total, body.total_price, body.price, body.value,
     purchase.amount, purchase.total, purchase.price, purchase.value,
     product.price, product.amount,
-    (body.charge as Record<string, unknown>)?.amount,
   ].filter(Boolean)
 
   for (const raw of candidates) {
-    const num = Number(raw)
+    // Parseia tanto numero (147.9) quanto string formatada ("R$ 147,90")
+    const cleaned = String(raw).replace(/[R$\s.]/g, '').replace(',', '.')
+    const num = Number(cleaned)
     if (isNaN(num) || num <= 0) continue
     const value = num > 1000 ? num / 100 : num
-    console.log(`[kirvano] detectPlan: found value ${num} -> R$${value.toFixed(2)}`)
+    console.log(`[kirvano] detectPlan: found value ${raw} -> R$${value.toFixed(2)}`)
     if (value >= 100) return 'premium'
     return 'starter'
   }
 
-  // Fallback SEGURO: só checa product_name/offer_name (NÃO body inteiro)
-  const productName = String(body.product_name || body.offer_name || body.plan_name || product.name || '').toLowerCase()
-  console.log(`[kirvano] detectPlan: no amount, checking product name: "${productName}"`)
+  // 3. Nome do produto/oferta/plano
+  const nameFields = [
+    products?.[0]?.offer_name, products?.[0]?.name,
+    body.product_name, body.offer_name,
+    (body.plan as Record<string, unknown>)?.name, body.plan_name,
+    product.name,
+  ].filter(Boolean)
+  const productName = nameFields.map(n => String(n).toLowerCase()).join(' ')
+  console.log(`[kirvano] detectPlan: checking names: "${productName}"`)
   if (productName.includes('premium') || productName.includes('trimestral')) return 'premium'
 
-  // Default = starter (mais seguro — nunca dar premium sem certeza)
+  // Default = starter (mais seguro)
   console.log(`[kirvano] detectPlan: defaulting to starter. Keys: ${Object.keys(body).join(',')}`)
   return 'starter'
 }
