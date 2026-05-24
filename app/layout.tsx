@@ -6,9 +6,9 @@ export const metadata: Metadata = {
   title: 'RatoAds',
   description: 'Minere ofertas validadas no Facebook Ads com 1 clique. Encontre o que tá escalando, analise concorrentes e rastreie tudo automaticamente.',
   icons: {
-    icon: '/logo.png',
-    shortcut: '/logo.png',
-    apple: '/logo.png',
+    icon: '/rato-mascot.png',
+    shortcut: '/rato-mascot.png',
+    apple: '/rato-mascot.png',
   },
 }
 
