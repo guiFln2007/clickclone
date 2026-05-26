@@ -44,7 +44,15 @@ function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
 
   for (const raw of candidates) {
     // Parseia tanto numero (147.9) quanto string formatada ("R$ 147,90")
-    const cleaned = String(raw).replace(/[R$\s.]/g, '').replace(',', '.')
+    const str = String(raw)
+    let cleaned: string
+    if (str.includes(',')) {
+      // Formato BR: "R$ 1.234,56" — ponto é separador de milhar
+      cleaned = str.replace(/[R$\s.]/g, '').replace(',', '.')
+    } else {
+      // Formato internacional/plain: "57.90" ou "5790" — ponto é decimal
+      cleaned = str.replace(/[R$\s]/g, '')
+    }
     const num = Number(cleaned)
     if (isNaN(num) || num <= 0) continue
     const value = num > 1000 ? num / 100 : num
