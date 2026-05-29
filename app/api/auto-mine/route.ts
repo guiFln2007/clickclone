@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const url = (o.landing_url || '').toLowerCase()
 
     // Filtros (mesmos da mineração manual)
-    if (o.total_anuncios < 5 || o.total_anuncios > 140) continue
+    if (o.total_anuncios < 5 || o.total_anuncios > 300) continue
     if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) continue
     if (nameLower.endsWith(' oficial') || nameLower.includes('® ') || nameLower.includes('™')) continue
     if (o.dias_rodando !== null && o.dias_rodando < 3) continue

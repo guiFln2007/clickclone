@@ -56,7 +56,7 @@ async function startApifyMine(keyword: string): Promise<string | null> {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [{ url: searchUrl }], maxAds: 150 }),
+        body: JSON.stringify({ urls: [{ url: searchUrl }], maxAds: 500 }),
       }
     )
     const data = await res.json() as Record<string, unknown>
@@ -169,7 +169,10 @@ export async function POST(req: NextRequest) {
   const minDias = 3
   if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
-  const kw = keyword.trim()
+  // Strip stop words pra busca mais ampla (ex: "truque para emagrecer" → "truque emagrecer")
+  const STOP_WORDS = new Set(['para', 'pra', 'de', 'do', 'da', 'dos', 'das', 'com', 'que', 'no', 'na', 'nos', 'nas', 'em', 'um', 'uma', 'o', 'a', 'os', 'as', 'e', 'ou', 'se'])
+  const stripped = keyword.trim().split(/\s+/).filter((w: string) => !STOP_WORDS.has(w.toLowerCase()))
+  const kw = stripped.length >= 2 ? stripped.join(' ') : keyword.trim()
 
   // SAFEGUARD: cache de 6h por keyword
   const cachedRunId = getCachedRun(kw)
@@ -206,8 +209,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // FALLBACK APIFY DESABILITADO — custo inviavel ($0.30-0.80 por chamada)
-  // Quando scraper local nao tiver disponivel, retorna erro claro
+  // Fallback: Apify (~$0.05-0.10 por chamada)
+  const apifyRunId = await startApifyMine(kw)
+  if (apifyRunId) {
+    const runId = `apify:${apifyRunId}`
+    setCachedRun(kw, runId)
+    console.log('[Mine] Apify started:', apifyRunId)
+    return NextResponse.json({ runId, keyword: kw, minAnuncios, minDias })
+  }
+
   return NextResponse.json({
     error: 'Minerador temporariamente offline. Tente novamente mais tarde.'
   }, { status: 503 })
@@ -220,7 +230,7 @@ export async function GET(req: NextRequest) {
 
   const runId = req.nextUrl.searchParams.get('runId')
   const minAnuncios = 5
-  const maxAnuncios = 140
+  const maxAnuncios = 300
   const minDias = 3
   const maxFollowers = 30000
   const nicho = req.nextUrl.searchParams.get('nicho') || ''
@@ -237,9 +247,10 @@ export async function GET(req: NextRequest) {
   if (!runId) return NextResponse.json({ error: 'runId obrigatório' }, { status: 400 })
 
   let results: MineResult[] = []
+  const isApify = runId.startsWith('apify:')
 
   try {
-    if (runId.startsWith('apify:')) {
+    if (isApify) {
       // ── APIFY POLLING ──
       const apifyRunId = runId.slice(6)
       const r = await getApifyMineStatus(apifyRunId)
@@ -314,8 +325,9 @@ export async function GET(req: NextRequest) {
       .filter(p => {
         const nameLower = p.pagina_nome.toLowerCase()
         const url = (p.landing_url || '').toLowerCase()
-        // Filtros simples: min ads (keyword hits), brand blacklist, dias, followers, landing
-        if (p.total_anuncios < minAnuncios || p.total_anuncios > maxAnuncios) return false
+        // Apify total_anuncios = keyword hits (não contagem real), usar threshold menor
+        const effectiveMin = isApify ? 2 : minAnuncios
+        if (p.total_anuncios < effectiveMin || p.total_anuncios > maxAnuncios) return false
         if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) return false
         if (nameLower.endsWith(' oficial') || nameLower.includes('® ') || nameLower.includes('™')) return false
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
