@@ -3,20 +3,13 @@ import bcrypt from 'bcryptjs'
 import { dbGetUserByEmail, dbActivateUser, dbSetSwipeExpiry } from '@/lib/db'
 import { sendCursoTrialEmail } from '@/lib/mailer'
 
-const WEBHOOK_SECRET = process.env.CURSO_WEBHOOK_SECRET || 'lta-webhook-secret'
-
 export async function POST(req: NextRequest) {
-  // Auth via header secret
-  const secret = req.headers.get('x-webhook-secret') || ''
-  if (secret !== WEBHOOK_SECRET) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
     const body = await req.json()
 
-    // Aceita formato Kirvano (customer.email) ou direto (email)
-    const email = (body?.customer?.email || body?.email || '').toLowerCase().trim()
+    // Valida shape Kirvano: precisa ter event + customer.email
+    const customer = (body?.customer || body?.buyer || {}) as Record<string, unknown>
+    const email = ((customer?.email || body?.email || '') as string).toLowerCase().trim()
 
     if (!email || !email.includes('@')) {
       return Response.json({ error: 'Email invalido' }, { status: 400 })
