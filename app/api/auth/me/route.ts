@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
       renova_em: user.renova_em,
       creditos: user.creditos,
       created_at: user.created_at,
+      swipe_expires_at: user.swipe_expires_at,
       data_expiracao,
     }
   })

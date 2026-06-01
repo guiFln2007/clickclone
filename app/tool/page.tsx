@@ -431,6 +431,9 @@ export default function ToolPage() {
   const [maxSlots, setMaxSlots] = useState(5)
   const [plano, setPlano] = useState('starter')
   const [renovaEm, setRenovaEm] = useState<string | null>(null)
+  const [swipeExpiresAt, setSwipeExpiresAt] = useState<string | null>(null)
+  const [swipeExpired, setSwipeExpired] = useState(false)
+  const [swipeCountdown, setSwipeCountdown] = useState('')
   const [upgradeModal, setUpgradeModal] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
@@ -450,12 +453,29 @@ export default function ToolPage() {
       if (typeof d.user?.max_slots_radar === 'number') setMaxSlots(d.user.max_slots_radar)
       if (d.user?.plano) setPlano(d.user.plano)
       if (d.user?.renova_em) setRenovaEm(d.user.renova_em)
+      if (d.user?.swipe_expires_at) setSwipeExpiresAt(d.user.swipe_expires_at)
       // Save for visitor tracking
       if (d.user?.id) {
         try { localStorage.setItem('rato_user', JSON.stringify({ id: d.user.id, email: d.user.email })) } catch {}
       }
     }).catch(() => {})
   }, [])
+
+  // Swipe countdown for curso trial
+  useEffect(() => {
+    if (!swipeExpiresAt || plano !== 'curso') return
+    const tick = () => {
+      const diff = new Date(swipeExpiresAt).getTime() - Date.now()
+      if (diff <= 0) { setSwipeExpired(true); setSwipeCountdown(''); return }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setSwipeCountdown(`${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`)
+    }
+    tick()
+    const iv = setInterval(tick, 1000)
+    return () => clearInterval(iv)
+  }, [swipeExpiresAt, plano])
 
   // Load saved analyses
   useEffect(() => {
@@ -485,6 +505,10 @@ export default function ToolPage() {
       const params = new URLSearchParams({ limit: '48', sort: 'ad_count' })
       if (search) params.set('search', search)
       const res = await fetch(`/api/offers?${params}`)
+      if (res.status === 403) {
+        const data = await res.json()
+        if (data.error === 'swipe_expired') { setSwipeExpired(true); setFeedOffers([]); return }
+      }
       if (res.ok) {
         const data = await res.json()
         setFeedOffers(data.offers || [])
@@ -936,10 +960,18 @@ export default function ToolPage() {
           )}
 
           {/* ── ABA OFERTAS ── */}
-          {activeTab === 'ofertas' && (
+          {activeTab === 'ofertas' && swipeExpired && plano === 'curso' && (
+            <div className="tab-content" style={{ maxWidth: 600, textAlign: 'center', padding: '80px 20px' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>&#128274;</div>
+              <h2 style={{ color: '#fff', fontSize: 22, marginBottom: 8 }}>Suas 72h de acesso ao feed expiraram</h2>
+              <p style={{ color: '#888', fontSize: 15, marginBottom: 24 }}>Assine o RatoAds pra ter acesso ilimitado ao feed de ofertas mineradas 24h, alem de mais analises, mineracoes e rastreamento.</p>
+              <button className="cta-main" onClick={() => setUpgradeModal(true)} style={{ padding: '12px 32px', fontSize: 15 }}>Ver planos</button>
+            </div>
+          )}
+          {activeTab === 'ofertas' && !(swipeExpired && plano === 'curso') && (
             <div className="tab-content" style={{ maxWidth: 1200 }}>
               <div className="analyze-hero">
-                <div className="tool-sec-label"><span>Feed de ofertas</span></div>
+                <div className="tool-sec-label"><span>Feed de ofertas</span>{plano === 'curso' && swipeCountdown && <span style={{ marginLeft: 8, color: '#FF8C00', fontSize: 12 }}>Expira em {swipeCountdown}</span>}</div>
                 <h1 className="analyze-title">Ofertas <span className="acc">Mineradas</span></h1>
                 <p className="analyze-sub">Ofertas encontradas automaticamente, filtradas e prontas pra modelar</p>
                 <div className="of-searchbar" style={{ maxWidth: 520, margin: '0 auto' }}>

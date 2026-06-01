@@ -141,6 +141,9 @@ export async function initDb() {
   // Migration: track trial signup IP
   try { await db.execute('ALTER TABLE users ADD COLUMN trial_ip TEXT') } catch { /* exists */ }
 
+  // Migration: swipe expiration for curso trial
+  try { await db.execute('ALTER TABLE users ADD COLUMN swipe_expires_at TEXT') } catch { /* exists */ }
+
   // Migration: visitor_sessions table for real-time tracking
   try {
     await db.execute({
@@ -215,7 +218,7 @@ export async function initDb() {
 // Plan definitions — single source of truth
 export const PLANS: Record<string, { analises: number; mineracoes: number; slots_radar: number; label: string; periodo: string; dias: number }> = {
   trial: { analises: 1, mineracoes: 1, slots_radar: 1, label: 'Trial', periodo: 'teste', dias: 30 },
-  curso: { analises: 3, mineracoes: 3, slots_radar: 3, label: 'Curso', periodo: 'teste', dias: 30 },
+  curso: { analises: 3, mineracoes: 3, slots_radar: 3, label: 'Curso', periodo: 'teste', dias: 0 },
   starter: { analises: 10, mineracoes: 10, slots_radar: 10, label: 'Starter', periodo: 'mensal', dias: 30 },
   premium: { analises: 20, mineracoes: 20, slots_radar: 20, label: 'Premium', periodo: 'trimestral', dias: 90 },
 }
@@ -236,6 +239,7 @@ export type User = {
   kirvano_id: string | null
   renova_em: string | null
   trial_email_sent: string | null
+  swipe_expires_at: string | null
   created_at: string
 }
 
@@ -265,6 +269,7 @@ function rowToUser(row: Record<string, unknown>): User {
     kirvano_id: (row.kirvano_id as string) ?? null,
     renova_em: (row.renova_em as string) ?? null,
     trial_email_sent: (row.trial_email_sent as string) ?? null,
+    swipe_expires_at: (row.swipe_expires_at as string) ?? null,
     created_at: row.created_at as string,
   }
 }
@@ -340,6 +345,11 @@ export async function dbRenewUser(email: string, plano?: string): Promise<void> 
           creditos = 100, renova_em = ? WHERE email = ?`,
     args: [planKey, plan.analises, plan.mineracoes, plan.analises, plan.mineracoes, plan.slots_radar, renovaEm, email],
   })
+}
+
+export async function dbSetSwipeExpiry(userId: number, expiresAt: string): Promise<void> {
+  await initDb()
+  await db.execute({ sql: 'UPDATE users SET swipe_expires_at = ? WHERE id = ?', args: [expiresAt, userId] })
 }
 
 export async function dbDeactivateUser(email: string): Promise<void> {
