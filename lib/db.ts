@@ -317,8 +317,10 @@ export async function dbActivateUser(kirvano_id: string, email: string, name: st
     await db.execute({
       sql: `UPDATE users SET ativo = 1, plano = ?, analises = ?, mineracoes = ?,
             max_analises = ?, max_mineracoes = ?, max_slots_radar = ?,
-            creditos = 100, kirvano_id = ?, name = ?, renova_em = ? WHERE email = ?`,
-      args: [plano, plan.analises, plan.mineracoes, plan.analises, plan.mineracoes, plan.slots_radar, kirvano_id, name, renovaEm, email],
+            creditos = 100, kirvano_id = ?, name = ?, renova_em = ?${hash ? ', hash = ?' : ''} WHERE email = ?`,
+      args: hash
+        ? [plano, plan.analises, plan.mineracoes, plan.analises, plan.mineracoes, plan.slots_radar, kirvano_id, name, renovaEm, hash, email]
+        : [plano, plan.analises, plan.mineracoes, plan.analises, plan.mineracoes, plan.slots_radar, kirvano_id, name, renovaEm, email],
     })
     return (await dbGetUserByEmail(email))!
   }
