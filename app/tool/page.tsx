@@ -295,21 +295,21 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
                       <button className="criativo-btn" style={{ width: '100%', cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} disabled={transcribing[i]} onClick={async () => {
                         setTranscribing(p => ({ ...p, [i]: true }))
                         try {
-                          // Download video in browser (has access to Facebook CDN) then upload to backend
-                          const vidRes = await fetch(c.media_url!)
-                          if (!vidRes.ok) throw new Error('download')
-                          const blob = await vidRes.blob()
-                          const form = new FormData()
-                          form.append('video', blob, 'video.mp4')
-                          const res = await fetch('/api/transcribe', { method: 'POST', body: form })
+                          // Send URL to server — server downloads (no CORS issues)
+                          const res = await fetch('/api/transcribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: c.media_url }),
+                          })
                           const data = await res.json()
                           if (res.ok) {
                             setTranscripts(p => ({ ...p, [i]: data.transcript || 'Sem áudio detectado' }))
                           } else {
-                            setTranscripts(p => ({ ...p, [i]: data.error || 'Erro na transcrição' }))
+                            const errMsg = data.error || 'Erro na transcrição'
+                            setTranscripts(p => ({ ...p, [i]: errMsg.includes('502') || errMsg.includes('Download') ? 'Vídeo expirado — re-analise a oferta' : errMsg }))
                           }
                         } catch (e) {
-                          setTranscripts(p => ({ ...p, [i]: (e as Error).message === 'download' ? 'Vídeo expirado — re-analise a oferta' : 'Erro na transcrição' }))
+                          setTranscripts(p => ({ ...p, [i]: 'Erro na transcrição: ' + (e as Error).message }))
                         }
                         setTranscribing(p => ({ ...p, [i]: false }))
                       }}>
@@ -538,6 +538,7 @@ export default function ToolPage() {
   }, [])
 
   // Load radar offers
+  const [radarLoading, setRadarLoading] = useState(true)
   const loadRadar = useCallback(async () => {
     if (!userId) return
     try {
@@ -548,6 +549,7 @@ export default function ToolPage() {
         setTotalAlerts((data.offers || []).reduce((s: number, o: TrackedOffer) => s + o.alertas_nao_lidos, 0))
       }
     } catch { /* ok */ }
+    setRadarLoading(false)
   }, [userId])
 
   useEffect(() => { loadRadar() }, [loadRadar])
@@ -704,16 +706,21 @@ export default function ToolPage() {
   }
 
   // ── RADAR ACTIONS ──
+  const [historyLoading, setHistoryLoading] = useState(false)
   async function viewHistory(offer: TrackedOffer) {
+    setHistoryLoading(true)
+    setHistoryView({ offer, snapshots: [] })
     try {
-      const res = await fetch(`/api/radar/${offer.id}/snapshots`, { headers: { 'x-user-id': String(userId) } })
+      const snapshotPromise = fetch(`/api/radar/${offer.id}/snapshots`, { headers: { 'x-user-id': String(userId) } })
+      // Marca alertas como lidos em paralelo (fire-and-forget)
+      if (offer.alertas_nao_lidos > 0) {
+        fetch(`/api/radar/${offer.id}/read`, { method: 'PATCH', headers: authHeaders() }).then(() => loadRadar()).catch(() => {})
+      }
+      const res = await snapshotPromise
       const data = res.ok ? await res.json() : { snapshots: [] }
       setHistoryView({ offer, snapshots: data.snapshots || [] })
-      if (offer.alertas_nao_lidos > 0) {
-        await fetch(`/api/radar/${offer.id}/read`, { method: 'PATCH', headers: authHeaders() })
-        await loadRadar()
-      }
     } catch { setHistoryView({ offer, snapshots: [] }) }
+    setHistoryLoading(false)
   }
 
   // Returns a string like "amanhã às 07:00" or "hoje às 07:00" — all offers update together at 7am BRT
@@ -922,7 +929,7 @@ export default function ToolPage() {
                     <path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round"/><circle cx="24" cy="18" r="6" stroke="currentColor" strokeWidth="3" fill="none"/><circle cx="24" cy="18" r="1.8" fill="currentColor"/>
                   </svg>
                 ),
-                badge: totalAlerts,
+                badge: 0,
               },
             ].map(t => (
               <button key={t.id} className={`header-tab${activeTab === t.id ? ' active' : ''}`} onClick={() => setActiveTab(t.id)}>
@@ -1218,6 +1225,12 @@ export default function ToolPage() {
           {/* ── ABA RASTREAMENTO ── */}
           {activeTab === 'rastreamento' && (
             <div className="tab-content rdr-full">
+              {radarLoading && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 10, color: '#666' }}>
+                  <span className="st-pulse" style={{ width: 8, height: 8 }} /> Carregando ofertas...
+                </div>
+              )}
+              {!radarLoading && <>
               {/* Header */}
               <div className="rdr-header">
                 <div className="rdr-search-wrap">
@@ -1287,6 +1300,7 @@ export default function ToolPage() {
               ) : (
                 <div className="empty-state">{radarSearch ? 'Nenhuma oferta encontrada.' : 'Nenhuma oferta no radar. Analise uma oferta e clique em "Salvar no Radar".'}</div>
               )}
+              </>}
             </div>
           )}
 
@@ -1387,10 +1401,12 @@ export default function ToolPage() {
             <h2 className="hist-title">Hist&oacute;rico de M&eacute;tricas</h2>
             <p className="hist-sub">{historyView.offer.pagina_nome}</p>
 
+            {historyLoading && <div style={{ textAlign: 'center', padding: '16px 0 0', color: '#555', fontSize: 13 }}>Carregando snapshots...</div>}
+
             {/* 3 metric cards */}
             <div className="hist-mets">
               <div className="hist-met"><div className="hist-met-lbl">Total Hoje</div><div className="hist-met-num">{historyView.offer.ultimo_snapshot_ads ?? historyView.offer.primeiro_snapshot_ads ?? 0}</div></div>
-              <div className="hist-met"><div className="hist-met-lbl">Varia&ccedil;&atilde;o Di&aacute;ria</div><div className="hist-met-num" style={{ color: (historyView.snapshots[0]?.variacao ?? 0) > 0 ? '#10B981' : (historyView.snapshots[0]?.variacao ?? 0) < 0 ? '#EF4444' : '#6B7280' }}>{(historyView.snapshots[0]?.variacao ?? 0) > 0 ? '+' : ''}{historyView.snapshots[0]?.variacao ?? 0}%</div></div>
+              <div className="hist-met"><div className="hist-met-lbl">Varia&ccedil;&atilde;o Di&aacute;ria</div><div className="hist-met-num" style={{ color: (historyView.snapshots[0]?.variacao ?? 0) > 0 ? '#10B981' : (historyView.snapshots[0]?.variacao ?? 0) < 0 ? '#EF4444' : '#6B7280' }}>{(historyView.snapshots[0]?.variacao ?? 0) > 0 ? '+' : ''}{(historyView.snapshots[0]?.variacao_percent ?? 0).toFixed(1)}%</div></div>
               <div className="hist-met"><div className="hist-met-lbl">Varia&ccedil;&atilde;o Semanal</div><div className="hist-met-num" style={{ color: '#FF6B00' }}>+{historyView.snapshots.slice(0, 7).reduce((s, sn) => s + sn.variacao, 0)}</div></div>
             </div>
 
@@ -1399,30 +1415,53 @@ export default function ToolPage() {
               <h3 className="hist-chart-title">Evolu{'\u00e7\u00e3'}o dos Criativos</h3>
               <div style={{ width: '100%', height: 260 }}>
                 {(() => {
-                  const points = historyView.snapshots.slice().reverse().map(p => ({
-                    date: new Date(p.registrado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-                    ads: p.ads_count,
-                  }))
-                  if (points.length < 1) return <div className="empty-state" style={{ padding: 40 }}>Nenhum dado ainda</div>
+                  const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+                  const rawSnaps = historyView.snapshots.slice().reverse()
+                  const currentAds = historyView.offer.ultimo_snapshot_ads ?? historyView.offer.primeiro_snapshot_ads ?? 0
+
+                  // Build last 7 days, fill with snapshot data where available
+                  const today = new Date()
+                  const points: { date: string; ads: number }[] = []
+                  for (let i = 6; i >= 0; i--) {
+                    const d = new Date(today)
+                    d.setDate(d.getDate() - i)
+                    const dateStr = d.toISOString().slice(0, 10)
+                    const label = i === 0 ? 'Hoje' : dayNames[d.getDay()]
+                    const snap = rawSnaps.find(s => s.registrado_em.slice(0, 10) === dateStr)
+                    points.push({ date: label, ads: snap ? snap.ads_count : (i === 0 ? currentAds : -1) })
+                  }
+                  // Fill gaps: carry forward from last known value, or use current ads
+                  let lastKnown = currentAds
+                  for (let i = 0; i < points.length; i++) {
+                    if (points[i].ads >= 0) { lastKnown = points[i].ads }
+                    else { points[i].ads = lastKnown }
+                  }
+                  // Reverse fill for leading gaps
+                  const firstKnown = points.find(p => rawSnaps.some(s => s.ads_count === p.ads))?.ads ?? currentAds
+                  for (let i = 0; i < points.length; i++) {
+                    if (points[i].ads === firstKnown) break
+                    points[i].ads = firstKnown
+                  }
+
                   return (
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={points} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                         <defs>
                           <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#FF8C00" stopOpacity={0.3} />
-                            <stop offset="100%" stopColor="#FF8C00" stopOpacity={0} />
+                            <stop offset="0%" stopColor="#FF8C00" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="#FF8C00" stopOpacity={0.02} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.05)" />
-                        <XAxis dataKey="date" tick={{ fill: '#555', fontSize: 11, fontFamily: 'Sora' }} axisLine={{ stroke: 'rgba(255,255,255,.06)' }} tickLine={false} />
-                        <YAxis tick={{ fill: '#555', fontSize: 11, fontFamily: 'Sora' }} axisLine={false} tickLine={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
+                        <XAxis dataKey="date" tick={{ fill: '#666', fontSize: 12, fontFamily: 'Inter' }} axisLine={{ stroke: 'rgba(255,255,255,.06)' }} tickLine={false} />
+                        <YAxis tick={{ fill: '#555', fontSize: 11, fontFamily: 'Inter' }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
                         <Tooltip
-                          contentStyle={{ background: 'rgba(10,10,10,.95)', border: '1px solid rgba(255,140,0,.25)', borderRadius: 10, fontFamily: 'Sora', fontSize: 13, backdropFilter: 'blur(12px)' }}
+                          contentStyle={{ background: 'rgba(10,10,10,.95)', border: '1px solid rgba(255,140,0,.25)', borderRadius: 10, fontFamily: 'Inter', fontSize: 13, backdropFilter: 'blur(12px)' }}
                           labelStyle={{ color: '#888', fontWeight: 600, marginBottom: 4 }}
                           itemStyle={{ color: '#FF8C00', fontWeight: 700 }}
                           formatter={(value) => [`${value} an\u00fancios`, 'Ativos']}
                         />
-                        <Area type="monotone" dataKey="ads" stroke="#FF8C00" strokeWidth={2.5} fill="url(#chartGrad)" dot={{ r: 4, fill: '#FF8C00', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#FF8C00', stroke: 'rgba(255,140,0,.3)', strokeWidth: 4 }} />
+                        <Area type="monotone" dataKey="ads" stroke="#FF8C00" strokeWidth={2.5} fill="url(#chartGrad)" dot={{ r: 3, fill: '#FF8C00', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#FF8C00', stroke: 'rgba(255,140,0,.3)', strokeWidth: 4 }} />
                       </AreaChart>
                     </ResponsiveContainer>
                   )
@@ -2206,7 +2245,7 @@ html,body{height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;bac
 .rc-ref-btn:hover{border-color:var(--accent);background:rgba(255,107,0,.08);transform:rotate(90deg)}
 
 /* ═══ HISTORY PAGE ═══ */
-.hist-page{background:#0A0A0A;width:100%;max-width:900px;margin:0 auto;min-height:100vh;padding:24px 32px 60px;overflow-y:auto}
+.hist-page{background:#0A0A0A;width:100%;max-width:900px;margin:0 auto;max-height:90vh;padding:24px 32px 60px;overflow-y:auto;border-radius:16px;border:1px solid #1F2937}
 .hist-bread{display:flex;align-items:center;gap:8px;margin-bottom:24px}
 .hist-back{background:transparent;border:none;color:#6B7280;cursor:pointer;padding:6px;border-radius:6px;display:flex;transition:all .12s}
 .hist-back:hover{color:#fff;background:#1F2937}

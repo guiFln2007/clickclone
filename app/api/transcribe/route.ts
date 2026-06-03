@@ -10,19 +10,37 @@ const execFileAsync = promisify(execFile)
 export const maxDuration = 120
 
 export async function POST(req: NextRequest) {
-  const formData = await req.formData()
-  const file = formData.get('video') as File | null
-  if (!file) return NextResponse.json({ error: 'video file required' }, { status: 400 })
-
+  const contentType = req.headers.get('content-type') || ''
   const tmpDir = path.join(os.tmpdir(), 'ratoads-transcribe')
   await mkdir(tmpDir, { recursive: true })
   const id = Date.now()
   const tmpFile = path.join(tmpDir, `vid_${id}.mp4`)
 
   try {
-    // Save uploaded video
-    const buf = Buffer.from(await file.arrayBuffer())
-    if (buf.byteLength < 1000) return NextResponse.json({ error: 'Arquivo de vídeo inválido' }, { status: 400 })
+    let buf: Buffer
+
+    if (contentType.includes('application/json')) {
+      // Mode 1: URL — server downloads the video (avoids CORS)
+      const { url } = await req.json() as { url?: string }
+      if (!url) return NextResponse.json({ error: 'url required' }, { status: 400 })
+
+      const vidRes = await fetch(url, {
+        signal: AbortSignal.timeout(30000),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        },
+      })
+      if (!vidRes.ok) return NextResponse.json({ error: `Download falhou (HTTP ${vidRes.status})` }, { status: 502 })
+      buf = Buffer.from(await vidRes.arrayBuffer())
+    } else {
+      // Mode 2: File upload (legacy)
+      const formData = await req.formData()
+      const file = formData.get('video') as File | null
+      if (!file) return NextResponse.json({ error: 'video file required' }, { status: 400 })
+      buf = Buffer.from(await file.arrayBuffer())
+    }
+
+    if (buf.byteLength < 1000) return NextResponse.json({ error: 'Arquivo de video invalido' }, { status: 400 })
     await writeFile(tmpFile, buf)
 
     // Transcribe with Whisper
@@ -51,7 +69,7 @@ export async function POST(req: NextRequest) {
       await unlink(path.join(tmpDir, `vid_${id}${ext}`)).catch(() => {})
     }
 
-    return NextResponse.json({ transcript: transcript || 'Sem áudio detectado neste vídeo' })
+    return NextResponse.json({ transcript: transcript || 'Sem audio detectado neste video' })
   } catch (e) {
     console.error('[transcribe]', (e as Error).message)
     return NextResponse.json({ error: (e as Error).message }, { status: 500 })

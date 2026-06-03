@@ -105,6 +105,11 @@ export async function initDb() {
     },
   ])
 
+  // Index for snapshot lookups by offer
+  try {
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_snapshots_offer ON offer_snapshots (tracked_offer_id, registrado_em)')
+  } catch { /* already exists */ }
+
   // Migration: add page_id column to existing tracked_offers table
   try {
     await db.execute('ALTER TABLE tracked_offers ADD COLUMN page_id TEXT')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbGetActiveTrackedOffers, dbUpdateTrackedOffer, dbCreateOfferAlert } from '@/lib/db'
+import { dbGetActiveTrackedOffers, dbUpdateTrackedOffer, dbCreateOfferAlert, dbCreateSnapshot, dbGetLastSnapshot } from '@/lib/db'
 import db from '@/lib/db'
 import crypto from 'crypto'
 
@@ -252,6 +252,26 @@ async function applyScrapeToOffer(
     updates.page_id = resolvedPageId
   }
   await dbUpdateTrackedOffer(oferta.id, updates)
+
+  // Cria snapshot diário (1 por dia por oferta)
+  if (adsCount >= 0) {
+    const lastSnap = await dbGetLastSnapshot(oferta.id)
+    const today = new Date().toISOString().slice(0, 10)
+    const lastSnapDate = lastSnap ? lastSnap.registrado_em.slice(0, 10) : null
+
+    // Só cria se ainda não tem snapshot hoje
+    if (lastSnapDate !== today) {
+      const variacao = adsCount - anterior
+      const variacao_percent = anterior > 0 ? ((variacao / anterior) * 100) : 0
+      await dbCreateSnapshot({
+        id: crypto.randomUUID(),
+        tracked_offer_id: oferta.id,
+        ads_count: adsCount,
+        variacao,
+        variacao_percent: Math.round(variacao_percent * 100) / 100,
+      })
+    }
+  }
 
   return alertas.length
 }
