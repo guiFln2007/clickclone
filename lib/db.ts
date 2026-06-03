@@ -212,6 +212,20 @@ export async function initDb() {
     'ALTER TABLE auto_mined_offers ADD COLUMN ad_copies TEXT',
   ]) { try { await db.execute(col) } catch { /* exists */ } }
 
+  // Migration: mc_clicks table for ManyChat tracking
+  try {
+    await db.execute({
+      sql: `CREATE TABLE IF NOT EXISTS mc_clicks (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        slug        TEXT NOT NULL,
+        ip          TEXT,
+        user_agent  TEXT,
+        created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    })
+  } catch { /* exists */ }
+
   initialized = true
 }
 
@@ -1221,6 +1235,38 @@ export async function dbGetMinedOfferByPageId(pageId: string): Promise<AutoMined
         fb_followers: (row.fb_followers as number) ?? null,
         landing_screenshot: (row.landing_screenshot as string) ?? null,
         ad_copies: (row.ad_copies as string) ?? null,
+  }
+}
+
+// ── ManyChat click tracking ─────────────────────────────────────────────────
+export async function dbLogMcClick(slug: string, ip?: string, userAgent?: string) {
+  await initDb()
+  await db.execute({
+    sql: 'INSERT INTO mc_clicks (slug, ip, user_agent) VALUES (?, ?, ?)',
+    args: [slug, ip ?? null, userAgent ?? null],
+  })
+}
+
+export async function dbGetMcStats() {
+  await initDb()
+  const total = await db.execute({ sql: 'SELECT COUNT(*) as total FROM mc_clicks', args: [] })
+  const bySlug = await db.execute({
+    sql: `SELECT slug, COUNT(*) as clicks, MAX(created_at) as last_click
+          FROM mc_clicks GROUP BY slug ORDER BY clicks DESC LIMIT 20`,
+    args: [],
+  })
+  const today = await db.execute({
+    sql: `SELECT COUNT(*) as total FROM mc_clicks WHERE created_at >= date('now')`,
+    args: [],
+  })
+  return {
+    total: (total.rows[0] as Record<string, unknown>).total as number,
+    today: (today.rows[0] as Record<string, unknown>).total as number,
+    bySlug: bySlug.rows.map(r => ({
+      slug: (r as Record<string, unknown>).slug as string,
+      clicks: (r as Record<string, unknown>).clicks as number,
+      last_click: (r as Record<string, unknown>).last_click as string,
+    })),
   }
 }
 

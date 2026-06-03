@@ -88,12 +88,17 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [blasting, setBlasting] = useState(false)
   const [blastResult, setBlastResult] = useState<{ sent: number; failed: number } | null>(null)
+  const [mcStats, setMcStats] = useState<{ total: number; today: number; bySlug: { slug: string; clicks: number; last_click: string }[] } | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/stats')
       .then(r => r.json())
       .then(d => { setStats(d); setLoading(false) })
       .catch(() => setLoading(false))
+    fetch('/api/admin/mc-stats')
+      .then(r => r.json())
+      .then(d => setMcStats(d))
+      .catch(() => {})
   }, [])
 
   const loadVisitors = useCallback(() => {
@@ -296,6 +301,32 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+
+          {/* ManyChat tracking */}
+          {mcStats && mcStats.total > 0 && (
+            <div className="adm-card" style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: '#ccc', margin: 0 }}>ManyChat Clicks</h2>
+                <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#555' }}>
+                  <span>{mcStats.today} hoje</span>
+                  <span>{mcStats.total} total</span>
+                </div>
+              </div>
+              <div>
+                {mcStats.bySlug.map(s => (
+                  <div key={s.slug} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #151515' }}>
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>/mc/{s.slug}</span>
+                      <span style={{ fontSize: 11, color: '#444', marginLeft: 8 }}>
+                        ultimo: {new Date(s.last_click).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 15, fontWeight: 900, color: '#E8692A' }}>{s.clicks}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Quick actions */}
           <div className="adm-card">

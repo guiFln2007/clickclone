@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { dbLogMcClick } from '@/lib/db'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params
+
+  // Log click in background (don't block redirect)
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || ''
+  const ua = request.headers.get('user-agent') || ''
+  dbLogMcClick(slug, ip, ua).catch(() => {})
 
   const url = new URL('https://ratoads.com.br/')
   url.searchParams.set('utm_source', 'manychat')
