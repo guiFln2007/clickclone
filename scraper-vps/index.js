@@ -82,7 +82,7 @@ async function fetchInstagramFollowers(handle) {
 
 // Browser pool — reuse browser instance
 let browserInstance = null
-let useWarpProxy = true // WARP proxy pra IP limpo
+let useWarpProxy = process.platform !== 'win32' // WARP só no Linux/Mac (VPS)
 const WARP_PROXY = 'socks5://localhost:40000'
 
 async function getBrowser() {
@@ -427,11 +427,11 @@ app.get('/mine', (req, res) => {
 // ════════════════════════════════════════
 
 function parseFollowers(text) {
-  const m = text.match(/([\d.,]+)\s*(mil|milhão|milhões|mi)?/i)
+  const m = text.match(/([\d.,]+)\s*(mil|milhão|milhões)?/i)
   if (!m) return null
   let num = parseFloat(m[1].replace(/\./g, '').replace(',', '.'))
-  if (m[2]?.includes('mil')) num *= 1000
-  if (m[2]?.match(/milh|mi/)) num *= 1000000
+  if (m[2] && /milh/i.test(m[2])) num *= 1000000
+  else if (m[2] && /mil/i.test(m[2])) num *= 1000
   return Math.round(num)
 }
 
@@ -478,10 +478,10 @@ async function setupPage(page) {
 }
 
 async function scrapePageAbout(pageId) {
-  // HTTP-only: fetch SSR HTML directly, extract page info from embedded JSON — saves ~10MB per call
   const url = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${pageId}`
   const result = { page_name: '', fb_followers: null, ig_handle: null, ig_followers: null, category: null, created_date: null }
 
+  // Step 1: HTTP fetch for basic data (page_name, fb_followers, category)
   try {
     const res = await fetch(url, {
       headers: {
@@ -493,33 +493,141 @@ async function scrapePageAbout(pageId) {
     })
     const html = await res.text()
 
-    // Extract page name from SSR
-    const nameMatch = html.match(/"page_name"\s*:\s*"([^"]+)"/) || html.match(/page_name["\s:]+([^"<,]+)/)
+    const nameMatch = html.match(/"page_name"\s*:\s*"([^"]+)"/)
     if (nameMatch) result.page_name = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, m => String.fromCharCode(parseInt(m.slice(2), 16)))
 
-    // Extract IG handle from SSR — look for instagram.com links or @handle patterns
-    const igMatch = html.match(/instagram\.com\/([a-zA-Z0-9_.]+)/) || html.match(/"ig_handle"\s*:\s*"([^"]+)"/)
-    if (igMatch) result.ig_handle = '@' + igMatch[1]
-
-    // Extract followers from SSR JSON — look for "page_like_count" or "followers_count"
-    const likesMatch = html.match(/"page_like_count"\s*:\s*(\d+)/) || html.match(/"likes"\s*:\s*(\d+)/)
+    const likesMatch = html.match(/"page_like_count"\s*:\s*(\d+)/)
     if (likesMatch) result.fb_followers = parseInt(likesMatch[1])
 
-    // IG followers via curl (se tiver handle)
-    if (result.ig_handle) {
-      result.ig_followers = await fetchInstagramFollowers(result.ig_handle)
-    }
-
-    // Extract category
     const catMatch = html.match(/"page_category"\s*:\s*"([^"]+)"/) || html.match(/"category_name"\s*:\s*"([^"]+)"/)
     if (catMatch) result.category = catMatch[1]
 
-    console.log(`[PageAbout] ${result.page_name || pageId}: FB=${result.fb_followers}, IG=${result.ig_followers} ${result.ig_handle || ''}`)
-    return result
+    // Try IG handle from SSR (sometimes present)
+    const igMatch = html.match(/instagram\.com\/([a-zA-Z0-9_.]{2,30})/)
+    if (igMatch) result.ig_handle = '@' + igMatch[1]
   } catch (e) {
-    console.log(`[PageAbout] ${pageId}: failed (${e.message})`)
-    return result
+    console.log(`[PageAbout] ${pageId}: HTTP failed (${e.message})`)
   }
+
+  // Step 2: Browser + "Sobre" click to get IG handle + followers (the reliable way)
+  // Always run browser if HTTP didn't get basic data OR if IG is still missing
+  if (!result.ig_handle || !result.page_name) {
+    try {
+      const browser = await getBrowser()
+      const page = await browser.newPage()
+      await setupPage(page)
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
+      await sleep(2000)
+
+      // Get page name from browser HTML JSON (more reliable than heading element)
+      if (!result.page_name) {
+        const name = await page.evaluate(() => {
+          const html = document.documentElement?.innerHTML || ''
+          const m = html.match(/"page_name"\s*:\s*"([^"]+)"/)
+          if (m) return m[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
+          // Fallback: heading that's not generic
+          const headings = [...document.querySelectorAll('h1, [role="heading"]')]
+          for (const h of headings) {
+            const t = h.textContent?.trim() || ''
+            if (t && t.length > 2 && !t.includes('Selecionar') && !t.includes('Biblioteca')) return t
+          }
+          return ''
+        }).catch(() => '')
+        if (name) result.page_name = name
+      }
+
+      // Get FB followers + category from browser HTML if HTTP failed
+      if (!result.fb_followers) {
+        const html = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+        const likeM = html.match(/"page_like_count"\s*:\s*(\d+)/)
+        if (likeM) result.fb_followers = parseInt(likeM[1])
+        if (!result.category) {
+          const catM = html.match(/"page_category"\s*:\s*"([^"]+)"/)
+          if (catM) result.category = catM[1]
+        }
+      }
+
+      // Click "Sobre" tab — Facebook uses div[role="link"] for this
+      const sobreClicked = await page.evaluate(() => {
+        const all = [...document.querySelectorAll('*')]
+        const sobre = all.find(el => el.textContent?.trim() === 'Sobre' && el.childElementCount === 0)
+          || all.find(el => el.textContent?.trim() === 'About' && el.childElementCount === 0)
+        if (sobre) { sobre.click(); return true }
+        return false
+      })
+
+      if (sobreClicked) {
+        // Wait for transparency section to render
+        for (let w = 0; w < 5; w++) {
+          await sleep(1500)
+          const ready = await page.evaluate(() => {
+            const t = document.body?.innerText || ''
+            return t.includes('seguidores') || t.includes('followers') || t.includes('Transparência')
+          })
+          if (ready) break
+        }
+
+        // Parse innerText — much more reliable than HTML regex
+        // Facebook "Sobre" layout: FB icon → @fb_handle → "X seguidores · Categoria" → IG icon → @ig_handle → "X seguidores"
+        // The SECOND @handle is always IG (first is FB)
+        const data = await page.evaluate(() => {
+          const text = document.body?.innerText || ''
+          const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+          const handles = []
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i]
+            if (line.match(/^@[a-zA-Z0-9_.]{2,30}$/)) {
+              let followers = null
+              for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+                if (lines[j].match(/seguidor|follower/i)) { followers = lines[j]; break }
+              }
+              handles.push({ handle: line, followers, lineIndex: i })
+            }
+          }
+
+          // 2 handles: first = FB, second = IG
+          // 1 handle: it's the IG (FB pages with only IG linked)
+          // 0 handles: no social linked
+          let igH = null, igF = null, fbH = null, fbF = null
+          if (handles.length >= 2) {
+            fbH = handles[0].handle; fbF = handles[0].followers
+            igH = handles[1].handle; igF = handles[1].followers
+          } else if (handles.length === 1) {
+            // Single handle — treat as IG (most common: page only has IG linked)
+            igH = handles[0].handle; igF = handles[0].followers
+          }
+
+          return {
+            igHandle: igH,
+            igFollowers: igF,
+            fbHandle: fbH,
+            fbFollowers: fbF,
+            handleCount: handles.length,
+          }
+        })
+
+        if (data.igHandle) {
+          result.ig_handle = data.igHandle
+          if (data.igFollowers) {
+            result.ig_followers = parseFollowers(data.igFollowers)
+          }
+        }
+
+        // FB followers from the first handle's followers line
+        if (!result.fb_followers && data.fbFollowers) {
+          result.fb_followers = parseFollowers(data.fbFollowers)
+        }
+      }
+
+      await page.close().catch(() => {})
+    } catch (e) {
+      console.log(`[PageAbout] ${pageId}: browser failed (${e.message})`)
+    }
+  }
+
+  console.log(`[PageAbout] ${result.page_name || pageId}: FB=${result.fb_followers}, IG=${result.ig_followers} ${result.ig_handle || ''}`)
+  return result
 }
 
 // Extract ads from SSR HTML (Facebook embeds data in script tags)
@@ -1407,8 +1515,8 @@ async function runAutoMineLoop(callbackUrl) {
         const results = job.results
         const filtered = results.filter(p =>
           p.total_anuncios >= 5 && p.total_anuncios <= 300 &&
-          (p.fb_followers === null || p.fb_followers < 30000) &&
-          (p.ig_followers === null || p.ig_followers < 30000) &&
+          (p.fb_followers === null || p.fb_followers < 10000) &&
+          (p.ig_followers === null || p.ig_followers < 10000) &&
           p.keyword_hits >= 1
         )
         console.log(`[auto-mine] "${keyword}": ${results.length} pages -> ${filtered.length} after filters`)

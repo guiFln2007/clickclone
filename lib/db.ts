@@ -1097,8 +1097,8 @@ export async function dbGetMinedOffers(opts: {
     "status IN ('ouro', 'ativa')",
     "ad_count >= 5",
     "ad_count <= 140",
-    "(fb_followers IS NULL OR fb_followers < 30000)",
-    "(ig_followers IS NULL OR ig_followers < 30000)",
+    "(fb_followers IS NULL OR fb_followers < 10000)",
+    "(ig_followers IS NULL OR ig_followers < 10000)",
   ]
   const args: (string | number)[] = []
 
@@ -1156,6 +1156,10 @@ export async function dbUpdateMinedOfferStatus(pageId: string, status: string, n
   fb_followers?: number | null
 }): Promise<void> {
   await initDb()
+  // Auto-discard offers with 10k+ followers (not low ticket)
+  if (extra?.ig_followers && extra.ig_followers >= 10000 || extra?.fb_followers && extra.fb_followers >= 10000) {
+    status = 'descartada'
+  }
   const sets = ['status = ?']
   const args: (string | number | null)[] = [status]
   if (nicho) { sets.push('nicho = ?'); args.push(nicho) }
