@@ -410,8 +410,11 @@ export default function ToolPage() {
   // Offers feed
   const [feedOffers, setFeedOffers] = useState<FeedOffer[]>([])
   const [feedLoading, setFeedLoading] = useState(false)
+  const [feedLoadingMore, setFeedLoadingMore] = useState(false)
+  const [feedHasMore, setFeedHasMore] = useState(true)
   const [feedSearch, setFeedSearch] = useState('')
   const [selectedOffer, setSelectedOffer] = useState<FeedOffer | null>(null)
+  const feedSentinel = useRef<HTMLDivElement>(null)
   const isAdmin = typeof document !== 'undefined' && document.cookie.includes('cc_admin=')
 
   // Toast
@@ -498,11 +501,12 @@ export default function ToolPage() {
 
   useEffect(() => { loadRadar() }, [loadRadar])
 
-  // Load offers feed
-  const loadOffers = useCallback(async (search?: string) => {
-    setFeedLoading(true)
+  // Load offers feed (initial + infinite scroll)
+  const loadOffers = useCallback(async (search?: string, append = false) => {
+    if (append) { setFeedLoadingMore(true) } else { setFeedLoading(true); setFeedHasMore(true) }
     try {
-      const params = new URLSearchParams({ limit: '48', sort: 'ad_count' })
+      const offset = append ? feedOffers.length : 0
+      const params = new URLSearchParams({ limit: '60', offset: String(offset), sort: 'ad_count' })
       if (search) params.set('search', search)
       const res = await fetch(`/api/offers?${params}`)
       if (res.status === 403) {
@@ -511,13 +515,31 @@ export default function ToolPage() {
       }
       if (res.ok) {
         const data = await res.json()
-        setFeedOffers(data.offers || [])
+        const newOffers = data.offers || []
+        if (append) {
+          setFeedOffers(prev => [...prev, ...newOffers])
+        } else {
+          setFeedOffers(newOffers)
+        }
+        if (newOffers.length < 60) setFeedHasMore(false)
       }
     } catch { /* ok */ }
-    setFeedLoading(false)
-  }, [])
+    if (append) { setFeedLoadingMore(false) } else { setFeedLoading(false) }
+  }, [feedOffers.length])
 
-  useEffect(() => { loadOffers() }, [loadOffers])
+  useEffect(() => { loadOffers() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Infinite scroll — load more when sentinel enters viewport
+  useEffect(() => {
+    if (!feedSentinel.current || !feedHasMore) return
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && !feedLoading && !feedLoadingMore && feedHasMore && feedOffers.length > 0) {
+        loadOffers(feedSearch || undefined, true)
+      }
+    }, { threshold: 0.1 })
+    observer.observe(feedSentinel.current)
+    return () => observer.disconnect()
+  }, [feedHasMore, feedLoading, feedLoadingMore, feedOffers.length, feedSearch, loadOffers])
 
   // Click outside profile
   useEffect(() => {
@@ -976,7 +998,7 @@ export default function ToolPage() {
                 <p className="analyze-sub">Ofertas encontradas automaticamente, filtradas e prontas pra modelar</p>
                 <div className="of-searchbar" style={{ maxWidth: 520, margin: '0 auto' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                  <input className="of-search-input" placeholder="Buscar ofertas..." value={feedSearch} onChange={e => { setFeedSearch(e.target.value); loadOffers(e.target.value) }} />
+                  <input className="of-search-input" placeholder="Buscar ofertas..." value={feedSearch} onChange={e => { setFeedSearch(e.target.value); setFeedOffers([]); loadOffers(e.target.value) }} />
                 </div>
               </div>
               {feedLoading && <div className="empty-state">Carregando ofertas...</div>}
@@ -1009,6 +1031,10 @@ export default function ToolPage() {
                   })}
                 </div>
               )}
+              {/* Infinite scroll sentinel + loading */}
+              {feedLoadingMore && <div className="empty-state" style={{ padding: '24px 0' }}>Carregando mais ofertas...</div>}
+              {feedOffers.length > 0 && feedHasMore && <div ref={feedSentinel} style={{ height: 1 }} />}
+              {feedOffers.length > 0 && !feedHasMore && <div style={{ textAlign: 'center', padding: '24px 0', color: '#555', fontSize: 13 }}>{feedOffers.length} ofertas carregadas</div>}
 
               {/* Modal detalhe da oferta */}
               {selectedOffer && <OfferDetailModal offer={selectedOffer} onClose={() => setSelectedOffer(null)} onAnalyze={(adLibUrl) => { setSelectedOffer(null); setUrl(adLibUrl); setActiveTab('analise'); setTimeout(() => handleAnalyze(undefined, adLibUrl), 150) }} onRadar={(o, adLibUrl) => { saveMinedToRadar({ pagina_nome: o.page_name, ad_library_url: adLibUrl, landing_url: o.landing_url, total_anuncios: o.ad_count, dias_rodando: o.dias_rodando, score_escalabilidade: 0, fb_followers: o.fb_followers, ig_followers: o.ig_followers, ig_handle: o.ig_handle, nicho: o.nicho || '', resumo_angulo: '' }); setSelectedOffer(null) }} onDismiss={async (o) => { await fetch(`/api/offers/${o.page_id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'descartada' }) }); setFeedOffers(prev => prev.filter(f => f.page_id !== o.page_id)); setSelectedOffer(null) }} showDismiss={isAdmin} />}
