@@ -283,21 +283,25 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
                   {c.media_url && (c.media_url.includes('.mp4') || c.media_url.includes('video')) && (
                     transcripts[i] ? (
                       <details style={{ width: '100%' }}><summary className="criativo-btn" style={{ listStyle: 'none' }}>Ver transcrição do áudio</summary>
-                        <div style={{ fontSize: 11, color: '#a1a1aa', lineHeight: 1.6, marginTop: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'rgba(0,0,0,.3)', padding: 12, borderRadius: 8 }}>{transcripts[i]}</div>
-                        <button className="criativo-btn" style={{ marginTop: 6, cursor: 'pointer', border: 'none', background: 'rgba(255,140,0,.1)', color: '#FF8C00' }} onClick={() => {
-                          const blob = new Blob([transcripts[i]], { type: 'text/plain' })
-                          const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `transcricao-criativo-${i+1}.txt`; a.click()
-                        }}>Baixar transcrição (.txt)</button>
+                        <div style={{ fontSize: 11, color: transcripts[i].includes('expirado') || transcripts[i].includes('Erro') ? '#ef4444' : '#a1a1aa', lineHeight: 1.6, marginTop: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'rgba(0,0,0,.3)', padding: 12, borderRadius: 8 }}>{transcripts[i]}</div>
+                        {!transcripts[i].includes('expirado') && !transcripts[i].includes('Erro') && (
+                          <button className="criativo-btn" style={{ marginTop: 6, cursor: 'pointer', border: 'none', background: 'rgba(255,140,0,.1)', color: '#FF8C00' }} onClick={() => {
+                            const blob = new Blob([transcripts[i]], { type: 'text/plain' })
+                            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `transcricao-criativo-${i+1}.txt`; a.click()
+                          }}>Baixar transcrição (.txt)</button>
+                        )}
                       </details>
                     ) : (
                       <button className="criativo-btn" style={{ width: '100%', cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} disabled={transcribing[i]} onClick={async () => {
                         setTranscribing(p => ({ ...p, [i]: true }))
                         try {
                           const res = await fetch('/api/transcribe', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ videoUrl: c.media_url }) })
+                          const data = await res.json()
                           if (res.ok) {
-                            const data = await res.json()
                             setTranscripts(p => ({ ...p, [i]: data.transcript || 'Sem áudio detectado' }))
-                          } else { setTranscripts(p => ({ ...p, [i]: 'Erro na transcrição' })) }
+                          } else {
+                            setTranscripts(p => ({ ...p, [i]: data.error === 'Video expirado ou inacessível' ? 'Vídeo expirado — re-analise a oferta para transcrever' : 'Erro na transcrição' }))
+                          }
                         } catch { setTranscripts(p => ({ ...p, [i]: 'Erro na transcrição' })) }
                         setTranscribing(p => ({ ...p, [i]: false }))
                       }}>
