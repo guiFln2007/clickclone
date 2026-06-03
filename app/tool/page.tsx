@@ -633,7 +633,7 @@ export default function ToolPage() {
 
       const landingUrl = (p1 as Record<string, unknown>).landing_url as string
       if (!landingUrl) throw new Error('URL da pagina nao encontrada')
-      setTermLines(prev => [...prev, { text: '> Gerando prompt do funil...', type: 'wait' }])
+      setTermLines(prev => [...prev, { text: '> Analisando página de vendas...', type: 'wait' }])
 
       const res2 = await fetch('/api/phase2', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ url: landingUrl, phase1Report: p1 }) })
       if (res2.status === 402) { setUpgradeModal(true); return }
@@ -643,7 +643,7 @@ export default function ToolPage() {
       await readSSE(res2, ev => {
         if (ev.type === 'error') { phase2Err = ev.message as string; return true }
         if (ev.type === 'progress') { setTermLines(prev => [...prev, { text: `> ${ev.text}`, type: 'wait' }]); setDashTarget(75) }
-        if (ev.type === 'done') { p2 = ev.report as Record<string, unknown>; shots = (ev.screenshots as string[]) || []; setTermLines(prev => [...prev, { text: '\u2713 Prompt do funil pronto', type: 'done' }]); setDashTarget(100); return true }
+        if (ev.type === 'done') { p2 = ev.report as Record<string, unknown>; shots = (ev.screenshots as string[]) || []; setTermLines(prev => [...prev, { text: '\u2713 Análise completa', type: 'done' }]); setDashTarget(100); return true }
         return false
       })
       if (phase2Err) throw new Error(`Fase 2: ${phase2Err}`)
