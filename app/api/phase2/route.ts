@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
           ? `\u2705 P\u00e1gina escaneada (${pageText.length} chars)`
           : '\u26A0\uFE0F P\u00e1gina bloqueada \u2014 gerando com dados dos an\u00fancios' })
 
-        send({ type: 'progress', text: '\uD83E\uDDE0 Gerando prompt do funil...' })
+        send({ type: 'progress', text: '\uD83E\uDDE0 Gerando análise da página...' })
 
         const Anthropic = (await import('@anthropic-ai/sdk')).default
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -207,7 +207,7 @@ Gere o prompt pronto para Lovable/Bolt com o funil completo modelado a partir de
           chunkCount++
           // Mandar keepalive a cada 20 chunks pra não dar timeout
           if (chunkCount % 20 === 0) {
-            send({ type: 'progress', text: `Gerando funil... (${Math.round(rawText.length / 100)}%)` })
+            send({ type: 'progress', text: `Analisando página... (${Math.min(Math.round(rawText.length / 160), 99)}%)` })
           }
         })
         const finalMessage = await stream.finalMessage()
