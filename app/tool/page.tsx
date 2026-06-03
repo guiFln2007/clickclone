@@ -198,7 +198,14 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
   const pontosFortes: string[] = phase1.pontos_fortes_criativos || []
   const pontosFracos: string[] = phase1.pontos_fracos_criativos || []
   const modelar = phase1.o_que_modelar || { manter: [], corrigir: [] }
-  const topCriativos: { index: number; texto_completo: string; hook: string; formato: string; dias_rodando: number; score: number; angulo: string; media_url?: string }[] = phase1.top_criativos || []
+  const rawCriativos: { index: number; texto_completo: string; hook: string; formato: string; dias_rodando: number; score: number; angulo: string; media_url?: string }[] = phase1.top_criativos || []
+  // Deduplicate creatives by hook text (Facebook shows variants of same ad as separate entries)
+  const topCriativos = rawCriativos.filter((c, i, arr) => {
+    const hookNorm = (c.hook || '').toLowerCase().trim().slice(0, 60)
+    return i === arr.findIndex(x => (x.hook || '').toLowerCase().trim().slice(0, 60) === hookNorm)
+  })
+  const [transcribing, setTranscribing] = React.useState<Record<number, boolean>>({})
+  const [transcripts, setTranscripts] = React.useState<Record<number, string>>({})
   const anguloD: string = phase1.angulo_dominante || ''
   const usaPraVender: string[] = phase1.o_que_usa_pra_vender || []
   const angulosNaoExplorados: string[] = phase1.angulos_nao_explorados || []
@@ -269,11 +276,43 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
                 </div>
                 <div className="criativo-hook">&ldquo;{c.hook}&rdquo;</div>
                 <div className="criativo-angulo">{c.angulo}</div>
-                {c.texto_completo && c.texto_completo !== c.hook && (
-                  <div className="criativo-actions">
+                <div className="criativo-actions">
+                  {c.texto_completo && c.texto_completo !== c.hook && (
                     <details style={{ width: '100%' }}><summary className="criativo-btn" style={{ listStyle: 'none' }}>Ver copy completo</summary><div style={{ fontSize: 11, color: '#52525b', lineHeight: 1.5, marginTop: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{c.texto_completo}</div></details>
-                  </div>
-                )}
+                  )}
+                  {c.media_url && (c.media_url.includes('.mp4') || c.media_url.includes('video')) && (
+                    transcripts[i] ? (
+                      <details style={{ width: '100%' }}><summary className="criativo-btn" style={{ listStyle: 'none' }}>Ver transcrição do áudio</summary>
+                        <div style={{ fontSize: 11, color: '#a1a1aa', lineHeight: 1.6, marginTop: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'rgba(0,0,0,.3)', padding: 12, borderRadius: 8 }}>{transcripts[i]}</div>
+                        <button className="criativo-btn" style={{ marginTop: 6, cursor: 'pointer', border: 'none', background: 'rgba(255,140,0,.1)', color: '#FF8C00' }} onClick={() => {
+                          const blob = new Blob([transcripts[i]], { type: 'text/plain' })
+                          const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `transcricao-criativo-${i+1}.txt`; a.click()
+                        }}>Baixar transcrição (.txt)</button>
+                      </details>
+                    ) : (
+                      <button className="criativo-btn" style={{ width: '100%', cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} disabled={transcribing[i]} onClick={async () => {
+                        setTranscribing(p => ({ ...p, [i]: true }))
+                        try {
+                          const res = await fetch('/api/transcribe', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ videoUrl: c.media_url }) })
+                          if (res.ok) {
+                            const data = await res.json()
+                            setTranscripts(p => ({ ...p, [i]: data.transcript || 'Sem áudio detectado' }))
+                          } else { setTranscripts(p => ({ ...p, [i]: 'Erro na transcrição' })) }
+                        } catch { setTranscripts(p => ({ ...p, [i]: 'Erro na transcrição' })) }
+                        setTranscribing(p => ({ ...p, [i]: false }))
+                      }}>
+                        {transcribing[i] ? (
+                          <><span className="st-pulse" style={{ width: 6, height: 6 }} /> Transcrevendo...</>
+                        ) : (
+                          <>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+                            Transcrever áudio
+                          </>
+                        )}
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -1463,7 +1502,11 @@ const CSS = `
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{overflow-y:scroll}
+html{overflow-y:scroll;scrollbar-width:thin;scrollbar-color:#27272a #0a0a0a}
+html::-webkit-scrollbar{width:8px}
+html::-webkit-scrollbar-track{background:#0a0a0a}
+html::-webkit-scrollbar-thumb{background:#27272a;border-radius:4px}
+html::-webkit-scrollbar-thumb:hover{background:#3f3f46}
 html,body{height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;background:#06080f;color:#fafafa;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 
 /* GLOBAL TOKENS */
