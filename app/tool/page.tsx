@@ -295,14 +295,22 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
                       <button className="criativo-btn" style={{ width: '100%', cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} disabled={transcribing[i]} onClick={async () => {
                         setTranscribing(p => ({ ...p, [i]: true }))
                         try {
-                          const res = await fetch('/api/transcribe', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ videoUrl: c.media_url }) })
+                          // Download video in browser (has access to Facebook CDN) then upload to backend
+                          const vidRes = await fetch(c.media_url!)
+                          if (!vidRes.ok) throw new Error('download')
+                          const blob = await vidRes.blob()
+                          const form = new FormData()
+                          form.append('video', blob, 'video.mp4')
+                          const res = await fetch('/api/transcribe', { method: 'POST', body: form })
                           const data = await res.json()
                           if (res.ok) {
                             setTranscripts(p => ({ ...p, [i]: data.transcript || 'Sem áudio detectado' }))
                           } else {
-                            setTranscripts(p => ({ ...p, [i]: data.error === 'Video expirado ou inacessível' ? 'Vídeo expirado — re-analise a oferta para transcrever' : 'Erro na transcrição' }))
+                            setTranscripts(p => ({ ...p, [i]: data.error || 'Erro na transcrição' }))
                           }
-                        } catch { setTranscripts(p => ({ ...p, [i]: 'Erro na transcrição' })) }
+                        } catch (e) {
+                          setTranscripts(p => ({ ...p, [i]: (e as Error).message === 'download' ? 'Vídeo expirado — re-analise a oferta' : 'Erro na transcrição' }))
+                        }
                         setTranscribing(p => ({ ...p, [i]: false }))
                       }}>
                         {transcribing[i] ? (
