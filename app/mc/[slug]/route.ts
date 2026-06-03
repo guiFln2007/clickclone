@@ -19,5 +19,12 @@ export async function GET(
   url.searchParams.set('utm_content', 'reels')
   url.searchParams.set('utm_term', slug)
 
-  return NextResponse.redirect(url, 302)
+  const res = NextResponse.redirect(url, 302)
+  res.cookies.set('mc_slug', slug, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30, // 30 dias
+    httpOnly: false,
+    sameSite: 'lax',
+  })
+  return res
 }

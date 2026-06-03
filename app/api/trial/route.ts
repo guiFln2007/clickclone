@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { dbGetUserByEmail, dbActivateUser, dbCheckTrialIp, dbSetTrialIp } from '@/lib/db'
+import { dbGetUserByEmail, dbActivateUser, dbCheckTrialIp, dbSetTrialIp, dbSetMcSlug } from '@/lib/db'
 import { sendTrialEmail, sendBustedEmail } from '@/lib/mailer'
 
 export async function POST(req: NextRequest) {
@@ -38,8 +38,12 @@ export async function POST(req: NextRequest) {
     const tempPassword = Math.random().toString(36).slice(2, 10)
     const hash = await bcrypt.hash(tempPassword, 10)
 
-    await dbActivateUser('trial', normalizedEmail, '', hash, 'trial')
+    const trialUser = await dbActivateUser('trial', normalizedEmail, '', hash, 'trial')
     await dbSetTrialIp(normalizedEmail, ip)
+
+    // Associate ManyChat slug if present
+    const mcSlug = req.cookies.get('mc_slug')?.value
+    if (mcSlug && trialUser) dbSetMcSlug(trialUser.id, mcSlug).catch(() => {})
 
     sendTrialEmail(normalizedEmail, tempPassword).catch(console.error)
 

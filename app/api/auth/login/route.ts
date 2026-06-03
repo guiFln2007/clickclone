@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { dbGetUserByEmail, dbSetHash } from '@/lib/db'
+import { dbGetUserByEmail, dbSetHash, dbSetMcSlug } from '@/lib/db'
 import { signToken } from '@/lib/jwt'
 
 export async function POST(req: NextRequest) {
@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
         return Response.json({ error: 'Email ou senha incorretos' }, { status: 401 })
       }
     }
+
+    // Associate ManyChat slug if present
+    const mcSlug = req.cookies.get('mc_slug')?.value
+    if (mcSlug) dbSetMcSlug(user.id, mcSlug).catch(() => {})
 
     const token = signToken({ sub: user.id, email: user.email })
 

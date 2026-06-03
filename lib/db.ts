@@ -141,6 +141,9 @@ export async function initDb() {
   // Migration: track trial signup IP
   try { await db.execute('ALTER TABLE users ADD COLUMN trial_ip TEXT') } catch { /* exists */ }
 
+  // Migration: ManyChat slug tracking on users
+  try { await db.execute('ALTER TABLE users ADD COLUMN mc_slug TEXT') } catch { /* exists */ }
+
   // Migration: swipe expiration for curso trial
   try { await db.execute('ALTER TABLE users ADD COLUMN swipe_expires_at TEXT') } catch { /* exists */ }
 
@@ -1239,6 +1242,26 @@ export async function dbGetMinedOfferByPageId(pageId: string): Promise<AutoMined
 }
 
 // ── ManyChat click tracking ─────────────────────────────────────────────────
+export async function dbSetMcSlug(userId: number, slug: string) {
+  await initDb()
+  await db.execute({ sql: 'UPDATE users SET mc_slug = ? WHERE id = ? AND mc_slug IS NULL', args: [slug, userId] })
+}
+
+export async function dbGetMcSales() {
+  await initDb()
+  const res = await db.execute({
+    sql: `SELECT mc_slug, COUNT(*) as vendas,
+          SUM(CASE WHEN plano != 'trial' THEN 1 ELSE 0 END) as vendas_pagas
+          FROM users WHERE mc_slug IS NOT NULL GROUP BY mc_slug ORDER BY vendas DESC`,
+    args: [],
+  })
+  return res.rows.map(r => ({
+    slug: (r as Record<string, unknown>).mc_slug as string,
+    vendas: (r as Record<string, unknown>).vendas as number,
+    vendas_pagas: (r as Record<string, unknown>).vendas_pagas as number,
+  }))
+}
+
 export async function dbLogMcClick(slug: string, ip?: string, userAgent?: string) {
   await initDb()
   await db.execute({

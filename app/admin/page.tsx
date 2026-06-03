@@ -88,7 +88,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [blasting, setBlasting] = useState(false)
   const [blastResult, setBlastResult] = useState<{ sent: number; failed: number } | null>(null)
-  const [mcStats, setMcStats] = useState<{ total: number; today: number; bySlug: { slug: string; clicks: number; last_click: string }[] } | null>(null)
+  const [mcStats, setMcStats] = useState<{ total: number; today: number; bySlug: { slug: string; clicks: number; last_click: string }[]; sales: { slug: string; vendas: number; vendas_pagas: number }[] } | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/stats')
@@ -303,28 +303,45 @@ export default function AdminDashboard() {
           </div>
 
           {/* ManyChat tracking */}
-          {mcStats && mcStats.total > 0 && (
+          {mcStats && (mcStats.total > 0 || (mcStats.sales && mcStats.sales.length > 0)) && (
             <div className="adm-card" style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <h2 style={{ fontSize: 15, fontWeight: 700, color: '#ccc', margin: 0 }}>ManyChat Clicks</h2>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: '#ccc', margin: 0 }}>ManyChat</h2>
                 <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#555' }}>
-                  <span>{mcStats.today} hoje</span>
-                  <span>{mcStats.total} total</span>
+                  <span>{mcStats.today} cliques hoje</span>
+                  <span>{mcStats.total} cliques total</span>
                 </div>
               </div>
-              <div>
-                {mcStats.bySlug.map(s => (
-                  <div key={s.slug} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #151515' }}>
-                    <div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>/mc/{s.slug}</span>
-                      <span style={{ fontSize: 11, color: '#444', marginLeft: 8 }}>
-                        ultimo: {new Date(s.last_click).toLocaleDateString('pt-BR')}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: 15, fontWeight: 900, color: '#E8692A' }}>{s.clicks}</span>
-                  </div>
-                ))}
-              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #222' }}>
+                    <th style={{ textAlign: 'left', fontSize: 11, color: '#555', padding: '6px 0', fontWeight: 600 }}>KEYWORD</th>
+                    <th style={{ textAlign: 'center', fontSize: 11, color: '#555', padding: '6px 0', fontWeight: 600 }}>CLIQUES</th>
+                    <th style={{ textAlign: 'center', fontSize: 11, color: '#555', padding: '6px 0', fontWeight: 600 }}>TRIALS</th>
+                    <th style={{ textAlign: 'center', fontSize: 11, color: '#555', padding: '6px 0', fontWeight: 600 }}>VENDAS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const allSlugs = new Set([
+                      ...mcStats.bySlug.map(s => s.slug),
+                      ...(mcStats.sales || []).map(s => s.slug),
+                    ])
+                    return Array.from(allSlugs).map(slug => {
+                      const click = mcStats.bySlug.find(s => s.slug === slug)
+                      const sale = mcStats.sales?.find(s => s.slug === slug)
+                      return (
+                        <tr key={slug} style={{ borderBottom: '1px solid #151515' }}>
+                          <td style={{ padding: '10px 0', fontSize: 13, fontWeight: 600, color: '#fff' }}>/mc/{slug}</td>
+                          <td style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#888' }}>{click?.clicks || 0}</td>
+                          <td style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#60a5fa' }}>{sale ? sale.vendas - sale.vendas_pagas : 0}</td>
+                          <td style={{ textAlign: 'center', fontSize: 14, fontWeight: 900, color: '#4ade80' }}>{sale?.vendas_pagas || 0}</td>
+                        </tr>
+                      )
+                    })
+                  })()}
+                </tbody>
+              </table>
             </div>
           )}
 
