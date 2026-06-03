@@ -6,7 +6,7 @@ export async function GET(
 ) {
   const { slug } = await params
 
-  const url = new URL('/', request.url)
+  const url = new URL('https://ratoads.com.br/')
   url.searchParams.set('utm_source', 'manychat')
   url.searchParams.set('utm_medium', 'instagram_dm')
   url.searchParams.set('utm_campaign', 'ratoads')
