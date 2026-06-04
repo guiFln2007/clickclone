@@ -589,7 +589,7 @@ export default function ToolPage() {
       if (entries[0].isIntersecting && !feedLoading && !feedLoadingMore && feedHasMore && feedOffers.length > 0) {
         loadOffers(feedSearch || undefined, true)
       }
-    }, { threshold: 0.1 })
+    }, { threshold: 0, rootMargin: '200px' })
     observer.observe(feedSentinel.current)
     return () => observer.disconnect()
   }, [feedHasMore, feedLoading, feedLoadingMore, feedOffers.length, feedSearch, loadOffers])
@@ -1091,7 +1091,7 @@ export default function ToolPage() {
               )}
               {/* Infinite scroll sentinel + loading */}
               {feedLoadingMore && <div className="empty-state" style={{ padding: '24px 0' }}>Carregando mais ofertas...</div>}
-              {feedOffers.length > 0 && feedHasMore && <div ref={feedSentinel} style={{ height: 1 }} />}
+              {feedOffers.length > 0 && feedHasMore && <div ref={feedSentinel} style={{ height: 40, marginTop: 20 }} />}
               {feedOffers.length > 0 && !feedHasMore && <div style={{ textAlign: 'center', padding: '24px 0', color: '#555', fontSize: 13 }}>{feedOffers.length} ofertas carregadas</div>}
 
               {/* Modal detalhe da oferta */}
