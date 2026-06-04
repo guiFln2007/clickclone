@@ -14,9 +14,14 @@ export async function POST(req: NextRequest) {
       args: [uid, product, Date.now()],
     })
 
-    return NextResponse.json({ ok: true })
+    return new NextResponse(JSON.stringify({ ok: true }), {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    })
   } catch {
-    return NextResponse.json({ error: 'failed' }, { status: 500 })
+    return new NextResponse(JSON.stringify({ error: 'failed' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    })
   }
 }
 
