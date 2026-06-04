@@ -127,6 +127,15 @@ export async function initDb() {
     try { await db.execute(sql) } catch { /* column already exists */ }
   }
 
+  // Presence tracking table (for external products like OAB)
+  try {
+    await db.execute({ sql: `CREATE TABLE IF NOT EXISTS presence (
+      uid TEXT PRIMARY KEY,
+      product TEXT NOT NULL,
+      last_seen INTEGER NOT NULL
+    )`, args: [] })
+  } catch { /* already exists */ }
+
   // Migration: leads table
   try {
     await db.execute({
