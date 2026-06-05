@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { dbActivateUser, dbRenewUser, dbDeactivateUser, dbAddCreditos, dbAddMineracoes, dbLookupMcPending, dbLookupMcPendingByIp, dbSetMcSlug } from '@/lib/db'
+import { dbActivateUser, dbRenewUser, dbDeactivateUser, dbAddCreditos, dbAddMineracoes, dbLookupMcPending, dbLookupMcPendingByIp, dbSetMcSlug, dbLogWebhook, dbGetWebhookLogs } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/mailer'
 
 function extractCustomer(body: Record<string, unknown>) {
@@ -100,12 +100,10 @@ function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
   return 'starter'
 }
 
-// Debug: keep last 10 webhook hits in memory
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const webhookHits: { ts: string; headers: Record<string, string>; query: Record<string, string>; body: any; tokenMatch?: boolean }[] = []
 
 export async function GET() {
-  return Response.json({ count: webhookHits.length, hits: webhookHits })
+  const logs = await dbGetWebhookLogs(20)
+  return Response.json({ count: logs.length, logs })
 }
 
 export async function POST(req: NextRequest) {
@@ -131,9 +129,6 @@ export async function POST(req: NextRequest) {
     const incomingToken = candidates.find(c => c === expectedToken) || candidates.find(c => c.length > 0) || ''
     const tokenMatch = incomingToken === expectedToken && expectedToken.length > 0
 
-    webhookHits.unshift({ ts: new Date().toISOString(), headers, query, body, tokenMatch })
-    if (webhookHits.length > 10) webhookHits.length = 10
-
     // Kirvano nao envia token — valida pela estrutura: precisa ter event + customer/buyer/email
     const hasValidShape = !!(body.event || body.type) && !!((body.customer as Record<string,unknown>)?.email || (body.buyer as Record<string,unknown>)?.email || body.email)
     if (!hasValidShape) {
@@ -145,6 +140,12 @@ export async function POST(req: NextRequest) {
 
     const event = (body.event || body.type || '') as string
     const normalizedEvent = event.toUpperCase().replace('.', '_')
+    const { email: logEmail } = extractCustomer(body)
+    const products = body.products as Record<string, unknown>[] | undefined
+    const logOfferId = String(products?.[0]?.offer_id || '')
+
+    // Salvar TUDO no banco (persiste entre restarts)
+    dbLogWebhook(normalizedEvent, logEmail, logOfferId, '', JSON.stringify(body)).catch(() => {})
 
     // ── RECARGA DE MINERAÇÕES ─────────────────────────────────────────────────
     if (normalizedEvent === 'PURCHASE_APPROVED' || normalizedEvent === 'SALE_APPROVED') {
@@ -154,6 +155,7 @@ export async function POST(req: NextRequest) {
         if (!email) return Response.json({ error: 'Email ausente no payload' }, { status: 400 })
 
         await dbAddMineracoes(email, mineracaoQty)
+        dbLogWebhook(normalizedEvent, email, logOfferId, `mineracoes_+${mineracaoQty}`, JSON.stringify(body)).catch(() => {})
         console.log(`[kirvano] MINERACAO_PACK: ${email} +${mineracaoQty} mineracoes`)
         return Response.json({ ok: true, type: 'mineracoes', qty: mineracaoQty })
       }
@@ -174,7 +176,6 @@ export async function POST(req: NextRequest) {
       if (user?.id) {
         let mcSlug = await dbLookupMcPending(email).catch(() => null)
         if (!mcSlug) {
-          // Fallback: tentar por IP do comprador (match mc_clicks/mc_pending ultimas 2h)
           const buyerIp = ((body.customer || body.buyer || {}) as Record<string, unknown>).ip as string | undefined
           if (buyerIp) mcSlug = await dbLookupMcPendingByIp(buyerIp).catch(() => null)
         }
@@ -184,6 +185,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      dbLogWebhook(normalizedEvent, email, logOfferId, plano, JSON.stringify(body)).catch(() => {})
       sendWelcomeEmail(email, name, tempPassword).catch(console.error)
       console.log(`[kirvano] PURCHASE_APPROVED: ${email} plano=${plano} (id=${user?.id})`)
       return Response.json({ ok: true, user_id: user?.id, plano })

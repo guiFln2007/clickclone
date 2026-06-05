@@ -257,7 +257,37 @@ export async function initDb() {
     })
   } catch { /* exists */ }
 
+  // Migration: webhook_logs table (persistent, survives restarts)
+  try {
+    await db.execute({
+      sql: `CREATE TABLE IF NOT EXISTS webhook_logs (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        event       TEXT,
+        email       TEXT,
+        offer_id    TEXT,
+        plan_detected TEXT,
+        raw_payload TEXT,
+        created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    })
+  } catch { /* exists */ }
+
   initialized = true
+}
+
+export async function dbLogWebhook(event: string, email: string, offerId: string, planDetected: string, rawPayload: string) {
+  await initDb()
+  await db.execute({
+    sql: 'INSERT INTO webhook_logs (event, email, offer_id, plan_detected, raw_payload) VALUES (?, ?, ?, ?, ?)',
+    args: [event, email, offerId, planDetected, rawPayload.slice(0, 5000)],
+  })
+}
+
+export async function dbGetWebhookLogs(limit = 20) {
+  await initDb()
+  const res = await db.execute({ sql: 'SELECT * FROM webhook_logs ORDER BY id DESC LIMIT ?', args: [limit] })
+  return res.rows
 }
 
 // Plan definitions — single source of truth
