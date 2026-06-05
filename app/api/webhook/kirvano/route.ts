@@ -15,7 +15,8 @@ function extractCustomer(body: Record<string, unknown>) {
 // Starter: R$57,90 | Premium: R$147,90 (trimestral)
 // Offer IDs fixos do Kirvano (source of truth)
 const OFFER_PLAN_MAP: Record<string, 'starter' | 'premium'> = {
-  'c60822ee-79dc-4e2c-ab27-031d405ca57c': 'premium', // RatoAds Premium
+  '5def273b-7070-429d-bdc2-e0ebec1da6e9': 'starter', // RatoAds Starter R$57,90
+  'c60822ee-79dc-4e2c-ab27-031d405ca57c': 'premium', // RatoAds Premium R$147,90
 }
 
 // Credit packs (minerações) — offer_id -> quantity
@@ -140,6 +141,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Invalid payload' }, { status: 400 })
     }
     console.log(`[kirvano] Webhook recebido. Event: ${body.event || body.type || '?'}, email: ${(body.customer as Record<string,unknown>)?.email || body.email || '?'}`)
+    console.log(`[kirvano] FULL PAYLOAD: ${JSON.stringify(body).slice(0, 3000)}`)
 
     const event = (body.event || body.type || '') as string
     const normalizedEvent = event.toUpperCase().replace('.', '_')
