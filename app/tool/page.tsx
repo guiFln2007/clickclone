@@ -478,6 +478,7 @@ export default function ToolPage() {
   // Auth
   const [userId, setUserId] = useState<number | null>(null)
   const [userName, setUserName] = useState('')
+  const [userEmail, setUserEmail] = useState('')
   const [analises, setAnalises] = useState<number | null>(null)
   const [mineracoes, setMineracoes] = useState<number | null>(null)
   const [maxAnalises, setMaxAnalises] = useState(5)
@@ -489,6 +490,7 @@ export default function ToolPage() {
   const [swipeExpired, setSwipeExpired] = useState(false)
   const [swipeCountdown, setSwipeCountdown] = useState('')
   const [upgradeModal, setUpgradeModal] = useState(false)
+  const [creditsModal, setCreditsModal] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
   const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -500,6 +502,7 @@ export default function ToolPage() {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (typeof d.user?.id === 'number') setUserId(d.user.id)
       if (d.user?.nome) setUserName(d.user.nome.split(' ')[0])
+      if (d.user?.email) setUserEmail(d.user.email)
       if (typeof d.user?.analises === 'number') setAnalises(d.user.analises)
       if (typeof d.user?.mineracoes === 'number') setMineracoes(d.user.mineracoes)
       if (typeof d.user?.max_analises === 'number') setMaxAnalises(d.user.max_analises)
@@ -753,6 +756,7 @@ export default function ToolPage() {
     try {
       // 1. Start the mining run
       const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ keyword: mineKeyword.trim() }) })
+      if (startRes.status === 402) { if (plano === 'trial') setUpgradeModal(true); else setCreditsModal(true); setMining(false); return }
       if (!startRes.ok) { const e = await startRes.json().catch(() => ({})); throw new Error(e.error || 'Erro ao iniciar') }
       const { runId } = await startRes.json()
       if (!runId) throw new Error('Falha ao iniciar busca')
@@ -1009,6 +1013,43 @@ export default function ToolPage() {
               </div>
             )
           })()}
+
+          {/* MINERACOES DEPLETED BANNER (paid users) */}
+          {plano !== 'trial' && plano !== 'inativo' && mineracoes === 0 && (
+            <div style={{ margin: '0 auto', maxWidth: 1000, padding: '0 32px' }}>
+              <div
+                onClick={() => setCreditsModal(true)}
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,140,0,.06) 0%, rgba(255,100,0,.02) 100%)',
+                  border: '1px solid rgba(255,160,0,.3)',
+                  borderRadius: 14, padding: '16px 24px', marginTop: 20, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: 16, flexWrap: 'wrap', transition: 'all .25s',
+                  boxShadow: '0 0 20px rgba(255,140,0,.04)',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,160,0,.5)'; e.currentTarget.style.boxShadow = '0 0 30px rgba(255,140,0,.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,160,0,.3)'; e.currentTarget.style.boxShadow = '0 0 20px rgba(255,140,0,.04)' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,140,0,.1)', border: '1px solid rgba(255,140,0,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF8C00" strokeWidth="2.5" strokeLinecap="round"><path d="M12 9v4m0 4h.01M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"/></svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#FF8C00', marginBottom: 2 }}>Suas minera{'\u00e7\u00f5'}es acabaram</div>
+                    <div style={{ fontSize: 12, color: '#777' }}>Clique aqui pra recarregar e continuar minerando.</div>
+                  </div>
+                </div>
+                <div style={{
+                  background: 'linear-gradient(135deg, #FF8C00, #FF6B00)', color: '#fff',
+                  padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                  whiteSpace: 'nowrap', flexShrink: 0,
+                  boxShadow: '0 4px 16px rgba(255,107,0,.3)',
+                }}>
+                  Recarregar
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── ABA HOME ── */}
           {activeTab === 'home' && (
@@ -1538,6 +1579,87 @@ export default function ToolPage() {
             </a>
             <p style={{ textAlign: 'center', fontSize: 11, color: '#52525b', marginTop: 10 }}>Cancele quando quiser {'\u00b7'} Acesso imediato</p>
             <button className="btn-outline" style={{ width: '100%', marginTop: 8 }} onClick={() => setUpgradeModal(false)}>Agora n{'\u00e3'}o</button>
+          </div>
+        </div>
+      )}
+      {/* Credits modal */}
+      {creditsModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.85)', backdropFilter: 'blur(12px)' }} onClick={() => setCreditsModal(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            position: 'relative', width: '100%', maxWidth: 440, margin: '0 20px',
+            background: 'linear-gradient(170deg, #0a0a0a 0%, #050505 100%)',
+            border: '1px solid rgba(255,160,0,.25)',
+            borderRadius: 24, padding: '40px 32px 32px', overflow: 'hidden',
+            boxShadow: '0 0 60px rgba(255,140,0,.08), 0 0 120px rgba(255,140,0,.04), 0 30px 60px rgba(0,0,0,.6)',
+          }}>
+            {/* Glow top border */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,160,0,.6), rgba(255,200,100,.8), rgba(255,160,0,.6), transparent)' }} />
+            {/* Corner glow */}
+            <div style={{ position: 'absolute', top: -80, right: -80, width: 200, height: 200, background: 'radial-gradient(circle, rgba(255,140,0,.12), transparent 70%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: -60, left: -60, width: 160, height: 160, background: 'radial-gradient(circle, rgba(255,140,0,.06), transparent 70%)', pointerEvents: 'none' }} />
+
+            {/* Icon */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(255,140,0,.08)', border: '1px solid rgba(255,140,0,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 28, height: 28 }}><path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="#FF8C00"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="#FF8C00"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="#FF8C00"/></svg>
+              </div>
+            </div>
+
+            {/* Title */}
+            <h2 style={{ textAlign: 'center', fontSize: 22, fontWeight: 800, letterSpacing: '-.03em', marginBottom: 6, color: '#fff' }}>Minera{'\u00e7\u00f5'}es esgotadas</h2>
+            <p style={{ textAlign: 'center', color: '#666', fontSize: 13, marginBottom: 28, lineHeight: 1.6 }}>
+              Adicione mais minera{'\u00e7\u00f5'}es e continue de onde parou.
+            </p>
+
+            {/* Packs */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+              {[
+                { qty: 5, price: 'R$19,90', unit: 'R$3,98/un', url: 'https://pay.kirvano.com/4bfbb0ae-7fb5-4eef-8f64-dce252b2676c' },
+                { qty: 10, price: 'R$27,90', unit: 'R$2,79/un', url: 'https://pay.kirvano.com/b5a70d31-c8b3-43df-8460-a3401ca834f0' },
+                { qty: 20, price: 'R$44,90', unit: 'R$2,25/un', url: 'https://pay.kirvano.com/fb770a29-0bc1-418c-9196-a06f8c64e813', best: true },
+              ].map(pack => (
+                <button
+                  key={pack.qty}
+                  onClick={() => window.open(`${pack.url}?email=${encodeURIComponent(userEmail)}`, '_blank')}
+                  style={{
+                    position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '18px 20px', borderRadius: 14,
+                    background: pack.best ? 'linear-gradient(135deg, rgba(255,140,0,.1) 0%, rgba(255,100,0,.05) 100%)' : 'rgba(255,255,255,.02)',
+                    border: pack.best ? '1px solid rgba(255,160,0,.45)' : '1px solid rgba(255,255,255,.06)',
+                    cursor: 'pointer', color: '#fff', fontFamily: 'inherit',
+                    transition: 'all .25s ease',
+                    boxShadow: pack.best ? '0 0 20px rgba(255,140,0,.08), inset 0 1px 0 rgba(255,200,100,.1)' : 'none',
+                    overflow: 'hidden',
+                  }}
+                  onMouseEnter={e => { if (!pack.best) { e.currentTarget.style.borderColor = 'rgba(255,160,0,.3)'; e.currentTarget.style.background = 'rgba(255,140,0,.04)' } }}
+                  onMouseLeave={e => { if (!pack.best) { e.currentTarget.style.borderColor = 'rgba(255,255,255,.06)'; e.currentTarget.style.background = 'rgba(255,255,255,.02)' } }}
+                >
+                  {pack.best && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,180,60,.5), transparent)' }} />}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <span style={{ fontSize: 22, fontWeight: 900, background: 'linear-gradient(135deg, #FF8C00, #FFB347)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>+{pack.qty}</span>
+                    <span style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>minera{'\u00e7\u00f5'}es</span>
+                    {pack.best && <span style={{ fontSize: 9, fontWeight: 800, padding: '4px 10px', borderRadius: 6, background: 'linear-gradient(135deg, rgba(255,140,0,.2), rgba(255,180,60,.15))', color: '#FFB347', letterSpacing: '.08em', border: '1px solid rgba(255,160,0,.2)' }}>MELHOR CUSTO</span>}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-.02em' }}>{pack.price}</div>
+                    <div style={{ fontSize: 11, color: '#555', fontWeight: 500 }}>{pack.unit}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Dismiss */}
+            <button
+              onClick={() => setCreditsModal(false)}
+              style={{
+                width: '100%', padding: '14px', borderRadius: 12,
+                background: 'transparent', border: '1px solid rgba(255,255,255,.08)',
+                color: '#555', fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', transition: 'all .2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)'; e.currentTarget.style.color = '#888' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#555' }}
+            >Agora n{'\u00e3'}o</button>
           </div>
         </div>
       )}

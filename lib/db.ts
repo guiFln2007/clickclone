@@ -433,6 +433,22 @@ export async function dbAddCreditos(email: string, count: number): Promise<void>
   })
 }
 
+export async function dbAddAnalises(email: string, count: number): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: 'UPDATE users SET analises = analises + ? WHERE email = ?',
+    args: [count, email],
+  })
+}
+
+export async function dbAddMineracoes(email: string, count: number): Promise<void> {
+  await initDb()
+  await db.execute({
+    sql: 'UPDATE users SET mineracoes = mineracoes + ? WHERE email = ?',
+    args: [count, email],
+  })
+}
+
 export async function dbDecrementAnalises(userId: number): Promise<boolean> {
   await initDb()
   const res = await db.execute({

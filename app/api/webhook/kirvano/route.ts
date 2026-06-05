@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { dbActivateUser, dbRenewUser, dbDeactivateUser, dbAddCreditos, dbLookupMcPending, dbLookupMcPendingByIp, dbSetMcSlug } from '@/lib/db'
+import { dbActivateUser, dbRenewUser, dbDeactivateUser, dbAddCreditos, dbAddMineracoes, dbLookupMcPending, dbLookupMcPendingByIp, dbSetMcSlug } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/mailer'
 
 function extractCustomer(body: Record<string, unknown>) {
@@ -16,6 +16,28 @@ function extractCustomer(body: Record<string, unknown>) {
 // Offer IDs fixos do Kirvano (source of truth)
 const OFFER_PLAN_MAP: Record<string, 'starter' | 'premium'> = {
   'c60822ee-79dc-4e2c-ab27-031d405ca57c': 'premium', // RatoAds Premium
+}
+
+// Credit packs (minerações) — offer_id -> quantity
+const MINERACAO_PACK_MAP: Record<string, number> = {
+  '4bfbb0ae-7fb5-4eef-8f64-dce252b2676c': 5,   // +5 Minerações R$19,90
+  'b5a70d31-c8b3-43df-8460-a3401ca834f0': 10,  // +10 Minerações R$27,90
+  'fb770a29-0bc1-418c-9196-a06f8c64e813': 20,  // +20 Minerações R$44,90
+}
+
+function detectMineracaoPack(body: Record<string, unknown>): number | null {
+  const products = body.products as Record<string, unknown>[] | undefined
+  if (products?.[0]) {
+    const offerId = String(products[0].offer_id || '')
+    if (MINERACAO_PACK_MAP[offerId]) return MINERACAO_PACK_MAP[offerId]
+    const name = String(products[0].offer_name || products[0].name || '').toLowerCase()
+    const match = name.match(/\+(\d+)\s*minera/i)
+    if (match) {
+      const qty = parseInt(match[1])
+      if ([5, 10, 20].includes(qty)) return qty
+    }
+  }
+  return null
 }
 
 function detectPlan(body: Record<string, unknown>): 'starter' | 'premium' {
@@ -122,7 +144,20 @@ export async function POST(req: NextRequest) {
     const event = (body.event || body.type || '') as string
     const normalizedEvent = event.toUpperCase().replace('.', '_')
 
-    // ── COMPRA APROVADA ───────────────────────────────────────────────────────
+    // ── RECARGA DE MINERAÇÕES ─────────────────────────────────────────────────
+    if (normalizedEvent === 'PURCHASE_APPROVED' || normalizedEvent === 'SALE_APPROVED') {
+      const mineracaoQty = detectMineracaoPack(body)
+      if (mineracaoQty) {
+        const { email } = extractCustomer(body)
+        if (!email) return Response.json({ error: 'Email ausente no payload' }, { status: 400 })
+
+        await dbAddMineracoes(email, mineracaoQty)
+        console.log(`[kirvano] MINERACAO_PACK: ${email} +${mineracaoQty} mineracoes`)
+        return Response.json({ ok: true, type: 'mineracoes', qty: mineracaoQty })
+      }
+    }
+
+    // ── COMPRA APROVADA (plano) ─────────────────────────────────────────────
     if (normalizedEvent === 'PURCHASE_APPROVED' || normalizedEvent === 'SALE_APPROVED') {
       const { email, name, kirvano_id } = extractCustomer(body)
       if (!email) return Response.json({ error: 'Email ausente no payload' }, { status: 400 })

@@ -149,6 +149,50 @@ export default function PlansPage() {
             </div>
           </div>
 
+          {/* Recarga de minerações */}
+          {user && user.plano !== 'inativo' && user.plano !== 'trial' && (
+            <div className="plan-card" style={{ padding: 28, marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 20, height: 20 }}><path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="#FF8C00"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="#FF8C00"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="#FF8C00"/></svg>
+                <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.02em' }}>Recarregar <span className="acc">minera{'\u00e7\u00f5'}es</span></h2>
+              </div>
+              <div style={{ fontSize: 13, color: '#555', marginBottom: 14 }}>
+                Restam: <strong style={{ color: (user.mineracoes ?? 0) <= 2 ? '#ef4444' : '#fff' }}>{user.mineracoes}</strong> minera{'\u00e7\u00f5'}es
+              </div>
+              {[
+                { qty: 5, price: 'R$19,90' },
+                { qty: 10, price: 'R$27,90' },
+                { qty: 20, price: 'R$44,90', best: true },
+              ].map(pack => {
+                const urls: Record<number, string> = { 5: 'https://pay.kirvano.com/4bfbb0ae-7fb5-4eef-8f64-dce252b2676c', 10: 'https://pay.kirvano.com/b5a70d31-c8b3-43df-8460-a3401ca834f0', 20: 'https://pay.kirvano.com/fb770a29-0bc1-418c-9196-a06f8c64e813' }
+                const base = urls[pack.qty] || ''
+                const href = base.startsWith('http') ? `${base}?email=${encodeURIComponent(user.email)}` : '#'
+                return (
+                <a
+                  key={pack.qty}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+                    padding: '12px 16px', marginBottom: 8, borderRadius: 12, textDecoration: 'none',
+                    background: pack.best ? 'rgba(255,107,0,.08)' : 'rgba(255,255,255,.02)',
+                    border: pack.best ? '1px solid rgba(255,107,0,.3)' : '1px solid rgba(255,255,255,.06)',
+                    cursor: 'pointer', color: '#fff', fontFamily: "'Sora',sans-serif", fontSize: 13, transition: 'all .2s',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontWeight: 800, color: '#FF6B00' }}>+{pack.qty}</span>
+                    <span style={{ color: '#888' }}>minera{'\u00e7\u00f5'}es</span>
+                    {pack.best && <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 5, background: 'rgba(255,107,0,.15)', color: '#FFB347', letterSpacing: '.06em' }}>MELHOR CUSTO</span>}
+                  </div>
+                  <span style={{ fontWeight: 700 }}>{pack.price}</span>
+                </a>
+                )
+              })}
+            </div>
+          )}
+
           {/* Upgrade card (only for starter) */}
           {user && user.plano === 'starter' && (
             <div className="upgrade-card">
