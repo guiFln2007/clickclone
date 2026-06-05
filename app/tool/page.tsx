@@ -1615,8 +1615,8 @@ export default function ToolPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
               {[
                 { qty: 5, price: 'R$19,90', unit: 'R$3,98/un', url: 'https://pay.kirvano.com/4bfbb0ae-7fb5-4eef-8f64-dce252b2676c' },
-                { qty: 10, price: 'R$27,90', unit: 'R$2,79/un', url: 'https://pay.kirvano.com/b5a70d31-c8b3-43df-8460-a3401ca834f0' },
-                { qty: 20, price: 'R$44,90', unit: 'R$2,25/un', url: 'https://pay.kirvano.com/fb770a29-0bc1-418c-9196-a06f8c64e813', best: true },
+                { qty: 10, price: 'R$27,90', unit: 'R$2,79/un', url: 'https://pay.kirvano.com/f2650b74-3d7d-4a1b-b478-e4cdc2c98a56' },
+                { qty: 20, price: 'R$44,90', unit: 'R$2,25/un', url: 'https://pay.kirvano.com/6ef1e7e8-3aad-40b2-9b6b-4fe054a9ee41', best: true },
               ].map(pack => (
                 <button
                   key={pack.qty}

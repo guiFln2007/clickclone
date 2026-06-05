@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 const STARTER_URL = 'https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9'
-const PREMIUM_URL = 'https://pay.kirvano.com/c60822ee-79dc-4e2c-ab27-031d405ca57c'
+const PREMIUM_URL = 'https://pay.kirvano.com/de252cb4-0d77-43fb-83e4-fe13bea23c12'
 
 interface UserInfo {
   nome: string
@@ -164,7 +164,7 @@ export default function PlansPage() {
                 { qty: 10, price: 'R$27,90' },
                 { qty: 20, price: 'R$44,90', best: true },
               ].map(pack => {
-                const urls: Record<number, string> = { 5: 'https://pay.kirvano.com/4bfbb0ae-7fb5-4eef-8f64-dce252b2676c', 10: 'https://pay.kirvano.com/b5a70d31-c8b3-43df-8460-a3401ca834f0', 20: 'https://pay.kirvano.com/fb770a29-0bc1-418c-9196-a06f8c64e813' }
+                const urls: Record<number, string> = { 5: 'https://pay.kirvano.com/4bfbb0ae-7fb5-4eef-8f64-dce252b2676c', 10: 'https://pay.kirvano.com/f2650b74-3d7d-4a1b-b478-e4cdc2c98a56', 20: 'https://pay.kirvano.com/6ef1e7e8-3aad-40b2-9b6b-4fe054a9ee41' }
                 const base = urls[pack.qty] || ''
                 const href = base.startsWith('http') ? `${base}?email=${encodeURIComponent(user.email)}` : '#'
                 return (

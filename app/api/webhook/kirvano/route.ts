@@ -16,14 +16,14 @@ function extractCustomer(body: Record<string, unknown>) {
 // Offer IDs fixos do Kirvano (source of truth)
 const OFFER_PLAN_MAP: Record<string, 'starter' | 'premium'> = {
   '5def273b-7070-429d-bdc2-e0ebec1da6e9': 'starter', // RatoAds Starter R$57,90
-  'c60822ee-79dc-4e2c-ab27-031d405ca57c': 'premium', // RatoAds Premium R$147,90
+  'de252cb4-0d77-43fb-83e4-fe13bea23c12': 'premium', // RatoAds Premium R$147,90
 }
 
 // Credit packs (minerações) — offer_id -> quantity
 const MINERACAO_PACK_MAP: Record<string, number> = {
   '4bfbb0ae-7fb5-4eef-8f64-dce252b2676c': 5,   // +5 Minerações R$19,90
-  'b5a70d31-c8b3-43df-8460-a3401ca834f0': 10,  // +10 Minerações R$27,90
-  'fb770a29-0bc1-418c-9196-a06f8c64e813': 20,  // +20 Minerações R$44,90
+  'f2650b74-3d7d-4a1b-b478-e4cdc2c98a56': 10,  // +10 Minerações R$27,90
+  '6ef1e7e8-3aad-40b2-9b6b-4fe054a9ee41': 20,  // +20 Minerações R$44,90
 }
 
 function detectMineracaoPack(body: Record<string, unknown>): number | null {
