@@ -2523,12 +2523,24 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
   // 2. Persist in localStorage (survives cookie clearing, lasts forever)
   try { localStorage.setItem('mc_slug', slug); } catch(e) {}
 
-  // 3. Append src param to all Kirvano checkout links (dynamic, catches injected links)
+  // 3. Append UTMs + src to all Kirvano checkout links (Utmify needs UTMs on checkout URL)
+  var utmParams = '';
+  (function() {
+    var sp = new URLSearchParams(window.location.search);
+    var params = [];
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach(function(k) {
+      var v = sp.get(k);
+      if (v) params.push(k + '=' + encodeURIComponent(v));
+    });
+    params.push('src=' + encodeURIComponent(slug));
+    utmParams = params.join('&');
+  })();
+
   function tagLinks() {
     document.querySelectorAll('a[href*="pay.kirvano.com"]').forEach(function(a) {
       var href = a.getAttribute('href');
-      if (href.indexOf('src=') === -1) {
-        a.setAttribute('href', href + (href.indexOf('?') === -1 ? '?' : '&') + 'src=' + encodeURIComponent(slug));
+      if (href.indexOf('utm_source=') === -1 && href.indexOf('src=') === -1) {
+        a.setAttribute('href', href + (href.indexOf('?') === -1 ? '?' : '&') + utmParams);
       }
     });
   }
