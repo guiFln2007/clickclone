@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { dbActivateUser, dbRenewUser, dbDeactivateUser, dbAddCreditos } from '@/lib/db'
+import { dbActivateUser, dbRenewUser, dbDeactivateUser, dbAddCreditos, dbLookupMcPending, dbLookupMcPendingByIp, dbSetMcSlug } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/mailer'
 
 function extractCustomer(body: Record<string, unknown>) {
@@ -132,6 +132,20 @@ export async function POST(req: NextRequest) {
       const hash = await bcrypt.hash(tempPassword, 10)
 
       const user = await dbActivateUser(kirvano_id, email, name, hash, plano)
+
+      // Atribuir mc_slug da tabela de pending (ManyChat tracking)
+      if (user?.id) {
+        let mcSlug = await dbLookupMcPending(email).catch(() => null)
+        if (!mcSlug) {
+          // Fallback: tentar por IP do comprador (match mc_clicks/mc_pending ultimas 2h)
+          const buyerIp = ((body.customer || body.buyer || {}) as Record<string, unknown>).ip as string | undefined
+          if (buyerIp) mcSlug = await dbLookupMcPendingByIp(buyerIp).catch(() => null)
+        }
+        if (mcSlug) {
+          dbSetMcSlug(user.id, mcSlug).catch(() => {})
+          console.log(`[kirvano] mc_slug atribuido: ${email} -> ${mcSlug}`)
+        }
+      }
 
       sendWelcomeEmail(email, name, tempPassword).catch(console.error)
       console.log(`[kirvano] PURCHASE_APPROVED: ${email} plano=${plano} (id=${user?.id})`)

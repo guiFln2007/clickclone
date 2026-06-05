@@ -5,7 +5,7 @@ import { signToken } from '@/lib/jwt'
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json()
+    const { email, password, mc_slug: bodyMcSlug } = await req.json()
 
     if (!email || !password) {
       return Response.json({ error: 'Email e senha obrigat\u00f3rios' }, { status: 400 })
@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Associate ManyChat slug if present
-    const mcSlug = req.cookies.get('mc_slug')?.value
+    // Associate ManyChat slug if present (body from localStorage > cookie fallback)
+    const mcSlug = (typeof bodyMcSlug === 'string' && bodyMcSlug) || req.cookies.get('mc_slug')?.value
     if (mcSlug) dbSetMcSlug(user.id, mcSlug).catch(() => {})
 
     const token = signToken({ sub: user.id, email: user.email })

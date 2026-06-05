@@ -16,10 +16,18 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      // Pega mc_slug do localStorage ou cookie pra atribuição ManyChat
+      let mcSlug: string | null = null
+      try { mcSlug = localStorage.getItem('mc_slug') } catch {}
+      if (!mcSlug) {
+        const m = document.cookie.match(/(?:^|;\s*)mc_slug=([^;]*)/)
+        if (m) mcSlug = decodeURIComponent(m[1])
+      }
+
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, mc_slug: mcSlug || undefined }),
       })
 
       const data = await res.json()

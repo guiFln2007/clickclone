@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Já existe um teste gratuito neste dispositivo. Faça login na sua conta.' }, { status: 409 })
     }
 
-    const { email } = await req.json()
+    const { email, mc_slug: bodyMcSlug } = await req.json()
 
     if (!email || typeof email !== 'string' || !email.includes('@')) {
       return Response.json({ error: 'Email inválido' }, { status: 400 })
@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
     const trialUser = await dbActivateUser('trial', normalizedEmail, '', hash, 'trial')
     await dbSetTrialIp(normalizedEmail, ip)
 
-    // Associate ManyChat slug if present
-    const mcSlug = req.cookies.get('mc_slug')?.value
+    // Associate ManyChat slug if present (body from localStorage > cookie fallback)
+    const mcSlug = (typeof bodyMcSlug === 'string' && bodyMcSlug) || req.cookies.get('mc_slug')?.value
     if (mcSlug && trialUser) dbSetMcSlug(trialUser.id, mcSlug).catch(() => {})
 
     sendTrialEmail(normalizedEmail, tempPassword).catch(console.error)

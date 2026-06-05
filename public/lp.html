@@ -2501,4 +2501,72 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attempt);
   else attempt();
 })();
+
+// ── ManyChat attribution: bulletproof tracking ──
+(function mcAttribution() {
+  function getCookie(name) {
+    var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  // 1. Resolve slug from cookie, URL params, or localStorage
+  var slug = getCookie('mc_slug');
+  if (!slug) {
+    var sp = new URLSearchParams(window.location.search);
+    slug = sp.get('utm_term') || sp.get('mc_slug') || null;
+  }
+  if (!slug) {
+    try { slug = localStorage.getItem('mc_slug'); } catch(e) {}
+  }
+  if (!slug) return;
+
+  // 2. Persist in localStorage (survives cookie clearing, lasts forever)
+  try { localStorage.setItem('mc_slug', slug); } catch(e) {}
+
+  // 3. Append src param to all Kirvano checkout links (dynamic, catches injected links)
+  function tagLinks() {
+    document.querySelectorAll('a[href*="pay.kirvano.com"]').forEach(function(a) {
+      var href = a.getAttribute('href');
+      if (href.indexOf('src=') === -1) {
+        a.setAttribute('href', href + (href.indexOf('?') === -1 ? '?' : '&') + 'src=' + encodeURIComponent(slug));
+      }
+    });
+  }
+  tagLinks();
+  var obs = new MutationObserver(tagLinks);
+  obs.observe(document.documentElement, { childList: true, subtree: true });
+  setTimeout(function() { obs.disconnect(); }, 20000);
+
+  // 4. Save pending attribution to server (IP + slug)
+  fetch('/api/mc/attribute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mc_slug: slug }),
+  }).catch(function() {});
+
+  // 5. Watch email inputs — save attribution with email as soon as they type it
+  var lastSavedEmail = '';
+  function trySaveEmail() {
+    var inputs = document.querySelectorAll('input[type="email"], input[name="email"]');
+    inputs.forEach(function(inp) {
+      var val = inp.value.trim().toLowerCase();
+      if (val && val.indexOf('@') > 0 && val !== lastSavedEmail) {
+        lastSavedEmail = val;
+        fetch('/api/mc/attribute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mc_slug: slug, email: val }),
+        }).catch(function() {});
+      }
+    });
+  }
+  document.addEventListener('change', function(e) {
+    if (e.target && (e.target.type === 'email' || e.target.name === 'email')) trySaveEmail();
+  });
+  // Also save on checkout click
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest && e.target.closest('a[href*="pay.kirvano.com"]');
+    if (a) trySaveEmail();
+  });
+})();
 </script></body></html>

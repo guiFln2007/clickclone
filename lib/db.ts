@@ -243,6 +243,20 @@ export async function initDb() {
     })
   } catch { /* exists */ }
 
+  // Migration: mc_pending table for ManyChat attribution (pre-checkout)
+  try {
+    await db.execute({
+      sql: `CREATE TABLE IF NOT EXISTS mc_pending (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip          TEXT,
+        mc_slug     TEXT NOT NULL,
+        email       TEXT,
+        created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    })
+  } catch { /* exists */ }
+
   initialized = true
 }
 
@@ -1305,6 +1319,49 @@ export async function dbGetMcStats() {
       last_click: (r as Record<string, unknown>).last_click as string,
     })),
   }
+}
+
+// ── ManyChat pending attribution (pre-checkout) ─────────────────────────────
+export async function dbSaveMcPending(ip: string, mcSlug: string, email?: string) {
+  await initDb()
+  await db.execute({
+    sql: 'INSERT INTO mc_pending (ip, mc_slug, email) VALUES (?, ?, ?)',
+    args: [ip, mcSlug, email ?? null],
+  })
+}
+
+export async function dbLookupMcPending(email: string): Promise<string | null> {
+  await initDb()
+  // 1. Match by email (if captured before checkout)
+  const byEmail = await db.execute({
+    sql: `SELECT mc_slug FROM mc_pending WHERE email = ? ORDER BY created_at DESC LIMIT 1`,
+    args: [email],
+  })
+  if (byEmail.rows.length > 0) {
+    return (byEmail.rows[0] as Record<string, unknown>).mc_slug as string
+  }
+  return null
+}
+
+export async function dbLookupMcPendingByIp(ip: string): Promise<string | null> {
+  await initDb()
+  // Match by IP within last 2 hours
+  const byIp = await db.execute({
+    sql: `SELECT mc_slug FROM mc_pending WHERE ip = ? AND created_at >= datetime('now', '-2 hours') ORDER BY created_at DESC LIMIT 1`,
+    args: [ip],
+  })
+  if (byIp.rows.length > 0) {
+    return (byIp.rows[0] as Record<string, unknown>).mc_slug as string
+  }
+  // Fallback: check mc_clicks table (logged at /mc/[slug] redirect)
+  const byClicks = await db.execute({
+    sql: `SELECT slug FROM mc_clicks WHERE ip = ? AND created_at >= datetime('now', '-2 hours') ORDER BY created_at DESC LIMIT 1`,
+    args: [ip],
+  })
+  if (byClicks.rows.length > 0) {
+    return (byClicks.rows[0] as Record<string, unknown>).slug as string
+  }
+  return null
 }
 
 export default db
