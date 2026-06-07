@@ -660,9 +660,9 @@ function extractAdsFromHTML(html) {
     if (seenIds.has(id)) continue
     seenIds.add(id)
 
-    // Context pequeno pra pegar page_id do MESMO ad (500 chars antes)
+    // Context: 500 chars antes + 4000 depois (body text pode ser longo)
     const start = Math.max(0, match.index - 500)
-    const end = Math.min(html.length, match.index + 2000)
+    const end = Math.min(html.length, match.index + 4000)
     const context = html.slice(start, end)
 
     const get = (key) => {
@@ -677,7 +677,11 @@ function extractAdsFromHTML(html) {
     const pageId = get('page_id') || ''
     // Usar o mapa confiável pra nome, fallback pro context
     const pageName = pageNameMap.get(pageId) || get('page_name') || ''
-    const bodyText = get('body_text') || get('body') || ''
+    // body vem em vários formatos: "body_text":"...", "body":"...", ou "body":{"markup":{"__html":"..."}}
+    const bodyText = get('body_text') || get('body') || (() => {
+      const htmlM = context.match(/"__html"\s*:\s*"([^"]*)"/)
+      return htmlM ? htmlM[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16))).replace(/<[^>]+>/g, '') : ''
+    })()
     const title = get('title') || ''
     const ctaText = get('cta_text') || ''
     const linkUrl = get('link_url') || get('cta_link') || ''
