@@ -938,25 +938,62 @@ async function scrapeLanding(url) {
 
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
-    await sleep(2000)
+    await sleep(2500)
 
-    const images = await page.evaluate(() => {
-      const imgs = []
-      // OG image
-      const og = document.querySelector('meta[property="og:image"]')
-      if (og?.content) imgs.push(og.content)
-      // Hero images
-      const heroImgs = document.querySelectorAll('img')
-      for (const img of heroImgs) {
-        if (img.src && img.naturalWidth > 200 && !img.src.includes('data:')) {
-          imgs.push(img.src)
-          if (imgs.length >= 5) break
+    const data = await page.evaluate(() => {
+      const title = document.title || ''
+      const text = (document.body?.innerText || '').slice(0, 12000)
+      const html = document.documentElement?.innerHTML || ''
+
+      const images = [...document.querySelectorAll('img')].map(i => {
+        const src = i.src || i.dataset?.src || ''
+        if (!src.startsWith('http')) return null
+        const alt = (i.alt || '').toLowerCase()
+        const parents = []
+        let el = i.parentElement
+        for (let j = 0; j < 4; j++) {
+          if (!el) break
+          parents.push(((el.className || '') + ' ' + (el.id || '')).toLowerCase())
+          el = el.parentElement
         }
-      }
-      return [...new Set(imgs)]
+        return { src, alt, ctx: parents.join(' ') }
+      }).filter(Boolean).slice(0, 15)
+
+      const videos = [...document.querySelectorAll('video, video source, source')]
+        .map(v => v.src || v.dataset?.src || '').filter(Boolean).slice(0, 5)
+
+      const headings = [...document.querySelectorAll('h1,h2,h3,h4')]
+        .map(h => h.innerText?.trim()).filter(Boolean).slice(0, 20)
+
+      const bullets = [...document.querySelectorAll('li')]
+        .map(l => l.innerText?.trim()).filter(t => t && t.length > 10 && t.length < 200).slice(0, 20)
+
+      const ctas = [...document.querySelectorAll('button,a')]
+        .map(el => el.innerText?.trim()).filter(t => t && t.length > 2 && t.length < 60).slice(0, 10)
+
+      const prices = (text.match(/R\$\s*[\d.,]+/g) || []).filter((v, i, a) => a.indexOf(v) === i).slice(0, 6)
+
+      const colors = (() => {
+        const cols = new Set()
+        document.querySelectorAll('[style]').forEach(el => {
+          (el.getAttribute('style') || '').match(/#[0-9a-fA-F]{3,6}/g)?.forEach(c => cols.add(c))
+        })
+        try {
+          ;[...document.styleSheets].forEach(ss => {
+            try { [...ss.cssRules].forEach(r => { if (r.cssText) (r.cssText.match(/#[0-9a-fA-F]{3,6}/g) || []).forEach(c => cols.add(c)) }) } catch {}
+          })
+        } catch {}
+        return [...cols].slice(0, 20)
+      })()
+
+      // OG/Twitter images
+      const ogImage = document.querySelector('meta[property="og:image"]')?.content || ''
+      const twitterImage = document.querySelector('meta[name="twitter:image"]')?.content || ''
+
+      return { title, text, html: html.slice(0, 25000), images, videos, headings, bullets, ctas, prices, colors, ogImage, twitterImage }
     })
 
-    return { images }
+    return data
   } finally {
     await page.close()
   }

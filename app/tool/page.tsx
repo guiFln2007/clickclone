@@ -558,10 +558,11 @@ export default function ToolPage() {
   useEffect(() => { loadRadar() }, [loadRadar])
 
   // Load offers feed (initial + infinite scroll)
+  const feedOffsetRef = useRef(0)
   const loadOffers = useCallback(async (search?: string, append = false) => {
-    if (append) { setFeedLoadingMore(true) } else { setFeedLoading(true); setFeedHasMore(true) }
+    if (append) { setFeedLoadingMore(true) } else { setFeedLoading(true); setFeedHasMore(true); feedOffsetRef.current = 0 }
     try {
-      const offset = append ? feedOffers.length : 0
+      const offset = append ? feedOffsetRef.current : 0
       const params = new URLSearchParams({ limit: '60', offset: String(offset), sort: 'ad_count' })
       if (search) params.set('search', search)
       const res = await fetch(`/api/offers?${params}`)
@@ -573,29 +574,39 @@ export default function ToolPage() {
         const data = await res.json()
         const newOffers = data.offers || []
         if (append) {
-          setFeedOffers(prev => [...prev, ...newOffers])
+          setFeedOffers(prev => { feedOffsetRef.current = prev.length + newOffers.length; return [...prev, ...newOffers] })
         } else {
           setFeedOffers(newOffers)
+          feedOffsetRef.current = newOffers.length
         }
         if (newOffers.length < 60) setFeedHasMore(false)
       }
     } catch { /* ok */ }
     if (append) { setFeedLoadingMore(false) } else { setFeedLoading(false) }
-  }, [feedOffers.length])
+  }, [])
 
   useEffect(() => { loadOffers() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Infinite scroll — load more when sentinel enters viewport
+  // Infinite scroll — refs to avoid stale closures in IntersectionObserver
+  const feedLoadingRef = useRef(false)
+  const feedLoadingMoreRef = useRef(false)
+  const feedHasMoreRef = useRef(true)
+  const feedSearchRef = useRef('')
+  feedLoadingRef.current = feedLoading
+  feedLoadingMoreRef.current = feedLoadingMore
+  feedHasMoreRef.current = feedHasMore
+  feedSearchRef.current = feedSearch
+
   useEffect(() => {
-    if (!feedSentinel.current || !feedHasMore) return
+    if (!feedSentinel.current) return
     const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && !feedLoading && !feedLoadingMore && feedHasMore && feedOffers.length > 0) {
-        loadOffers(feedSearch || undefined, true)
+      if (entries[0].isIntersecting && !feedLoadingRef.current && !feedLoadingMoreRef.current && feedHasMoreRef.current && feedOffsetRef.current > 0) {
+        loadOffers(feedSearchRef.current || undefined, true)
       }
     }, { threshold: 0, rootMargin: '200px' })
     observer.observe(feedSentinel.current)
     return () => observer.disconnect()
-  }, [feedHasMore, feedLoading, feedLoadingMore, feedOffers.length, feedSearch, loadOffers])
+  }, [loadOffers])
 
   // Click outside profile
   useEffect(() => {

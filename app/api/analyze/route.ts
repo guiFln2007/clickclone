@@ -14,6 +14,8 @@ import {
 export const maxDuration = 300
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!
+const SCRAPER_URL = process.env.SCRAPER_URL || ''
+const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
 
 async function callClaude(prompt: string, systemPrompt?: string, model = 'claude-sonnet-4-6', maxTokens = 1024): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   console.log('[callClaude] model:', model, '| prompt size:', prompt.length, 'chars | system size:', systemPrompt?.length ?? 0, 'chars')
@@ -60,6 +62,104 @@ async function safeJson(res: Response): Promise<unknown> {
   } catch {
     console.error('[safeJson] JSON inválido. Status:', res.status, '| Body:', text.slice(0, 300))
     throw new Error(`Apify retornou resposta inválida. Status: ${res.status}`)
+  }
+}
+
+// ── LOCAL SCRAPER (Mac via Cloudflare Tunnel) — $0 cost ──
+
+async function scrapeAdsLocal(url: string): Promise<Record<string, unknown>[] | null> {
+  if (!SCRAPER_URL) return null
+  try {
+    const res = await fetch(`${SCRAPER_URL}/scrape-ads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+      body: JSON.stringify({ url, maxAds: 100 }),
+      signal: AbortSignal.timeout(120000),
+    })
+    if (!res.ok) return null
+    const data = await res.json() as { ads?: Record<string, unknown>[] }
+    const ads = data.ads
+    if (!Array.isArray(ads) || ads.length === 0) return null
+    // Normalize local scraper format to match Apify format expected downstream
+    return ads.map((ad: Record<string, unknown>) => ({
+      snapshot: ad.snapshot ?? {},
+      page_id: ad.page_id,
+      page_name: ad.page_name,
+      startDate: ad.start_date_formatted,
+      start_date: ad.start_date,
+      isActive: true,
+      ad_creative_bodies: (ad.snapshot as Record<string, unknown>)?.body_text,
+      ad_creative_link_url: (ad.snapshot as Record<string, unknown>)?.link_url,
+    }))
+  } catch (e) {
+    console.warn('[Local scraper] scrape-ads failed:', (e as Error).message)
+    return null
+  }
+}
+
+async function scrapeLandingLocal(url: string) {
+  if (!SCRAPER_URL) return null
+  try {
+    const res = await fetch(`${SCRAPER_URL}/scrape-landing`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(30000),
+    })
+    if (!res.ok) return null
+    const d = await res.json() as Record<string, unknown>
+    if (!d.text || (d.text as string).length < 100) return null
+
+    const fullText = (d.text as string) || ''
+    const htmlStr = (d.html as string) || ''
+
+    // Extract testimonials from HTML
+    const testimonials: string[] = []
+    const $ = load(htmlStr)
+    $('[class*="testim"],[class*="depo"],[class*="review"],[class*="avali"],[class*="cliente"]').each((_, el) => {
+      const t = $(el).text().replace(/\s+/g, ' ').trim()
+      if (t.length > 20) testimonials.push(t.slice(0, 300))
+    })
+
+    // Build media items
+    const mediaRaw: Array<{url: string, type: 'image'|'video', alt?: string}> = []
+    const ogImage = (d.ogImage as string) || ''
+    const twitterImage = (d.twitterImage as string) || ''
+    if (ogImage) mediaRaw.push({ url: ogImage, type: 'image', alt: 'og-hero' })
+    if (twitterImage && twitterImage !== ogImage) mediaRaw.push({ url: twitterImage, type: 'image', alt: 'twitter-hero' })
+    const images = (d.images as Array<{src: string, alt?: string}>) || []
+    images.forEach(img => {
+      if (img.src && !img.src.startsWith('data:')) mediaRaw.push({ url: img.src, type: 'image', alt: img.alt })
+    })
+    const videos = (d.videos as string[]) || []
+    videos.forEach(v => { if (v) mediaRaw.push({ url: v, type: 'video' }) })
+    const media = classifyMediaItems(mediaRaw.slice(0, 30))
+
+    // Extract CSS design data from HTML
+    const cssText = $('style').map((_, el) => $(el).html() || '').get().join(' ')
+    const colorMatches = cssText.match(/#[0-9a-fA-F]{3,6}|rgb\([^)]+\)|rgba\([^)]+\)/g) || []
+    const fontMatches = cssText.match(/font-family\s*:\s*([^;}"']+)/g) || []
+
+    return {
+      title: (d.title as string) || '',
+      headings: (d.headings as string[]) || [],
+      bullets: (d.bullets as string[]) || [],
+      testimonials: testimonials.slice(0, 8),
+      prices: (d.prices as string[]) || [],
+      ctas: (d.ctas as string[]) || [],
+      images: images as { src: string; alt: string; ctx: string }[],
+      videos,
+      fullText,
+      structuredHtml: htmlStr.slice(0, 20000),
+      design: {
+        colors: [...new Set([...(d.colors as string[] || []), ...colorMatches])].slice(0, 20),
+        fonts: fontMatches.map(f => f.replace('font-family:', '').trim()).slice(0, 5),
+      },
+      media,
+    }
+  } catch (e) {
+    console.warn('[Local scraper] scrape-landing failed:', (e as Error).message)
+    return null
   }
 }
 
@@ -1042,9 +1142,16 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // 1. Scrape anúncios
+        // 1. Scrape anúncios — tenta local primeiro ($0), fallback Apify
         send({ step: 'scraping', message: 'Conectando à biblioteca de anúncios...', percent: 10 })
-        const ads = await scrapeAds(url)
+        let ads = await scrapeAdsLocal(url)
+        const usedLocalAds = !!ads
+        if (!ads) {
+          console.log('[Analyze] Local scraper falhou/offline, usando Apify...')
+          ads = await scrapeAds(url) as Record<string, unknown>[]
+        } else {
+          console.log(`[Analyze] Local scraper OK: ${ads.length} ads (custo $0)`)
+        }
 
         if (!Array.isArray(ads) || ads.length === 0) {
           send({ step: 'error', message: 'Nenhum anúncio encontrado. Verifique se o anunciante tem anúncios ativos e se a URL está correta.' })
@@ -1062,7 +1169,7 @@ export async function POST(req: NextRequest) {
         const adsForClaude = ads.map((ad: Record<string, unknown>) => {
           const snap = ad.snapshot as Record<string, unknown> | undefined
           return {
-            body: (snap?.body as Record<string, unknown>)?.text || ad.ad_creative_bodies,
+            body: (snap?.body as Record<string, unknown>)?.text || snap?.body_text || ad.ad_creative_bodies,
             title: snap?.title,
             cta: snap?.cta_text,
             link: snap?.link_url,
@@ -1075,11 +1182,18 @@ export async function POST(req: NextRequest) {
 
         if (landingUrl && (!landingPage || landingPage.fullText.length < 500 || landingPage.fullText.split('\n').filter(l => l.trim().length > 50).length < 2)) {
           send({ step: 'analyzing_page', message: 'Renderizando página (modo avançado)...', percent: 30 })
-          // Headless já rodando em paralelo com o cheerio — aguarda resultado
-          const headless = await scrapeLandingPageHeadless(landingUrl)
-          if (headless && headless.fullText.length > (landingPage?.fullText.length ?? 0)) {
-            landingPage = headless
-            console.log('[Landing] Headless OK — texto:', headless.fullText.length, 'chars')
+          // Tenta scraper local primeiro ($0), fallback Apify headless
+          const localLanding = await scrapeLandingLocal(landingUrl)
+          if (localLanding && localLanding.fullText.length > (landingPage?.fullText.length ?? 0)) {
+            landingPage = localLanding
+            console.log('[Landing] Local headless OK — texto:', localLanding.fullText.length, 'chars (custo $0)')
+          } else {
+            console.log('[Landing] Local insuficiente, tentando Apify headless...')
+            const headless = await scrapeLandingPageHeadless(landingUrl)
+            if (headless && headless.fullText.length > (landingPage?.fullText.length ?? 0)) {
+              landingPage = headless
+              console.log('[Landing] Apify headless OK — texto:', headless.fullText.length, 'chars')
+            }
           }
         }
 
