@@ -544,66 +544,79 @@ IMPORTANTE: Use o dado "TEMPO RODANDO" acima para preencher dias_rodando e calcu
         // Attach real media URLs to top_criativos from the ads data
         const topCriativos = report.top_criativos as { index: number; texto_completo: string; hook: string; formato: string; media_url?: string }[] | undefined
         if (topCriativos && Array.isArray(topCriativos)) {
-          // Build a map of ad text → media URLs from raw ads
-          const adMediaMap = new Map<string, { images: string[]; videos: string[] }>()
+          // Collect ALL media from ads (images + videos)
+          const allImages: string[] = []
+          const allVideos: string[] = []
+          const adMediaByText = new Map<string, { images: string[]; videos: string[] }>()
+
           for (const ad of ads) {
             const snap = ad.snapshot as Record<string, unknown> | undefined
             if (!snap) continue
-            const bodyText = ((snap.body as Record<string, unknown>)?.text as string) || ''
-            const key = bodyText.slice(0, 80).toLowerCase().trim()
-            if (!key) continue
+            const bodyText = ((snap.body as Record<string, unknown>)?.text as string) || (snap.body_text as string) || ''
             const images: string[] = []
             const videos: string[] = []
             const snapImages = snap.images as Array<Record<string, string>> | undefined
             if (Array.isArray(snapImages)) {
               for (const img of snapImages) {
                 const url = img.original_image_url || img.resized_image_url || img.url || ''
-                if (url.startsWith('http')) images.push(url)
+                if (url.startsWith('http')) { images.push(url); allImages.push(url) }
               }
             }
             const snapVideos = snap.videos as Array<Record<string, string>> | undefined
             if (Array.isArray(snapVideos)) {
               for (const vid of snapVideos) {
-                const url = vid.video_hd_url || vid.video_sd_url || vid.video_preview_image_url || ''
-                if (url.startsWith('http')) videos.push(url)
+                const url = vid.video_hd_url || vid.video_sd_url || ''
+                if (url.startsWith('http')) { videos.push(url); allVideos.push(url) }
               }
             }
-            // Also check cards (carousel)
             const cards = snap.cards as Array<Record<string, unknown>> | undefined
             if (Array.isArray(cards)) {
               for (const card of cards) {
                 const imgUrl = (card.original_image_url || card.resized_image_url) as string
-                if (imgUrl?.startsWith('http')) images.push(imgUrl)
+                if (imgUrl?.startsWith('http')) { images.push(imgUrl); allImages.push(imgUrl) }
               }
             }
-            if (images.length > 0 || videos.length > 0) {
-              adMediaMap.set(key, { images, videos })
+            if (bodyText && (images.length > 0 || videos.length > 0)) {
+              adMediaByText.set(bodyText.slice(0, 80).toLowerCase().trim(), { images, videos })
             }
           }
 
-          // Match each top criativo to its media — track used URLs to avoid duplicates
+          // Dedupe
+          const uniqueVideos = [...new Set(allVideos)]
+          const uniqueImages = [...new Set(allImages)]
+          console.log(`[Phase1] Media: ${uniqueVideos.length} videos, ${uniqueImages.length} images from ${ads.length} ads`)
+
+          // Match each top criativo to media — try text match first, then round-robin
           const usedUrls = new Set<string>()
+          let fallbackIdx = 0
+          const fallbackPool = [...uniqueVideos, ...uniqueImages]
+
           for (const criativo of topCriativos) {
             const searchKey = (criativo.texto_completo || criativo.hook || '').slice(0, 80).toLowerCase().trim()
-            let media = adMediaMap.get(searchKey)
-            if (!media) {
-              for (const [key, val] of adMediaMap.entries()) {
-                if (searchKey.includes(key.slice(0, 40)) || key.includes(searchKey.slice(0, 40))) {
-                  media = val
-                  break
+            // Try text match
+            let media: { images: string[]; videos: string[] } | undefined
+            if (searchKey) {
+              media = adMediaByText.get(searchKey)
+              if (!media) {
+                for (const [key, val] of adMediaByText.entries()) {
+                  if (searchKey.includes(key.slice(0, 30)) || key.includes(searchKey.slice(0, 30))) {
+                    media = val; break
+                  }
                 }
               }
             }
             if (media) {
-              // Pick first unused URL — prefer video, then image
-              const allUrls = [...media.videos, ...media.images]
-              const unused = allUrls.find(u => !usedUrls.has(u))
-              if (unused) {
-                criativo.media_url = unused
-                usedUrls.add(unused)
-              } else {
-                criativo.media_url = allUrls[0] || undefined
-              }
+              const urls = [...media.videos, ...media.images]
+              const unused = urls.find(u => !usedUrls.has(u))
+              if (unused) { criativo.media_url = unused; usedUrls.add(unused) }
+              else if (urls[0]) { criativo.media_url = urls[0] }
+            }
+            // Fallback: round-robin from all media
+            if (!criativo.media_url && fallbackPool.length > 0) {
+              const url = fallbackPool[fallbackIdx % fallbackPool.length]
+              criativo.media_url = url
+              usedUrls.add(url)
+              fallbackIdx++
             }
           }
           report.top_criativos = topCriativos
