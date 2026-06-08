@@ -724,7 +724,18 @@ function extractAdsFromHTML(html) {
 }
 
 async function scrapeAds(url, maxAds) {
-  const browser = await getFbBrowser() // usa browser com perfil FB (menos challenges)
+  // Browser dedicado pra análise — não compartilha com auto-mine
+  const isWindows = process.platform === 'win32'
+  const browser = await puppeteer.launch({
+    executablePath: CHROMIUM_PATH,
+    headless: 'new',
+    args: [
+      '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+      '--disable-gpu', '--lang=pt-BR', '--disable-blink-features=AutomationControlled',
+      '--window-size=1920,1080',
+      ...(isWindows ? [] : ['--single-process', '--no-zygote']),
+    ],
+  })
   const page = await browser.newPage()
   await setupPage(page)
 
@@ -871,7 +882,8 @@ async function scrapeAds(url, maxAds) {
     console.log(`[scrape-ads] Total: ${ads.length} ads from ${url.slice(0, 80)}`)
     return { ads: ads.slice(0, maxAds) }
   } finally {
-    await page.close()
+    await page.close().catch(() => {})
+    await browser.close().catch(() => {})
   }
 }
 
