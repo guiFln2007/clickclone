@@ -82,7 +82,7 @@ async function fetchInstagramFollowers(handle) {
 
 // Browser pool — reuse browser instance
 let browserInstance = null
-let useWarpProxy = process.platform !== 'win32' // WARP só no Linux/Mac (VPS)
+let useWarpProxy = false // Começa com IP residencial (melhor pro Facebook), WARP como fallback
 const WARP_PROXY = 'socks5://localhost:40000'
 
 async function getBrowser() {
@@ -513,7 +513,7 @@ async function scrapePageAbout(pageId) {
   // Always run browser if HTTP didn't get basic data OR if IG is still missing
   if (!result.ig_handle || !result.page_name) {
     try {
-      const browser = await getBrowser()
+      const browser = await getFbBrowser()
       const page = await browser.newPage()
       await setupPage(page)
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
@@ -724,7 +724,7 @@ function extractAdsFromHTML(html) {
 }
 
 async function scrapeAds(url, maxAds) {
-  const browser = await getBrowser()
+  const browser = await getFbBrowser() // usa browser com perfil FB (menos challenges)
   const page = await browser.newPage()
   await setupPage(page)
 
@@ -936,7 +936,7 @@ async function countAds(pageId) {
 }
 
 async function scrapeLanding(url) {
-  const browser = await getBrowser()
+  const browser = await getFbBrowser()
   const page = await browser.newPage()
   await setupPage(page)
 
@@ -1007,9 +1007,8 @@ async function runMineJob(jobId, keyword, count) {
   const job = jobs.get(jobId)
   const searchUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered`
 
-  // Chromium with domcontentloaded (skip waiting for JS framework to finish) + resource blocking
-  // Loads ~15-20MB instead of ~100MB. No scroll, no enrich — just SSR extraction.
-  const browser = await getBrowser()
+  // Usa browser com perfil FB pra evitar challenges
+  const browser = await getFbBrowser()
   const page = await browser.newPage()
   await setupPage(page)
 
@@ -1103,6 +1102,14 @@ async function runMineJob(jobId, keyword, count) {
     // Se ainda vazio, esperar mais e tentar de novo
     if (ssrAds.length === 0) {
       console.log(`[mine] No ads found, waiting 5s more...`)
+      // Debug: checar o que o DOM tem
+      const debugText = await page.evaluate(() => {
+        const text = document.body?.innerText || ''
+        return text.slice(0, 500)
+      }).catch(() => '')
+      const hasArchiveId = (domHtml || '').includes('ad_archive_id')
+      const hasNoResults = debugText.includes('Nenhum an') || debugText.includes('No ads')
+      console.log(`[mine] DEBUG: ad_archive_id in HTML: ${hasArchiveId}, noResults: ${hasNoResults}, bodyText: ${debugText.slice(0, 200)}`)
       await sleep(5000)
       html = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
       ssrAds = extractAdsFromHTML(html)
@@ -1428,14 +1435,19 @@ let lastKnownIP = ''
 let recoveryAttempts = 0
 const MAX_RECOVERY_ATTEMPTS = 5
 
+// warp-cli: path completo no Windows, bare no Linux/Mac
+const WARP_CLI = process.platform === 'win32'
+  ? 'C:\\Program Files\\Cloudflare\\Cloudflare WARP\\warp-cli.exe'
+  : 'warp-cli'
+
 async function getNewWarpIP() {
   if (browserInstance) { await browserInstance.close().catch(() => {}); browserInstance = null }
   const oldIP = lastKnownIP
   // Tenta até 3 reconexões pra garantir IP diferente
   for (let i = 0; i < 3; i++) {
-    await execFileAsync('warp-cli', ['disconnect'], { timeout: 5000, windowsHide: true }).catch(() => {})
+    await execFileAsync(WARP_CLI, ['disconnect'], { timeout: 5000, windowsHide: true }).catch(() => {})
     await new Promise(r => setTimeout(r, 2000))
-    await execFileAsync('warp-cli', ['connect'], { timeout: 5000, windowsHide: true }).catch(() => {})
+    await execFileAsync(WARP_CLI, ['connect'], { timeout: 5000, windowsHide: true }).catch(() => {})
     await new Promise(r => setTimeout(r, 3000))
     try {
       const { stdout } = await execFileAsync('curl', ['-s', '--socks5-hostname', 'localhost:40000', 'https://ifconfig.me'], { timeout: 10000, windowsHide: true })
@@ -1456,7 +1468,7 @@ async function getNewWarpIP() {
 
 // Testa se o Facebook tá respondendo com resultados reais
 async function testFacebookAccess() {
-  const browser = await getBrowser()
+  const browser = await getFbBrowser()
   const page = await browser.newPage()
   await setupPage(page)
   try {
@@ -1630,7 +1642,7 @@ async function refreshOfferCounts(callbackUrl) {
     if (!offers?.length) { console.log(`[refresh] No offers to refresh`); return }
 
     console.log(`[refresh] Refreshing ${offers.length} offers...`)
-    const browser = await getBrowser()
+    const browser = await getFbBrowser()
     const page = await browser.newPage()
     await setupPage(page)
 

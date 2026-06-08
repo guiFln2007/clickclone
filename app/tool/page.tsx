@@ -463,6 +463,7 @@ export default function ToolPage() {
   const [feedLoading, setFeedLoading] = useState(false)
   const [feedLoadingMore, setFeedLoadingMore] = useState(false)
   const [feedHasMore, setFeedHasMore] = useState(true)
+  const [feedTotal, setFeedTotal] = useState(0)
   const [feedSearch, setFeedSearch] = useState('')
   const [selectedOffer, setSelectedOffer] = useState<FeedOffer | null>(null)
   // feedSentinel removido — infinite scroll agora usa window scroll event
@@ -579,6 +580,7 @@ export default function ToolPage() {
       if (res.ok) {
         const data = await res.json()
         const newOffers = data.offers || []
+        if (data.total) setFeedTotal(data.total)
         if (append) {
           setFeedOffers(prev => { const updated = [...prev, ...newOffers]; feedOffsetRef.current = updated.length; return updated })
         } else {
@@ -1141,8 +1143,15 @@ export default function ToolPage() {
                   })}
                 </div>
               )}
-              {/* Infinite scroll loading */}
+              {/* Load more */}
               {feedLoadingMore && <div className="empty-state" style={{ padding: '24px 0' }}>Carregando mais ofertas...</div>}
+              {feedOffers.length > 0 && feedHasMore && !feedLoadingMore && (
+                <div style={{ textAlign: 'center', padding: '32px 0' }}>
+                  <button onClick={() => loadOffers(feedSearch || undefined, true)} style={{ background: 'rgba(255,140,0,.15)', color: '#FF8C00', border: '1px solid rgba(255,140,0,.3)', borderRadius: 99, padding: '12px 32px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                    Carregar mais ofertas ({feedOffers.length} de {feedTotal})
+                  </button>
+                </div>
+              )}
               {feedOffers.length > 0 && !feedHasMore && <div style={{ textAlign: 'center', padding: '24px 0', color: '#555', fontSize: 13 }}>{feedOffers.length} ofertas carregadas</div>}
 
               {/* Modal detalhe da oferta */}
