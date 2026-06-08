@@ -559,11 +559,17 @@ export default function ToolPage() {
 
   // Load offers feed (initial + infinite scroll)
   const feedOffsetRef = useRef(0)
+  const feedBusyRef = useRef(false)
+  const feedHasMoreRef = useRef(true)
+  const feedSearchRef = useRef('')
+
   const loadOffers = useCallback(async (search?: string, append = false) => {
-    if (append) { setFeedLoadingMore(true) } else { setFeedLoading(true); setFeedHasMore(true); feedOffsetRef.current = 0 }
+    if (feedBusyRef.current) return
+    feedBusyRef.current = true
+    if (append) { setFeedLoadingMore(true) } else { setFeedLoading(true); feedHasMoreRef.current = true; setFeedHasMore(true); feedOffsetRef.current = 0 }
     try {
       const offset = append ? feedOffsetRef.current : 0
-      const params = new URLSearchParams({ limit: '60', offset: String(offset), sort: 'ad_count' })
+      const params = new URLSearchParams({ limit: '200', offset: String(offset), sort: 'ad_count' })
       if (search) params.set('search', search)
       const res = await fetch(`/api/offers?${params}`)
       if (res.status === 403) {
@@ -574,36 +580,27 @@ export default function ToolPage() {
         const data = await res.json()
         const newOffers = data.offers || []
         if (append) {
-          setFeedOffers(prev => { feedOffsetRef.current = prev.length + newOffers.length; return [...prev, ...newOffers] })
+          setFeedOffers(prev => { const updated = [...prev, ...newOffers]; feedOffsetRef.current = updated.length; return updated })
         } else {
           setFeedOffers(newOffers)
           feedOffsetRef.current = newOffers.length
         }
-        if (newOffers.length < 60) setFeedHasMore(false)
+        if (newOffers.length < 200) { feedHasMoreRef.current = false; setFeedHasMore(false) }
       }
     } catch { /* ok */ }
+    feedBusyRef.current = false
     if (append) { setFeedLoadingMore(false) } else { setFeedLoading(false) }
   }, [])
 
   useEffect(() => { loadOffers() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Infinite scroll — refs to avoid stale closures in IntersectionObserver
-  const feedLoadingRef = useRef(false)
-  const feedLoadingMoreRef = useRef(false)
-  const feedHasMoreRef = useRef(true)
-  const feedSearchRef = useRef('')
-  feedLoadingRef.current = feedLoading
-  feedLoadingMoreRef.current = feedLoadingMore
-  feedHasMoreRef.current = feedHasMore
-  feedSearchRef.current = feedSearch
-
   useEffect(() => {
     if (!feedSentinel.current) return
     const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && !feedLoadingRef.current && !feedLoadingMoreRef.current && feedHasMoreRef.current && feedOffsetRef.current > 0) {
+      if (entries[0].isIntersecting && !feedBusyRef.current && feedHasMoreRef.current && feedOffsetRef.current > 0) {
         loadOffers(feedSearchRef.current || undefined, true)
       }
-    }, { threshold: 0, rootMargin: '200px' })
+    }, { threshold: 0, rootMargin: '400px' })
     observer.observe(feedSentinel.current)
     return () => observer.disconnect()
   }, [loadOffers])
@@ -1108,7 +1105,7 @@ export default function ToolPage() {
                 <p className="analyze-sub">Ofertas encontradas automaticamente, filtradas e prontas pra modelar</p>
                 <div className="of-searchbar" style={{ maxWidth: 520, margin: '0 auto' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                  <input className="of-search-input" placeholder="Buscar ofertas..." value={feedSearch} onChange={e => { setFeedSearch(e.target.value); setFeedOffers([]); loadOffers(e.target.value) }} />
+                  <input className="of-search-input" placeholder="Buscar ofertas..." value={feedSearch} onChange={e => { setFeedSearch(e.target.value); feedSearchRef.current = e.target.value; feedBusyRef.current = false; setFeedOffers([]); loadOffers(e.target.value) }} />
                 </div>
               </div>
               {feedLoading && <div className="empty-state">Carregando ofertas...</div>}
@@ -1143,7 +1140,7 @@ export default function ToolPage() {
               )}
               {/* Infinite scroll sentinel + loading */}
               {feedLoadingMore && <div className="empty-state" style={{ padding: '24px 0' }}>Carregando mais ofertas...</div>}
-              {feedOffers.length > 0 && feedHasMore && <div ref={feedSentinel} style={{ height: 40, marginTop: 20 }} />}
+              <div ref={feedSentinel} style={{ height: 1 }} />
               {feedOffers.length > 0 && !feedHasMore && <div style={{ textAlign: 'center', padding: '24px 0', color: '#555', fontSize: 13 }}>{feedOffers.length} ofertas carregadas</div>}
 
               {/* Modal detalhe da oferta */}
