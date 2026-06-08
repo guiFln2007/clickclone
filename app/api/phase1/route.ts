@@ -62,12 +62,34 @@ async function scrapeAdsFromApify(cleanUrl: string): Promise<Record<string, unkn
   return await safeJson(itemsRes) as Record<string, unknown>[]
 }
 
-// Phase 1 sempre usa Apify — scraper local nao tem snapshot.body.text/title/cta
-// que o Claude precisa pra analisar. Custo ~\$0.04/analise.
+// Scraper local primeiro ($0), Apify como fallback
+async function scrapeAdsLocal(url: string): Promise<Record<string, unknown>[] | null> {
+  if (!SCRAPER_URL) return null
+  try {
+    const res = await fetch(`${SCRAPER_URL}/scrape-ads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+      body: JSON.stringify({ url: cleanAdLibraryUrl(url), maxAds: 100 }),
+      signal: AbortSignal.timeout(120000),
+    })
+    if (!res.ok) return null
+    const data = await res.json() as { ads?: Record<string, unknown>[] }
+    if (!Array.isArray(data.ads) || data.ads.length === 0) return null
+    console.log(`[Phase1] Local scraper OK: ${data.ads.length} ads (custo $0)`)
+    return data.ads
+  } catch (e) {
+    console.warn('[Phase1] Local scraper falhou:', (e as Error).message)
+    return null
+  }
+}
+
 async function scrapeAds(url: string): Promise<Record<string, unknown>[]> {
-  const cleanUrl = cleanAdLibraryUrl(url)
-  console.log('[Phase1] Usando Apify (scraper local nao tem campos completos)')
-  return scrapeAdsFromApify(cleanUrl)
+  // Tenta local primeiro
+  const local = await scrapeAdsLocal(url)
+  if (local && local.length > 0) return normalizeAds(local)
+  // Fallback Apify
+  console.log('[Phase1] Local indisponível, tentando Apify...')
+  return scrapeAdsFromApify(cleanAdLibraryUrl(url))
 }
 
 // Normalize ads from local scraper to Apify-like shape
@@ -170,7 +192,7 @@ function calcDiasRodando(ads: Record<string, unknown>[]): { dias: number | null;
 function buildAdsDigest(ads: Record<string, unknown>[]): string {
   return ads.slice(0, 50).map((ad, i) => {
     const snap = ad.snapshot as Record<string, unknown> | undefined
-    const body = (snap?.body as Record<string, unknown>)?.text || (ad.ad_creative_bodies as string[])?.[0] || ''
+    const body = (snap?.body as Record<string, unknown>)?.text || (snap?.body_text as string) || (ad.ad_creative_bodies as string[])?.[0] || ''
     const title = (snap?.title as string) || (ad.ad_creative_link_titles as string[])?.[0] || ''
     const cta = (snap?.cta_text as string) || ''
     const format = (snap?.videos as unknown[])?.length ? 'vídeo' : (snap?.images as unknown[])?.length ? 'imagem' : 'carrossel'
