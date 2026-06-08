@@ -465,7 +465,7 @@ export default function ToolPage() {
   const [feedHasMore, setFeedHasMore] = useState(true)
   const [feedSearch, setFeedSearch] = useState('')
   const [selectedOffer, setSelectedOffer] = useState<FeedOffer | null>(null)
-  const feedSentinel = useRef<HTMLDivElement>(null)
+  // feedSentinel removido — infinite scroll agora usa window scroll event
   const isAdmin = typeof document !== 'undefined' && document.cookie.includes('cc_admin=')
 
   // Toast
@@ -594,15 +594,18 @@ export default function ToolPage() {
 
   useEffect(() => { loadOffers() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Infinite scroll via scroll event (mais confiável que IntersectionObserver)
   useEffect(() => {
-    if (!feedSentinel.current) return
-    const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && !feedBusyRef.current && feedHasMoreRef.current && feedOffsetRef.current > 0) {
+    const onScroll = () => {
+      if (!feedHasMoreRef.current || feedBusyRef.current || feedOffsetRef.current === 0) return
+      const scrollBottom = window.innerHeight + window.scrollY
+      const docHeight = document.documentElement.scrollHeight
+      if (scrollBottom >= docHeight - 800) {
         loadOffers(feedSearchRef.current || undefined, true)
       }
-    }, { threshold: 0, rootMargin: '400px' })
-    observer.observe(feedSentinel.current)
-    return () => observer.disconnect()
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
   }, [loadOffers])
 
   // Click outside profile
@@ -1138,9 +1141,8 @@ export default function ToolPage() {
                   })}
                 </div>
               )}
-              {/* Infinite scroll sentinel + loading */}
+              {/* Infinite scroll loading */}
               {feedLoadingMore && <div className="empty-state" style={{ padding: '24px 0' }}>Carregando mais ofertas...</div>}
-              <div ref={feedSentinel} style={{ height: 1 }} />
               {feedOffers.length > 0 && !feedHasMore && <div style={{ textAlign: 'center', padding: '24px 0', color: '#555', fontSize: 13 }}>{feedOffers.length} ofertas carregadas</div>}
 
               {/* Modal detalhe da oferta */}
