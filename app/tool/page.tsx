@@ -257,15 +257,19 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
           <div className="rpt-sec-title">TOP CRIATIVOS ESCALADOS <span className="rpt-sec-count">{topCriativos.length} criativos</span></div>
           <div className="criativos-grid">
             {topCriativos.map((c, i) => {
-              const isVideo = (c.formato || '').toLowerCase().includes('v') || c.media_url?.includes('.mp4') || c.media_url?.includes('video')
+              const isVideo = (c.formato || '').toLowerCase().includes('v')
+              const isPlayableVideo = c.media_url?.includes('.mp4') || c.media_url?.includes('video_hd') || c.media_url?.includes('video_sd')
               return (
               <div key={i} className="criativo-card">
                 {c.media_url && (
                   <div className="criativo-media">
-                    {isVideo ? (
+                    {isPlayableVideo ? (
                       <video src={c.media_url} controls preload="metadata" />
                     ) : (
-                      <img src={c.media_url} alt={`Criativo ${c.index}`} />
+                      <div style={{ position: 'relative' }}>
+                        <img src={c.media_url} alt={`Criativo ${c.index}`} />
+                        {isVideo && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>}
+                      </div>
                     )}
                   </div>
                 )}
