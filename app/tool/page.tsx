@@ -256,11 +256,13 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
           <div className="rpt-divider" />
           <div className="rpt-sec-title">TOP CRIATIVOS ESCALADOS <span className="rpt-sec-count">{topCriativos.length} criativos</span></div>
           <div className="criativos-grid">
-            {topCriativos.map((c, i) => (
+            {topCriativos.map((c, i) => {
+              const isVideo = (c.formato || '').toLowerCase().includes('v') || c.media_url?.includes('.mp4') || c.media_url?.includes('video')
+              return (
               <div key={i} className="criativo-card">
                 {c.media_url && (
                   <div className="criativo-media">
-                    {c.media_url.includes('.mp4') || c.media_url.includes('video') ? (
+                    {isVideo ? (
                       <video src={c.media_url} controls preload="metadata" />
                     ) : (
                       <img src={c.media_url} alt={`Criativo ${c.index}`} />
@@ -280,7 +282,7 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
                   {c.texto_completo && c.texto_completo !== c.hook && (
                     <details style={{ width: '100%' }}><summary className="criativo-btn" style={{ listStyle: 'none' }}>Ver copy completo</summary><div style={{ fontSize: 11, color: '#52525b', lineHeight: 1.5, marginTop: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{c.texto_completo}</div></details>
                   )}
-                  {c.media_url && (c.media_url.includes('.mp4') || c.media_url.includes('video')) && (
+                  {c.media_url && isVideo && (
                     transcripts[i] ? (
                       <details style={{ width: '100%' }}><summary className="criativo-btn" style={{ listStyle: 'none' }}>Ver transcrição do áudio</summary>
                         <div style={{ fontSize: 11, color: transcripts[i].includes('expirado') || transcripts[i].includes('Erro') ? '#ef4444' : '#a1a1aa', lineHeight: 1.6, marginTop: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'rgba(0,0,0,.3)', padding: 12, borderRadius: 8 }}>{transcripts[i]}</div>
@@ -326,7 +328,7 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
                   )}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </>)}
 
