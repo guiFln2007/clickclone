@@ -805,6 +805,69 @@ async function scrapeAds(url, maxAds) {
       }
     }
 
+    // Enrich ads with body text and images from rendered DOM
+    // Facebook hides these from SSR HTML — only available after JS renders
+    const domAds = await page.evaluate(() => {
+      const cards = document.querySelectorAll('[class*="result"], [class*="_7jvw"], div[class*="x1lliihq"]')
+      const results = []
+      // Find ad containers — each contains body text, title, image/video
+      const allDivs = [...document.querySelectorAll('div')]
+      const adContainers = allDivs.filter(d => {
+        const text = d.innerText || ''
+        // Ad containers have "Active" or "Ativo" status and body text
+        return (text.includes('Active') || text.includes('Ativo') || text.includes('Inativo')) &&
+               text.length > 50 && text.length < 5000 &&
+               d.querySelector('img')
+      }).slice(0, 60)
+
+      for (const container of adContainers) {
+        // Body text: largest text block in the container
+        const textNodes = [...container.querySelectorAll('div, span, p')]
+          .map(n => ({ text: (n.innerText || '').trim(), len: (n.innerText || '').trim().length }))
+          .filter(n => n.len > 30 && n.len < 2000)
+          .sort((a, b) => b.len - a.len)
+        const bodyText = textNodes[0]?.text || ''
+
+        // Images
+        const imgs = [...container.querySelectorAll('img')]
+          .map(img => img.src)
+          .filter(s => s && s.startsWith('http') && !s.includes('emoji') && !s.includes('profile') && s.includes('fbcdn'))
+          .slice(0, 3)
+
+        // Videos
+        const vids = [...container.querySelectorAll('video, video source')]
+          .map(v => v.src || '')
+          .filter(Boolean)
+          .slice(0, 1)
+
+        if (bodyText || imgs.length > 0) {
+          results.push({ bodyText, imgs, vids })
+        }
+      }
+      return results
+    }).catch(() => [])
+
+    // Merge DOM-extracted data into ads
+    if (domAds.length > 0) {
+      console.log(`[scrape-ads] DOM enrichment: ${domAds.length} ad containers found`)
+      for (let i = 0; i < Math.min(ads.length, domAds.length); i++) {
+        const snap = ads[i].snapshot || {}
+        // Fill body_text if empty
+        if (!snap.body_text && domAds[i].bodyText) {
+          snap.body_text = domAds[i].bodyText
+        }
+        // Fill images if empty
+        if ((!snap.images || snap.images.length === 0) && domAds[i].imgs.length > 0) {
+          snap.images = domAds[i].imgs.map(u => ({ original_image_url: u, resized_image_url: u }))
+        }
+        // Fill videos if empty
+        if ((!snap.videos || snap.videos.length === 0) && domAds[i].vids.length > 0) {
+          snap.videos = domAds[i].vids.map(u => ({ video_hd_url: u, video_sd_url: u, video_preview_image_url: '' }))
+        }
+        ads[i].snapshot = snap
+      }
+    }
+
     console.log(`[scrape-ads] Total: ${ads.length} ads from ${url.slice(0, 80)}`)
     return { ads: ads.slice(0, maxAds) }
   } finally {
