@@ -581,9 +581,18 @@ IMPORTANTE: Use o dado "TEMPO RODANDO" acima para preencher dias_rodando e calcu
             }
           }
 
-          // Dedupe
+          // Dedupe + fix low-res thumbnails (Facebook adds stp=dst-jpg_s60x60)
           const uniqueVideos = [...new Set(allVideos)]
-          const uniqueImages = [...new Set(allImages)]
+          const uniqueImages = [...new Set(allImages)].map(url => {
+            try {
+              const u = new URL(url)
+              const stp = u.searchParams.get('stp')
+              if (stp && stp.includes('s60x60')) {
+                u.searchParams.set('stp', stp.replace(/dst-jpg_s\d+x\d+/g, 'dst-jpg_s600x600'))
+              }
+              return u.toString()
+            } catch { return url }
+          })
           console.log(`[Phase1] Media: ${uniqueVideos.length} videos, ${uniqueImages.length} images from ${ads.length} ads`)
 
           // Match each top criativo to media — try text match first, then round-robin
@@ -605,17 +614,20 @@ IMPORTANTE: Use o dado "TEMPO RODANDO" acima para preencher dias_rodando e calcu
                 }
               }
             }
+            const isVid = (criativo.formato || '').toLowerCase().includes('v')
             if (media) {
-              const urls = [...media.videos, ...media.images]
+              // Prioriza vídeo pra criativos tipo vídeo, imagem pra imagem
+              const urls = isVid ? [...media.videos, ...media.images] : [...media.images, ...media.videos]
               const unused = urls.find(u => !usedUrls.has(u))
               if (unused) { criativo.media_url = unused; usedUrls.add(unused) }
               else if (urls[0]) { criativo.media_url = urls[0] }
             }
-            // Fallback: round-robin from all media
+            // Fallback: round-robin — vídeos primeiro pra criativos de vídeo
             if (!criativo.media_url && fallbackPool.length > 0) {
-              const url = fallbackPool[fallbackIdx % fallbackPool.length]
-              criativo.media_url = url
-              usedUrls.add(url)
+              const pool = isVid ? [...uniqueVideos, ...uniqueImages] : [...uniqueImages, ...uniqueVideos]
+              const unused = pool.find(u => !usedUrls.has(u))
+              if (unused) { criativo.media_url = unused; usedUrls.add(unused) }
+              else { criativo.media_url = pool[fallbackIdx % pool.length] }
               fallbackIdx++
             }
           }
