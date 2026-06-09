@@ -1867,6 +1867,61 @@ app.post('/enrich-ig', async (req, res) => {
   res.json({ enriched: results })
 })
 
+// ── TRANSCRIBE ──
+import { writeFile as fsWriteFile, readFile as fsReadFile, unlink as fsUnlink, mkdir as fsMkdir } from 'fs/promises'
+import os from 'os'
+
+app.post('/transcribe', async (req, res) => {
+  const { url } = req.body || {}
+  if (!url) return res.status(400).json({ error: 'url required' })
+
+  const tmpDir = path.join(os.tmpdir(), 'ratoads-transcribe')
+  await fsMkdir(tmpDir, { recursive: true })
+  const id = Date.now()
+  const tmpFile = path.join(tmpDir, `vid_${id}.mp4`)
+
+  try {
+    // Download video
+    const vidRes = await fetch(url, {
+      signal: AbortSignal.timeout(30000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36' },
+    })
+    if (!vidRes.ok) return res.status(502).json({ error: `Download falhou (HTTP ${vidRes.status})` })
+    const buf = Buffer.from(await vidRes.arrayBuffer())
+    if (buf.byteLength < 1000) return res.status(400).json({ error: 'Arquivo de video invalido' })
+    await fsWriteFile(tmpFile, buf)
+
+    // Transcribe with Whisper
+    const { stdout, stderr } = await execFileAsync('whisper', [
+      tmpFile, '--model', 'base', '--language', 'pt',
+      '--output_format', 'txt', '--output_dir', tmpDir,
+    ], { timeout: 120000, windowsHide: true, maxBuffer: 10 * 1024 * 1024 })
+
+    let transcript = ''
+    const txtFile = path.join(tmpDir, `vid_${id}.txt`)
+    try {
+      transcript = (await fsReadFile(txtFile, 'utf-8')).trim()
+      await fsUnlink(txtFile).catch(() => {})
+    } catch {
+      const lines = (stdout + stderr).split('\n').filter(l => l.includes(']') && !l.startsWith('['))
+      transcript = lines.map(l => l.replace(/^\[.*?\]\s*/, '')).join(' ').trim()
+    }
+
+    // Cleanup
+    for (const ext of ['.vtt', '.srt', '.tsv', '.json']) {
+      await fsUnlink(path.join(tmpDir, `vid_${id}${ext}`)).catch(() => {})
+    }
+
+    console.log(`[transcribe] OK: ${transcript.length} chars`)
+    res.json({ transcript: transcript || 'Sem audio detectado neste video' })
+  } catch (e) {
+    console.error('[transcribe] Error:', e.message)
+    res.status(500).json({ error: e.message })
+  } finally {
+    await fsUnlink(tmpFile).catch(() => {})
+  }
+})
+
 // ── START ──
 const AUTO_MINE_CALLBACK = process.env.AUTO_MINE_CALLBACK || 'https://ratoads.com.br/api/auto-mine'
 
