@@ -724,20 +724,8 @@ function extractAdsFromHTML(html) {
 }
 
 async function scrapeAds(url, maxAds) {
-  // Browser dedicado com perfil FB separado (não compete com auto-mine)
-  const isWindows = process.platform === 'win32'
-  const analyzeProfileDir = path.join(__dirname, '.fb-profile-analyze')
-  const browser = await puppeteer.launch({
-    executablePath: CHROMIUM_PATH,
-    headless: 'new',
-    userDataDir: analyzeProfileDir,
-    args: [
-      '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-      '--disable-gpu', '--lang=pt-BR', '--disable-blink-features=AutomationControlled',
-      '--window-size=1920,1080',
-      ...(isWindows ? [] : ['--single-process', '--no-zygote']),
-    ],
-  })
+  // Usa o browser com perfil FB logado (mesmo do mining/recovery)
+  const browser = await getFbBrowser()
   const page = await browser.newPage()
   await setupPage(page)
 
@@ -745,6 +733,16 @@ async function scrapeAds(url, maxAds) {
   const seenIds = new Set()
 
   try {
+    // Capture SSR HTML response directly (before JS framework processes it)
+    let capturedHtml = ''
+    page.on('response', async (resp) => {
+      try {
+        if (resp.url().includes('/ads/library') && resp.request().resourceType() === 'document') {
+          capturedHtml = await resp.text().catch(() => '')
+        }
+      } catch { /* ignore */ }
+    })
+
     // Intercept GraphQL responses (still useful for scroll-loaded data)
     page.on('response', async (response) => {
       try {
@@ -765,23 +763,35 @@ async function scrapeAds(url, maxAds) {
 
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 })
     await handleFacebookDialogs(page)
-    await sleep(3000)
 
     // Handle challenge if needed
     let initHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
     if (initHtml.includes('__rd_verify') || initHtml.includes('executeChallenge')) {
       console.log(`[scrape-ads] Challenge detected, waiting...`)
       try { await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }) } catch {}
-      await sleep(3000)
+      await sleep(2000)
+      initHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+      if (initHtml.includes('__rd_verify') || initHtml.includes('executeChallenge')) {
+        console.log(`[scrape-ads] Second challenge, waiting again...`)
+        try { await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }) } catch {}
+        await sleep(2000)
+      }
     }
+
+    // Wait for network idle like mine does
+    await page.waitForNetworkIdle({ timeout: 15000 }).catch(() => {})
+    await handleFacebookDialogs(page)
 
     // Wait for ads to render in DOM
     try {
-      await page.waitForSelector('[class*="ad"], [data-ad], [aria-label*="anúncio"]', { timeout: 10000 })
+      await page.waitForSelector('[class*="ad"], [data-ad], [aria-label*="anúncio"], [aria-label*="Ad "]', { timeout: 10000 })
+      console.log('[scrape-ads] Ad elements found in DOM')
     } catch {
       console.log('[scrape-ads] No ad elements found, continuing...')
     }
     await sleep(3000)
+
+    console.log(`[scrape-ads] SSR captured: ${capturedHtml.length} chars, hasArchiveId: ${(capturedHtml || '').includes('ad_archive_id')}`)
 
     // Count archive IDs to track scroll progress (don't extract yet — do it once at the end)
     function countArchiveIds(h) {
@@ -827,12 +837,20 @@ async function scrapeAds(url, maxAds) {
       })
     }
 
-    // Extract all ads from final DOM (after all scrolling)
+    // Extract from SSR HTML first (most reliable source)
+    let ssrExtracted = capturedHtml ? extractAdsFromHTML(capturedHtml) : []
+    for (const ad of ssrExtracted) {
+      const key = ad.page_id + ad.start_date
+      if (!seenIds.has(key)) { seenIds.add(key); ads.push(ad) }
+    }
+    // Also extract from rendered DOM (catches JS-hydrated ads)
     const finalHtml = await page.evaluate(() => document.documentElement?.innerHTML || '')
-    const allExtracted = extractAdsFromHTML(finalHtml)
-    for (const ad of allExtracted) ads.push(ad)
-    // Also add any from GraphQL interceptor that weren't in HTML
-    console.log(`[scrape-ads] Final extraction: ${allExtracted.length} from HTML, ${ads.length} total (incl GraphQL)`)
+    const domExtracted = extractAdsFromHTML(finalHtml)
+    for (const ad of domExtracted) {
+      const key = ad.page_id + ad.start_date
+      if (!seenIds.has(key)) { seenIds.add(key); ads.push(ad) }
+    }
+    console.log(`[scrape-ads] Final extraction: ${ssrExtracted.length} SSR + ${domExtracted.length} DOM + GraphQL = ${ads.length} total`)
 
     // Enrich ads with body text and images from rendered DOM
     // Facebook hides these from SSR HTML — only available after JS renders
@@ -901,7 +919,7 @@ async function scrapeAds(url, maxAds) {
     return { ads: ads.slice(0, maxAds) }
   } finally {
     await page.close().catch(() => {})
-    await browser.close().catch(() => {})
+    // Não fecha o browser — é compartilhado com mining/recovery
   }
 }
 

@@ -1142,16 +1142,16 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // 1. Scrape anúncios — tenta local primeiro ($0), fallback Apify
+        // 1. Scrape anúncios — scraper local apenas (sem Apify)
         send({ step: 'scraping', message: 'Conectando à biblioteca de anúncios...', percent: 10 })
-        let ads = await scrapeAdsLocal(url)
-        const usedLocalAds = !!ads
+        const ads = await scrapeAdsLocal(url)
         if (!ads) {
-          console.log('[Analyze] Local scraper falhou/offline, usando Apify...')
-          ads = await scrapeAds(url) as Record<string, unknown>[]
-        } else {
-          console.log(`[Analyze] Local scraper OK: ${ads.length} ads (custo $0)`)
+          console.error('[Analyze] Scraper local offline ou falhou')
+          send({ step: 'error', message: 'Scraper local offline. Verifique se o PC está ligado e o tunnel ativo.' })
+          controller.close()
+          return
         }
+        console.log(`[Analyze] Local scraper OK: ${ads.length} ads (custo $0)`)
 
         if (!Array.isArray(ads) || ads.length === 0) {
           send({ step: 'error', message: 'Nenhum anúncio encontrado. Verifique se o anunciante tem anúncios ativos e se a URL está correta.' })
@@ -1182,18 +1182,12 @@ export async function POST(req: NextRequest) {
 
         if (landingUrl && (!landingPage || landingPage.fullText.length < 500 || landingPage.fullText.split('\n').filter(l => l.trim().length > 50).length < 2)) {
           send({ step: 'analyzing_page', message: 'Renderizando página (modo avançado)...', percent: 30 })
-          // Tenta scraper local primeiro ($0), fallback Apify headless
           const localLanding = await scrapeLandingLocal(landingUrl)
           if (localLanding && localLanding.fullText.length > (landingPage?.fullText.length ?? 0)) {
             landingPage = localLanding
             console.log('[Landing] Local headless OK — texto:', localLanding.fullText.length, 'chars (custo $0)')
           } else {
-            console.log('[Landing] Local insuficiente, tentando Apify headless...')
-            const headless = await scrapeLandingPageHeadless(landingUrl)
-            if (headless && headless.fullText.length > (landingPage?.fullText.length ?? 0)) {
-              landingPage = headless
-              console.log('[Landing] Apify headless OK — texto:', headless.fullText.length, 'chars')
-            }
+            console.log('[Landing] Local landing insuficiente, seguindo com dados parciais')
           }
         }
 
