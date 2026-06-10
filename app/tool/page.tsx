@@ -1166,7 +1166,26 @@ export default function ToolPage() {
           )}
 
           {/* ── ABA ANALISE ── */}
-          {activeTab === 'analise' && (
+          {(activeTab === 'analise' || activeTab === 'minerador' || activeTab === 'rastreamento') && (() => {
+            const MAINTENANCE_MODE = true
+            if (MAINTENANCE_MODE) return (
+              <div className="tab-content" style={{ maxWidth: 600, textAlign: 'center', padding: '80px 20px', margin: '0 auto' }}>
+                <div style={{ fontSize: 56, marginBottom: 20 }}>&#128679;</div>
+                <h2 style={{ color: '#fff', fontSize: 24, marginBottom: 12, fontWeight: 800 }}>Manuten{'\u00e7'}{'\u00e3'}o Tempor{'\u00e1'}ria</h2>
+                <p style={{ color: '#999', fontSize: 15, lineHeight: 1.6, marginBottom: 32 }}>
+                  Estamos realizando melhorias no sistema. A previs{'\u00e3'}o de retorno {'\u00e9'} de at{'\u00e9'} <strong style={{ color: '#f97316' }}>12 horas</strong>.
+                  <br/>Pedimos desculpas pelo inconveniente.
+                </p>
+                <a href="https://wa.me/5548999793862?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20RatoAds" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: '#25D366', color: '#fff', padding: '14px 28px', borderRadius: 99, fontSize: 15, fontWeight: 700, textDecoration: 'none', border: 'none', cursor: 'pointer' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a8 8 0 01-4.108-1.132l-.292-.174-3.065.803.817-2.984-.192-.304A7.96 7.96 0 014 12a8 8 0 1116 0 8 8 0 01-8 8z"/></svg>
+                  Falar com suporte
+                </a>
+                <p style={{ color: '#555', fontSize: 12, marginTop: 20 }}>Resposta r{'\u00e1'}pida via WhatsApp</p>
+              </div>
+            )
+            return null
+          })()}
+          {activeTab === 'analise' && !true && (
             <div className="tab-content">
               <div className="analyze-hero">
                 <div className="tool-sec-label"><span>Intelig{'\u00ea'}ncia competitiva</span></div>
@@ -1289,7 +1308,7 @@ export default function ToolPage() {
           )}
 
           {/* ── ABA RASTREAMENTO ── */}
-          {activeTab === 'rastreamento' && (
+          {activeTab === 'rastreamento' && !true && (
             <div className="tab-content rdr-full">
               {radarLoading && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 10, color: '#666' }}>
@@ -1371,7 +1390,7 @@ export default function ToolPage() {
           )}
 
           {/* ── ABA MINERADOR ── */}
-          {activeTab === 'minerador' && (
+          {activeTab === 'minerador' && !true && (
             <div className="tab-content">
               <div className="mine-hero">
                 <div className="tool-sec-label"><span>Descoberta de ofertas</span></div>
