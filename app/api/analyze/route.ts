@@ -80,13 +80,14 @@ async function scrapeAdsLocal(url: string): Promise<Record<string, unknown>[] | 
     const data = await res.json() as { ads?: Record<string, unknown>[] }
     const ads = data.ads
     if (!Array.isArray(ads) || ads.length === 0) return null
-    // Normalize local scraper format to match Apify format expected downstream
+    // Normalize local scraper format to match expected downstream
     return ads.map((ad: Record<string, unknown>) => ({
       snapshot: ad.snapshot ?? {},
       page_id: ad.page_id,
       page_name: ad.page_name,
       startDate: ad.start_date_formatted,
       start_date: ad.start_date,
+      collation_count: ad.collation_count ?? 1,
       isActive: true,
       ad_creative_bodies: (ad.snapshot as Record<string, unknown>)?.body_text,
       ad_creative_link_url: (ad.snapshot as Record<string, unknown>)?.link_url,
@@ -1166,7 +1167,16 @@ export async function POST(req: NextRequest) {
         console.log('[Landing] URL detectada:', landingUrl)
 
         // Preparar dados de ads enquanto landing page carrega — sem limite
-        const adsForClaude = ads.map((ad: Record<string, unknown>) => {
+        // Ordenar por collation_count (mais escalado primeiro) e depois por start_date (mais antigo primeiro)
+        const sortedAds = [...ads].sort((a, b) => {
+          const ca = (a.collation_count as number) ?? 1
+          const cb = (b.collation_count as number) ?? 1
+          if (cb !== ca) return cb - ca
+          const sa = (a.start_date as number) ?? Infinity
+          const sb = (b.start_date as number) ?? Infinity
+          return sa - sb
+        })
+        const adsForClaude = sortedAds.map((ad: Record<string, unknown>) => {
           const snap = ad.snapshot as Record<string, unknown> | undefined
           return {
             body: (snap?.body as Record<string, unknown>)?.text || snap?.body_text || ad.ad_creative_bodies,
@@ -1175,6 +1185,7 @@ export async function POST(req: NextRequest) {
             link: snap?.link_url,
             isActive: ad.isActive,
             startDate: ad.startDate,
+            collation_count: ad.collation_count ?? 1,
           }
         })
 
@@ -1217,7 +1228,9 @@ Retorne o JSON conforme o schema obrigatório:`, `Você é um analista sênior d
 
 INSTRUÇÕES:
 - Analise TODOS os anúncios enviados, não apenas uma amostra
-- Identifique padrões de escalada: anúncios com mais variações de copy/criativo = mais verba investida
+- Cada anúncio tem um campo "collation_count": quanto maior, mais variações daquele criativo estão rodando (= mais escalado, mais verba)
+- O anúncio com maior collation_count é o criativo campeão — dê destaque a ele na análise
+- Identifique padrões de escalada: anúncios com collation_count alto + mais tempo rodando = comprovadamente lucrativos
 - Identifique o ângulo dominante baseado em frequência real nos anúncios, não suposição
 - Gere 3 scripts de CTV (conteúdo tipo UGC) baseados nos hooks que mais aparecem
 - Seja honesto no score: não infle nem deflate. Score 8+ = operação lucrativa e profissional com evidências claras
