@@ -209,17 +209,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Fallback: Apify (~$0.05-0.10 por chamada)
-  const apifyRunId = await startApifyMine(kw)
-  if (apifyRunId) {
-    const runId = `apify:${apifyRunId}`
-    setCachedRun(kw, runId)
-    console.log('[Mine] Apify started:', apifyRunId)
-    return NextResponse.json({ runId, keyword: kw, minAnuncios, minDias })
-  }
-
   return NextResponse.json({
-    error: 'Minerador temporariamente offline. Tente novamente mais tarde.'
+    error: 'Scraper local offline. Verifique se o PC está ligado e o tunnel ativo.'
   }, { status: 503 })
 }
 
@@ -288,15 +279,28 @@ export async function GET(req: NextRequest) {
 
     console.log(`[Mine] Got ${results.length} pages`)
 
+    // Build keyword words for relevance check
+    const keyword = req.nextUrl.searchParams.get('keyword') || ''
+    const kwWords = keyword.toLowerCase().split(/\s+/).filter(w => w.length >= 3 && !['para', 'pra', 'com', 'que', 'uma', 'dos', 'das'].includes(w))
+
     const ofertas = results
       .map(p => {
-        // Score: contagem real de ads + tempo rodando
+        // Relevância: nome da página contém pelo menos 1 palavra-chave significativa
+        const nameLower = p.pagina_nome.toLowerCase()
+        const keywordMatchCount = kwWords.filter(w => nameLower.includes(w)).length
+        // keyword_hits = quantas vezes apareceu na busca (vs total_anuncios = contagem real da página)
+        const hitRatio = p.keyword_hits && p.total_anuncios ? p.keyword_hits / p.total_anuncios : 0
+
+        // Score: contagem real de ads + tempo rodando + relevância
         // Volume: 80+ = excelente, 50+ = bom, 30+ = ok, 10+ = limite
         const volPts = p.total_anuncios >= 80 ? 4 : p.total_anuncios >= 50 ? 3 : p.total_anuncios >= 30 ? 2 : p.total_anuncios >= 10 ? 1 : 0
         // Tempo: 60+ dias = excelente, 30+ = bom, 15+ = ok, 3+ = limite
         const tempoPts = p.dias_rodando === null ? 1 : p.dias_rodando >= 60 ? 4 : p.dias_rodando >= 30 ? 3 : p.dias_rodando >= 15 ? 2 : p.dias_rodando >= 3 ? 1 : 0
-        // Score 1-10: (volPts + tempoPts) * 10 / 8 (max=8)
-        const score = Math.max(1, Math.min(10, Math.round((volPts + tempoPts) * 10 / 8)))
+        // Relevância: nome contém keyword = +2, hit ratio alto = +1
+        const relevPts = keywordMatchCount >= 2 ? 2 : keywordMatchCount >= 1 ? 1 : 0
+        const ratioPts = hitRatio >= 0.3 ? 1 : 0
+        // Score 1-10: (volPts + tempoPts + relevPts + ratioPts) * 10 / 11
+        const score = Math.max(1, Math.min(10, Math.round((volPts + tempoPts + relevPts + ratioPts) * 10 / 11)))
 
         // ad_library_url: se temos page_id numerico real, abre direto a biblioteca da pagina.
         // Se nao (slug), faz busca por nome exato (mais preciso que busca solta).
@@ -323,13 +327,13 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(p => {
-        const nameLower = p.pagina_nome.toLowerCase()
+        const pName = p.pagina_nome.toLowerCase()
         const url = (p.landing_url || '').toLowerCase()
         // Apify total_anuncios = keyword hits (não contagem real), usar threshold menor
         const effectiveMin = isApify ? 2 : minAnuncios
         if (p.total_anuncios < effectiveMin || p.total_anuncios > maxAnuncios) return false
-        if (BRAND_BLACKLIST.some(brand => nameLower.includes(brand))) return false
-        if (nameLower.endsWith(' oficial') || nameLower.includes('® ') || nameLower.includes('™')) return false
+        if (BRAND_BLACKLIST.some(brand => pName.includes(brand))) return false
+        if (pName.endsWith(' oficial') || pName.includes('® ') || pName.includes('™')) return false
         if (p.dias_rodando !== null && p.dias_rodando < minDias) return false
         if ((p.fb_followers ?? 0) >= maxFollowers || (p.ig_followers ?? 0) >= maxFollowers) return false
         if (url && BLOCKED_LANDING_DOMAINS.some(domain => url.includes(domain))) return false
