@@ -711,17 +711,11 @@ function extractAdsFromHTML(html) {
       if (videos.length === 0) videos.push({ video_hd_url: '', video_sd_url: vidMatch[1].replace(/\\\//g, '/'), video_preview_image_url: '' })
     }
 
-    // Collation count (quantos anúncios usam esse criativo)
-    const collationMatch = context.match(/"collation_count"\s*:\s*(\d+)/) || context.match(/"count"\s*:\s*(\d+)/)
-    const collationCount = collationMatch ? parseInt(collationMatch[1]) : 1
-
     ads.push({
-      ad_archive_id: id,
       page_id: pageId,
       page_name: pageName,
       start_date: startDate,
       start_date_formatted: startDate ? new Date(startDate * 1000).toISOString().slice(0, 19).replace('T', ' ') : '',
-      collation_count: collationCount,
       snapshot: { body_text: bodyText, title, cta_text: ctaText, link_url: linkUrl, images, videos, cards: [] },
     })
   }
@@ -730,8 +724,20 @@ function extractAdsFromHTML(html) {
 }
 
 async function scrapeAds(url, maxAds) {
-  // Usa o browser com perfil FB logado (mesmo do mining/recovery)
-  const browser = await getFbBrowser()
+  // Browser dedicado com perfil FB separado (não compete com auto-mine)
+  const isWindows = process.platform === 'win32'
+  const analyzeProfileDir = path.join(__dirname, '.fb-profile-analyze')
+  const browser = await puppeteer.launch({
+    executablePath: CHROMIUM_PATH,
+    headless: 'new',
+    userDataDir: analyzeProfileDir,
+    args: [
+      '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+      '--disable-gpu', '--lang=pt-BR', '--disable-blink-features=AutomationControlled',
+      '--window-size=1920,1080',
+      ...(isWindows ? [] : ['--single-process', '--no-zygote']),
+    ],
+  })
   const page = await browser.newPage()
   await setupPage(page)
 
@@ -739,16 +745,6 @@ async function scrapeAds(url, maxAds) {
   const seenIds = new Set()
 
   try {
-    // Capture SSR HTML response directly (before JS framework processes it)
-    let capturedHtml = ''
-    page.on('response', async (resp) => {
-      try {
-        if (resp.url().includes('/ads/library') && resp.request().resourceType() === 'document') {
-          capturedHtml = await resp.text().catch(() => '')
-        }
-      } catch { /* ignore */ }
-    })
-
     // Intercept GraphQL responses (still useful for scroll-loaded data)
     page.on('response', async (response) => {
       try {
@@ -759,9 +755,8 @@ async function scrapeAds(url, maxAds) {
         if (!text || text.length < 500) return
         const newAds = extractAdsFromHTML(text)
         for (const ad of newAds) {
-          const key = ad.ad_archive_id || (ad.page_id + ad.start_date)
-          if (!seenIds.has(key)) {
-            seenIds.add(key)
+          if (!seenIds.has(ad.page_id + ad.start_date)) {
+            seenIds.add(ad.page_id + ad.start_date)
             ads.push(ad)
           }
         }
@@ -770,35 +765,23 @@ async function scrapeAds(url, maxAds) {
 
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 })
     await handleFacebookDialogs(page)
+    await sleep(3000)
 
     // Handle challenge if needed
     let initHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
     if (initHtml.includes('__rd_verify') || initHtml.includes('executeChallenge')) {
       console.log(`[scrape-ads] Challenge detected, waiting...`)
       try { await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }) } catch {}
-      await sleep(2000)
-      initHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-      if (initHtml.includes('__rd_verify') || initHtml.includes('executeChallenge')) {
-        console.log(`[scrape-ads] Second challenge, waiting again...`)
-        try { await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }) } catch {}
-        await sleep(2000)
-      }
+      await sleep(3000)
     }
-
-    // Wait for network idle like mine does
-    await page.waitForNetworkIdle({ timeout: 15000 }).catch(() => {})
-    await handleFacebookDialogs(page)
 
     // Wait for ads to render in DOM
     try {
-      await page.waitForSelector('[class*="ad"], [data-ad], [aria-label*="anúncio"], [aria-label*="Ad "]', { timeout: 10000 })
-      console.log('[scrape-ads] Ad elements found in DOM')
+      await page.waitForSelector('[class*="ad"], [data-ad], [aria-label*="anúncio"]', { timeout: 10000 })
     } catch {
       console.log('[scrape-ads] No ad elements found, continuing...')
     }
     await sleep(3000)
-
-    console.log(`[scrape-ads] SSR captured: ${capturedHtml.length} chars, hasArchiveId: ${(capturedHtml || '').includes('ad_archive_id')}`)
 
     // Count archive IDs to track scroll progress (don't extract yet — do it once at the end)
     function countArchiveIds(h) {
@@ -844,112 +827,69 @@ async function scrapeAds(url, maxAds) {
       })
     }
 
-    // Extract from SSR HTML first (most reliable source)
-    let ssrExtracted = capturedHtml ? extractAdsFromHTML(capturedHtml) : []
-    for (const ad of ssrExtracted) {
-      const key = ad.ad_archive_id || (ad.page_id + ad.start_date)
-      if (!seenIds.has(key)) { seenIds.add(key); ads.push(ad) }
-    }
-    // Also extract from rendered DOM (catches JS-hydrated ads)
+    // Extract all ads from final DOM (after all scrolling)
     const finalHtml = await page.evaluate(() => document.documentElement?.innerHTML || '')
-    const domExtracted = extractAdsFromHTML(finalHtml)
-    for (const ad of domExtracted) {
-      const key = ad.ad_archive_id || (ad.page_id + ad.start_date)
-      if (!seenIds.has(key)) { seenIds.add(key); ads.push(ad) }
-    }
-    console.log(`[scrape-ads] Final extraction: ${ssrExtracted.length} SSR + ${domExtracted.length} DOM + GraphQL = ${ads.length} total`)
+    const allExtracted = extractAdsFromHTML(finalHtml)
+    for (const ad of allExtracted) ads.push(ad)
+    // Also add any from GraphQL interceptor that weren't in HTML
+    console.log(`[scrape-ads] Final extraction: ${allExtracted.length} from HTML, ${ads.length} total (incl GraphQL)`)
 
-    // Extract ads directly from rendered DOM cards (primary method for view_all_page_id)
+    // Enrich ads with body text and images from rendered DOM
+    // Facebook hides these from SSR HTML — only available after JS renders
     const domAds = await page.evaluate(() => {
+      const cards = document.querySelectorAll('[class*="result"], [class*="_7jvw"], div[class*="x1lliihq"]')
       const results = []
-      // Find ad containers: divs that contain "Ativo"/"Active" + archive ID text
+      // Find ad containers — each contains body text, title, image/video
       const allDivs = [...document.querySelectorAll('div')]
-
-      // Strategy: find the smallest div that contains "Identificação da biblioteca" — that's one ad card
-      const adCards = allDivs.filter(d => {
+      const adContainers = allDivs.filter(d => {
         const text = d.innerText || ''
-        // Must contain status indicator AND archive ID
-        const hasStatus = text.includes('Ativo') || text.includes('Active') || text.includes('Inativo')
-        const hasArchive = text.includes('Identificação da biblioteca') || text.includes('Library ID')
-        if (!hasStatus || !hasArchive) return false
-        // Must be leaf-ish: no child divs that ALSO match (to avoid parent containers)
-        const childMatch = [...d.querySelectorAll(':scope > div')].some(c => {
-          const ct = c.innerText || ''
-          return (ct.includes('Ativo') || ct.includes('Active')) &&
-                 (ct.includes('Identificação da biblioteca') || ct.includes('Library ID'))
-        })
-        return !childMatch
-      }).slice(0, 20)
+        // Ad containers have "Active" or "Ativo" status and body text
+        return (text.includes('Active') || text.includes('Ativo') || text.includes('Inativo')) &&
+               text.length > 50 && text.length < 5000 &&
+               d.querySelector('img')
+      }).slice(0, 60)
 
-      for (const card of adCards) {
-        const text = card.innerText || ''
-
-        // Archive ID
-        const archiveMatch = text.match(/(?:Identificação da biblioteca|Library ID)[:\s]*(\d+)/)
-        const archiveId = archiveMatch ? archiveMatch[1] : ''
-
-        // Start date
-        const dateMatch = text.match(/(?:Veiculação iniciada em|Started running on)\s+(.+?)(?:\n|$)/)
-        const startDateStr = dateMatch ? dateMatch[1].trim() : ''
-
-        // Collation count ("X anúncios usam esse criativo")
-        const collateMatch = text.match(/(\d+)\s*an[uú]ncios?\s*usam/)
-        const collationCount = collateMatch ? parseInt(collateMatch[1]) : 1
-
-        // Body text: find the sponsored post text (after "Patrocinado")
-        const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-        const sponsoredIdx = lines.findIndex(l => l === 'Patrocinado' || l === 'Sponsored')
-        let bodyText = ''
-        if (sponsoredIdx >= 0) {
-          // Body text is everything after "Patrocinado" until we hit a known footer pattern
-          const bodyLines = []
-          for (let i = sponsoredIdx + 1; i < lines.length; i++) {
-            const l = lines[i]
-            if (l.includes('Identificação') || l.includes('Library ID') || l.includes('Veiculação') ||
-                l.includes('Started running') || l.includes('Ver detalhes') || l.includes('See ad details') ||
-                l.includes('Ver resumo') || l.includes('Plataformas') || l.includes('Platforms')) break
-            bodyLines.push(l)
-          }
-          bodyText = bodyLines.join('\n').trim()
-        }
-
-        // Page name: usually the line before "Patrocinado"
-        let pageName = ''
-        if (sponsoredIdx > 0) pageName = lines[sponsoredIdx - 1] || ''
+      for (const container of adContainers) {
+        // Body text: largest text block in the container
+        const textNodes = [...container.querySelectorAll('div, span, p')]
+          .map(n => ({ text: (n.innerText || '').trim(), len: (n.innerText || '').trim().length }))
+          .filter(n => n.len > 30 && n.len < 2000)
+          .sort((a, b) => b.len - a.len)
+        const bodyText = textNodes[0]?.text || ''
 
         // Images
-        const imgs = [...card.querySelectorAll('img')]
+        const imgs = [...container.querySelectorAll('img')]
           .map(img => img.src)
-          .filter(s => s && s.startsWith('http') && !s.includes('emoji') && s.includes('fbcdn'))
-          .slice(0, 5)
+          .filter(s => s && s.startsWith('http') && !s.includes('emoji') && !s.includes('profile') && s.includes('fbcdn'))
+          .slice(0, 3)
 
         // Videos
-        const vids = [...card.querySelectorAll('video, video source')]
+        const vids = [...container.querySelectorAll('video, video source')]
           .map(v => v.src || '')
           .filter(Boolean)
-          .slice(0, 2)
+          .slice(0, 1)
 
-        // Link URL
-        const links = [...card.querySelectorAll('a[href]')]
-          .map(a => a.href)
-          .filter(h => h && h.startsWith('http') && !h.includes('facebook.com') && !h.includes('fb.com'))
-        const linkUrl = links[0] || ''
-
-        results.push({ archiveId, pageName, bodyText, imgs, vids, linkUrl, startDateStr, collationCount })
+        if (bodyText || imgs.length > 0) {
+          results.push({ bodyText, imgs, vids })
+        }
       }
       return results
     }).catch(() => [])
 
-    console.log(`[scrape-ads] DOM card extraction: ${domAds.length} cards found`)
-
-    // If we got ads from SSR/GraphQL, enrich them with DOM data
-    if (ads.length > 0 && domAds.length > 0) {
+    // Merge DOM-extracted data into ads
+    if (domAds.length > 0) {
+      console.log(`[scrape-ads] DOM enrichment: ${domAds.length} ad containers found`)
       for (let i = 0; i < Math.min(ads.length, domAds.length); i++) {
         const snap = ads[i].snapshot || {}
-        if (!snap.body_text && domAds[i].bodyText) snap.body_text = domAds[i].bodyText
+        // Fill body_text if empty
+        if (!snap.body_text && domAds[i].bodyText) {
+          snap.body_text = domAds[i].bodyText
+        }
+        // Fill images if empty
         if ((!snap.images || snap.images.length === 0) && domAds[i].imgs.length > 0) {
           snap.images = domAds[i].imgs.map(u => ({ original_image_url: u, resized_image_url: u }))
         }
+        // Fill videos if empty
         if ((!snap.videos || snap.videos.length === 0) && domAds[i].vids.length > 0) {
           snap.videos = domAds[i].vids.map(u => ({ video_hd_url: u, video_sd_url: u, video_preview_image_url: '' }))
         }
@@ -957,49 +897,11 @@ async function scrapeAds(url, maxAds) {
       }
     }
 
-    // If SSR/GraphQL found nothing, create ads from DOM cards directly
-    if (ads.length === 0 && domAds.length > 0) {
-      console.log(`[scrape-ads] Using DOM cards as primary source (${domAds.length} ads)`)
-      // Get page_id from URL
-      const urlObj = new URL(url)
-      const pageId = urlObj.searchParams.get('view_all_page_id') || ''
-
-      for (const card of domAds) {
-        // Parse start date (Portuguese: "15 de mai de 2026")
-        let startDate = null
-        if (card.startDateStr) {
-          const months = { jan:0, fev:1, mar:2, abr:3, mai:4, jun:5, jul:6, ago:7, set:8, out:9, nov:10, dez:11 }
-          const dm = card.startDateStr.match(/(\d+)\s+de\s+(\w+)\.?\s+de\s+(\d{4})/)
-          if (dm) {
-            const mo = months[dm[2].slice(0,3).toLowerCase()]
-            if (mo !== undefined) startDate = Math.floor(new Date(parseInt(dm[3]), mo, parseInt(dm[1])).getTime() / 1000)
-          }
-        }
-
-        ads.push({
-          page_id: pageId,
-          page_name: card.pageName || domAds[0]?.pageName || '',
-          start_date: startDate,
-          start_date_formatted: startDate ? new Date(startDate * 1000).toISOString().slice(0, 19).replace('T', ' ') : '',
-          collation_count: card.collationCount || 1,
-          snapshot: {
-            body_text: card.bodyText,
-            title: '',
-            cta_text: '',
-            link_url: card.linkUrl,
-            images: card.imgs.map(u => ({ original_image_url: u, resized_image_url: u })),
-            videos: card.vids.map(u => ({ video_hd_url: u, video_sd_url: u, video_preview_image_url: '' })),
-            cards: [],
-          },
-        })
-      }
-    }
-
     console.log(`[scrape-ads] Total: ${ads.length} ads from ${url.slice(0, 80)}`)
     return { ads: ads.slice(0, maxAds) }
   } finally {
     await page.close().catch(() => {})
-    // Não fecha o browser — é compartilhado com mining/recovery
+    await browser.close().catch(() => {})
   }
 }
 
