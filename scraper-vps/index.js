@@ -716,6 +716,7 @@ function extractAdsFromHTML(html) {
     const collationCount = collationMatch ? parseInt(collationMatch[1]) : 1
 
     ads.push({
+      ad_archive_id: id,
       page_id: pageId,
       page_name: pageName,
       start_date: startDate,
@@ -758,8 +759,9 @@ async function scrapeAds(url, maxAds) {
         if (!text || text.length < 500) return
         const newAds = extractAdsFromHTML(text)
         for (const ad of newAds) {
-          if (!seenIds.has(ad.page_id + ad.start_date)) {
-            seenIds.add(ad.page_id + ad.start_date)
+          const key = ad.ad_archive_id || (ad.page_id + ad.start_date)
+          if (!seenIds.has(key)) {
+            seenIds.add(key)
             ads.push(ad)
           }
         }
@@ -845,14 +847,14 @@ async function scrapeAds(url, maxAds) {
     // Extract from SSR HTML first (most reliable source)
     let ssrExtracted = capturedHtml ? extractAdsFromHTML(capturedHtml) : []
     for (const ad of ssrExtracted) {
-      const key = ad.page_id + ad.start_date
+      const key = ad.ad_archive_id || (ad.page_id + ad.start_date)
       if (!seenIds.has(key)) { seenIds.add(key); ads.push(ad) }
     }
     // Also extract from rendered DOM (catches JS-hydrated ads)
     const finalHtml = await page.evaluate(() => document.documentElement?.innerHTML || '')
     const domExtracted = extractAdsFromHTML(finalHtml)
     for (const ad of domExtracted) {
-      const key = ad.page_id + ad.start_date
+      const key = ad.ad_archive_id || (ad.page_id + ad.start_date)
       if (!seenIds.has(key)) { seenIds.add(key); ads.push(ad) }
     }
     console.log(`[scrape-ads] Final extraction: ${ssrExtracted.length} SSR + ${domExtracted.length} DOM + GraphQL = ${ads.length} total`)
