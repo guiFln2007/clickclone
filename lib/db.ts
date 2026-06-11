@@ -826,6 +826,7 @@ export async function dbGetTrackedOffers(userId: number): Promise<TrackedOffer[]
 
 export async function dbDeleteTrackedOffer(offerId: string, userId: number): Promise<boolean> {
   await initDb()
+  await db.execute({ sql: 'DELETE FROM offer_snapshots WHERE tracked_offer_id = ?', args: [offerId] })
   await db.execute({ sql: 'DELETE FROM offer_alerts WHERE tracked_offer_id = ?', args: [offerId] })
   const res = await db.execute({ sql: 'DELETE FROM tracked_offers WHERE id = ? AND user_id = ?', args: [offerId, userId] })
   return (res.rowsAffected ?? 0) > 0
@@ -834,7 +835,7 @@ export async function dbDeleteTrackedOffer(offerId: string, userId: number): Pro
 export async function dbGetActiveTrackedOffers(): Promise<TrackedOffer[]> {
   await initDb()
   const res = await db.execute({
-    sql: "SELECT * FROM tracked_offers WHERE status != 'morta'",
+    sql: "SELECT * FROM tracked_offers",
     args: [],
   })
   return res.rows.map(r => {

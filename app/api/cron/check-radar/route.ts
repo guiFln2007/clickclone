@@ -137,34 +137,33 @@ async function getAdsCount(pageName: string, pageId: string | null, adLibraryUrl
     if (m) resolvedPageId = m[1]
   }
 
-  // ✅ 1ª TENTATIVA: scrape direto do HTML do Facebook (GRATUITO)
-  if (resolvedPageId) {
-    const directCount = await countAdsDirect(resolvedPageId, adLibraryUrl)
-    if (directCount >= 0) {
-      return { count: directCount, resolvedPageId, source: 'direct' }
-    }
-    console.warn(`[Radar] Scrape direto falhou pra page ${resolvedPageId}, tentando fallbacks`)
-  }
-
-  // 2ª: scraper local (se configurado)
-  if (SCRAPER_URL) {
+  // 1ª: scraper local via browser (confiável, tem login Facebook)
+  if (SCRAPER_URL && resolvedPageId) {
     try {
       const res = await fetch(`${SCRAPER_URL}/count-ads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-        body: JSON.stringify({ pageName, pageId: resolvedPageId }),
-        signal: AbortSignal.timeout(60000),
+        body: JSON.stringify({ pageId: resolvedPageId }),
+        signal: AbortSignal.timeout(30000),
       })
       if (res.ok) {
         const data = await res.json() as { count: number; pageId?: string }
-        return { count: data.count, resolvedPageId: data.pageId || resolvedPageId, source: 'scraper' }
+        if (data.count >= 0) {
+          return { count: data.count, resolvedPageId: data.pageId || resolvedPageId, source: 'scraper' as const }
+        }
       }
-    } catch { /* fall through to Apify */ }
+    } catch { /* fall through */ }
   }
 
-  // 3ª: Apify (pago, ultimo recurso)
-  const count = await countAdsFromApify(adLibraryUrl)
-  return { count, resolvedPageId, source: count >= 0 ? 'apify' : 'none' }
+  // 2ª: HTTP direto (sem browser)
+  if (resolvedPageId) {
+    const directCount = await countAdsDirect(resolvedPageId, adLibraryUrl)
+    if (directCount > 0) {
+      return { count: directCount, resolvedPageId, source: 'direct' as const }
+    }
+  }
+
+  return { count: -1, resolvedPageId, source: 'none' as const }
 }
 
 async function getPageHash(url: string): Promise<string | null> {
@@ -236,10 +235,12 @@ async function applyScrapeToOffer(
     })
   }
 
-  // Marca como 'morta' so se ja era ativa e agora deu 0
+  // Atualiza status baseado na contagem
   const newStatus = adsCount === 0 && anterior > 0 ? 'morta'
+    : adsCount > 0 && oferta.status === 'morta' ? 'ativa'  // ressuscitar se voltou a ter ads
     : adsCount >= 0 && adsCount - anterior >= 10 ? 'escalando'
     : adsCount >= 0 && anterior - adsCount >= 10 ? 'caindo'
+    : adsCount > 0 ? 'ativa'
     : oferta.status
 
   const updates: Parameters<typeof dbUpdateTrackedOffer>[1] = {

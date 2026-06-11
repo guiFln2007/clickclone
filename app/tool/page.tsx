@@ -762,10 +762,13 @@ export default function ToolPage() {
     setConfirmDeleteId(null)
     // Remove from local state INSTANTLY
     setTrackedOffers(prev => prev.filter(o => o.id !== id))
-    // Delete from server and WAIT for it to complete before any future loadRadar
+    // Delete from server and reload to confirm
     try {
-      await fetch('/api/radar', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) })
-    } catch { /* ignore */ }
+      const res = await fetch('/api/radar', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) })
+      if (!res.ok) console.error('Delete failed:', res.status)
+      // Reload from server to ensure consistency
+      await loadRadar()
+    } catch (e) { console.error('Delete error:', e) }
   }
 
   // ── MINE ──
@@ -1167,7 +1170,7 @@ export default function ToolPage() {
 
           {/* ── ABA ANALISE ── */}
           {(activeTab === 'analise' || activeTab === 'minerador' || activeTab === 'rastreamento') && (() => {
-            const MAINTENANCE_MODE = true
+            const MAINTENANCE_MODE = false
             if (MAINTENANCE_MODE) return (
               <div className="tab-content" style={{ maxWidth: 600, textAlign: 'center', padding: '80px 20px', margin: '0 auto' }}>
                 <div style={{ fontSize: 56, marginBottom: 20 }}>&#128679;</div>
@@ -1185,7 +1188,7 @@ export default function ToolPage() {
             )
             return null
           })()}
-          {activeTab === 'analise' && !true && (
+          {activeTab === 'analise' && (
             <div className="tab-content">
               <div className="analyze-hero">
                 <div className="tool-sec-label"><span>Intelig{'\u00ea'}ncia competitiva</span></div>
@@ -1308,7 +1311,7 @@ export default function ToolPage() {
           )}
 
           {/* ── ABA RASTREAMENTO ── */}
-          {activeTab === 'rastreamento' && !true && (
+          {activeTab === 'rastreamento' && (
             <div className="tab-content rdr-full">
               {radarLoading && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 10, color: '#666' }}>
@@ -1390,7 +1393,7 @@ export default function ToolPage() {
           )}
 
           {/* ── ABA MINERADOR ── */}
-          {activeTab === 'minerador' && !true && (
+          {activeTab === 'minerador' && (
             <div className="tab-content">
               <div className="mine-hero">
                 <div className="tool-sec-label"><span>Descoberta de ofertas</span></div>

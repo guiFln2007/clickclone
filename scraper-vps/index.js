@@ -18,7 +18,7 @@ app.use(express.json())
 
 const PORT = process.env.PORT || 3000
 const SECRET = process.env.SCRAPER_SECRET || ''
-const CHROMIUM_PATH = process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser'
+const CHROMIUM_PATH = process.env.CHROMIUM_PATH || (process.platform === 'win32' ? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe' : '/usr/bin/chromium-browser')
 const PROXY_URL = process.env.PROXY_URL || '' // ex: http://user:pass@host:port
 
 // Parse proxy URL into components for Chrome
@@ -54,7 +54,7 @@ async function fetchInstagramFollowers(handle) {
   try {
     const { stdout } = await execFileAsync('curl', [
       '-s', '-L', '--compressed', '--max-time', '8',
-      '-H', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+      '-H', `User-Agent: ${randomUA()}`,
       '-H', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       '-H', 'Accept-Language: en-US,en;q=0.5',
       '-H', 'Accept-Encoding: gzip, deflate, br',
@@ -80,9 +80,127 @@ async function fetchInstagramFollowers(handle) {
   return null
 }
 
+// User-agent pool — rotate to reduce fingerprinting
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+]
+function randomUA() { return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)] }
+function randomDelay(min, max) { return new Promise(r => setTimeout(r, min + Math.random() * (max - min))) }
+
+// ════════════════════════════════════════
+// ANTI-BAN: Global rate limiter
+// ════════════════════════════════════════
+// Facebook bane quando detecta muitas requests em janela curta.
+// Rate limiter controla requests globalmente, não por endpoint.
+const FB_RATE = {
+  requests: [],                    // timestamps de cada request ao Facebook
+  MAX_PER_HOUR: 40,                // máximo de page navigations por hora
+  MAX_PER_10MIN: 10,               // máximo por janela de 10min
+  MIN_DELAY_MS: 8000,              // mínimo entre requests (8s)
+  BACKOFF_DELAY_MS: 30000,         // delay quando próximo do limite (30s)
+  COOLDOWN_DELAY_MS: 120000,       // cooldown quando atingiu limite (2min)
+  consecutiveErrors: 0,
+  lastRequestTime: 0,
+}
+
+function fbRateCleanup() {
+  const now = Date.now()
+  FB_RATE.requests = FB_RATE.requests.filter(t => now - t < 3600000) // keep last hour
+}
+
+function fbRateCount(windowMs) {
+  const now = Date.now()
+  return FB_RATE.requests.filter(t => now - t < windowMs).length
+}
+
+// Espera o tempo necessário antes de fazer request ao Facebook
+async function fbRateWait(label = '') {
+  fbRateCleanup()
+  const now = Date.now()
+  const inLastHour = fbRateCount(3600000)
+  const inLast10min = fbRateCount(600000)
+
+  // Se atingiu limite da hora, cooldown longo
+  if (inLastHour >= FB_RATE.MAX_PER_HOUR) {
+    const waitMs = FB_RATE.COOLDOWN_DELAY_MS + Math.random() * 60000
+    console.log(`[rate] HOUR LIMIT (${inLastHour}/${FB_RATE.MAX_PER_HOUR}). Cooling down ${Math.round(waitMs/1000)}s... ${label}`)
+    await sleep(waitMs)
+  }
+  // Se atingiu limite de 10min, backoff médio
+  else if (inLast10min >= FB_RATE.MAX_PER_10MIN) {
+    const waitMs = FB_RATE.BACKOFF_DELAY_MS + Math.random() * 30000
+    console.log(`[rate] 10MIN LIMIT (${inLast10min}/${FB_RATE.MAX_PER_10MIN}). Backoff ${Math.round(waitMs/1000)}s... ${label}`)
+    await sleep(waitMs)
+  }
+
+  // Mínimo entre requests + jitter
+  const sinceLast = now - FB_RATE.lastRequestTime
+  if (sinceLast < FB_RATE.MIN_DELAY_MS) {
+    const jitter = Math.random() * 4000
+    await sleep(FB_RATE.MIN_DELAY_MS - sinceLast + jitter)
+  }
+
+  // Backoff progressivo por erros consecutivos
+  if (FB_RATE.consecutiveErrors > 0) {
+    const errorDelay = Math.min(FB_RATE.consecutiveErrors * 15000, 120000)
+    console.log(`[rate] ${FB_RATE.consecutiveErrors} consecutive errors, extra delay ${Math.round(errorDelay/1000)}s`)
+    await sleep(errorDelay)
+  }
+
+  FB_RATE.lastRequestTime = Date.now()
+  FB_RATE.requests.push(Date.now())
+}
+
+// ════════════════════════════════════════
+// PRIORITY SYSTEM: manual jobs pause auto-mine
+// ════════════════════════════════════════
+let manualJobsRunning = 0
+let autoMinePaused = false
+
+function markManualStart() {
+  manualJobsRunning++
+  if (autoMinePaused) return
+  autoMinePaused = true
+  console.log(`[priority] Manual job started — auto-mine PAUSED`)
+}
+
+function markManualDone() {
+  manualJobsRunning = Math.max(0, manualJobsRunning - 1)
+  if (manualJobsRunning === 0) {
+    autoMinePaused = false
+    console.log(`[priority] Manual jobs done — auto-mine RESUMED`)
+  }
+}
+
+// Auto-mine chama isso antes de cada operação — espera se tem job manual rodando
+async function waitForManualJobs() {
+  while (autoMinePaused) {
+    await sleep(5000)
+  }
+}
+
+// Endpoint pra ver status do rate limiter
+app.get('/rate-status', (req, res) => {
+  fbRateCleanup()
+  res.json({
+    requestsLastHour: fbRateCount(3600000),
+    requestsLast10min: fbRateCount(600000),
+    maxPerHour: FB_RATE.MAX_PER_HOUR,
+    maxPer10min: FB_RATE.MAX_PER_10MIN,
+    consecutiveErrors: FB_RATE.consecutiveErrors,
+    lastRequest: FB_RATE.lastRequestTime ? new Date(FB_RATE.lastRequestTime).toISOString() : null,
+    manualJobsRunning,
+    autoMinePaused,
+  })
+})
+
 // Browser pool — reuse browser instance
 let browserInstance = null
-let useWarpProxy = false // Começa com IP residencial (melhor pro Facebook), WARP como fallback
+let useWarpProxy = false // IP residencial obrigatório — WARP = datacenter IP = Facebook bloqueia
 const WARP_PROXY = 'socks5://localhost:40000'
 
 async function getBrowser() {
@@ -133,6 +251,8 @@ async function getFbBrowser(headless = true) {
     args: [
       '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
       '--disable-gpu', '--lang=pt-BR',
+      '--disable-blink-features=AutomationControlled',
+      '--window-size=1920,1080',
       ...(isWindows ? [] : ['--single-process', '--no-zygote']),
     ],
   })
@@ -165,7 +285,7 @@ app.get('/fb-login-done', async (req, res) => {
 
 // Handle Facebook cookie consent and country selection
 async function handleFacebookDialogs(page) {
-  await sleep(2000)
+  await randomDelay(2000, 4000)
   // Accept cookies
   await page.evaluate(() => {
     const btns = [...document.querySelectorAll('button, [role="button"]')]
@@ -175,7 +295,7 @@ async function handleFacebookDialogs(page) {
     })
     if (accept) accept.click()
   })
-  await sleep(1000)
+  await randomDelay(800, 2000)
   // Close "Desativar bloqueador de anúncios" modal (clicks OK)
   await page.evaluate(() => {
     const btns = [...document.querySelectorAll('button, [role="button"]')]
@@ -185,13 +305,13 @@ async function handleFacebookDialogs(page) {
     })
     if (ok) ok.click()
   })
-  await sleep(1000)
+  await randomDelay(800, 2000)
   // Close any popup/modal
   await page.evaluate(() => {
     const close = document.querySelector('[aria-label="Close"], [aria-label="Fechar"]')
     if (close) close.click()
   })
-  await sleep(500)
+  await randomDelay(500, 1500)
 }
 
 // Concurrency queue — max 2 concurrent scrapes
@@ -225,12 +345,15 @@ app.post('/page-about', async (req, res) => {
   const { pageId } = req.body
   if (!pageId) return res.status(400).json({ error: 'pageId required' })
 
+  markManualStart()
   try {
     const result = await enqueue(() => scrapePageAbout(pageId))
     res.json(result)
   } catch (e) {
     console.error('[page-about] Error:', e.message)
     res.status(500).json({ error: e.message })
+  } finally {
+    markManualDone()
   }
 })
 
@@ -243,8 +366,9 @@ app.post('/debug-sobre', async (req, res) => {
     const page = await browser.newPage()
     await setupPage(page)
     const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${pageId}`
+    await fbRateWait('debug-sobre')
     await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
-    await sleep(3000)
+    await randomDelay(3000, 5000)
 
     // Find clickable elements with "Sobre"
     const clickables = await page.evaluate(() => {
@@ -270,7 +394,7 @@ app.post('/debug-sobre', async (req, res) => {
 
     // Wait for transparency section to load
     for (let wait = 0; wait < 5; wait++) {
-      await sleep(2000)
+      await randomDelay(2000, 3500)
       const hasTransparency = await page.evaluate(() => {
         const text = document.body?.innerText || ''
         return text.includes('Transparência') || text.includes('Transparency') || text.includes('seguidores') || text.includes('followers')
@@ -296,8 +420,9 @@ app.post('/debug-sobre', async (req, res) => {
     let fbPageHandles = []
     let fbPageSeguidores = []
     try {
+      await fbRateWait('debug-fb-page')
       await page.goto('https://www.facebook.com/' + pageId, { waitUntil: 'domcontentloaded', timeout: 15000 })
-      await sleep(4000)
+      await randomDelay(4000, 6000)
       const fbHtml = await page.evaluate(() => document.documentElement?.innerHTML || '')
       const fbText = await page.evaluate(() => document.body?.innerText || '')
       const igBL = ['p','reel','reels','explore','stories','accounts','about','login','_n','_u','share','direct','developer','legal','help','tags']
@@ -325,12 +450,15 @@ app.post('/scrape-ads', async (req, res) => {
   const { url, maxAds = 80 } = req.body
   if (!url) return res.status(400).json({ error: 'url required' })
 
+  markManualStart()
   try {
     const result = await scrapeAds(url, maxAds)
     res.json(result)
   } catch (e) {
     console.error('[scrape-ads] Error:', e.message)
     res.status(500).json({ error: e.message })
+  } finally {
+    markManualDone()
   }
 })
 
@@ -346,6 +474,41 @@ app.post('/count-ads', async (req, res) => {
     console.error('[count-ads] Error:', e.message)
     res.status(500).json({ error: e.message })
   }
+})
+
+// ── COUNT-ADS BATCH — uma tab, vários page_ids sequenciais ──
+app.post('/count-ads-batch', async (req, res) => {
+  const { pageIds } = req.body
+  if (!Array.isArray(pageIds) || pageIds.length === 0) return res.status(400).json({ error: 'pageIds array required' })
+
+  const results = {}
+  const browser = await getFbBrowser()
+  const page = await browser.newPage()
+  await setupPage(page)
+
+  for (const pid of pageIds.slice(0, 100)) {
+    try {
+      const url = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${pid}`
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 12000 })
+      await randomDelay(1000, 2000)
+      const html = await page.evaluate(() => document.documentElement?.innerHTML || '')
+      const countMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
+      if (countMatch) {
+        results[pid] = parseInt(countMatch[1].replace(/[.,]/g, ''))
+      } else {
+        const ids = new Set()
+        const m = html.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
+        for (const x of m) ids.add(x[1])
+        results[pid] = ids.size
+      }
+      console.log(`[count-batch] ${pid}: ${results[pid]}`)
+    } catch (e) {
+      results[pid] = -1
+      console.log(`[count-batch] ${pid}: error ${e.message}`)
+    }
+  }
+  await page.close().catch(() => {})
+  res.json({ results })
 })
 
 // ── SCRAPE-LANDING ──
@@ -372,19 +535,20 @@ app.post('/mine', async (req, res) => {
   const jobId = randomUUID().slice(0, 8)
   jobs.set(jobId, { status: 'running', results: null, error: null })
 
-  // Run in background with auto-recovery on block
+  // Run in background with priority over auto-mine
+  markManualStart()
   runMineWithRecovery(jobId, keyword, count).catch(e => {
     console.error('[mine] Job failed:', e.message)
     const job = jobs.get(jobId)
     if (job) { job.status = 'failed'; job.error = e.message }
-  })
+  }).finally(() => markManualDone())
 
   res.json({ jobId })
 })
 
 // Mine com auto-recovery: se retorna 0 resultados, tenta recuperar e re-minerar
-async function runMineWithRecovery(jobId, keyword, count) {
-  await runMineJob(jobId, keyword, count)
+async function runMineWithRecovery(jobId, keyword, count, isAutoMine = false) {
+  await runMineJob(jobId, keyword, count, isAutoMine)
   const job = jobs.get(jobId)
   // Se retornou 0 resultados e job deu "done", pode ser bloqueio
   if (job && job.status === 'done' && job.results && job.results.length === 0) {
@@ -396,7 +560,7 @@ async function runMineWithRecovery(jobId, keyword, count) {
       const recovered = await autoRecover()
       if (recovered) {
         console.log(`[mine] Recovered! Re-mining "${keyword}"...`)
-        await runMineJob(jobId, keyword, count)
+        await runMineJob(jobId, keyword, count, isAutoMine)
       } else {
         console.log(`[mine] Recovery failed for "${keyword}"`)
         job.status = 'done'
@@ -437,7 +601,7 @@ function parseFollowers(text) {
 
 async function setupPage(page) {
   if (proxyAuth) await page.authenticate(proxyAuth)
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
+  await page.setUserAgent(randomUA())
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8' })
   await page.setCookie(
     { name: 'locale', value: 'pt_BR', domain: '.facebook.com' },
@@ -485,7 +649,7 @@ async function scrapePageAbout(pageId) {
   try {
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+        'User-Agent': randomUA(),
         'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
         'Accept': 'text/html,application/xhtml+xml',
       },
@@ -516,8 +680,9 @@ async function scrapePageAbout(pageId) {
       const browser = await getFbBrowser()
       const page = await browser.newPage()
       await setupPage(page)
+      await fbRateWait('page-about browser')
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
-      await sleep(2000)
+      await randomDelay(2000, 4000)
 
       // Get page name from browser HTML JSON (more reliable than heading element)
       if (!result.page_name) {
@@ -559,7 +724,7 @@ async function scrapePageAbout(pageId) {
       if (sobreClicked) {
         // Wait for transparency section to render
         for (let w = 0; w < 5; w++) {
-          await sleep(1500)
+          await randomDelay(1500, 3000)
           const ready = await page.evaluate(() => {
             const t = document.body?.innerText || ''
             return t.includes('seguidores') || t.includes('followers') || t.includes('Transparência')
@@ -724,20 +889,8 @@ function extractAdsFromHTML(html) {
 }
 
 async function scrapeAds(url, maxAds) {
-  // Browser dedicado com perfil FB separado (não compete com auto-mine)
-  const isWindows = process.platform === 'win32'
-  const analyzeProfileDir = path.join(__dirname, '.fb-profile-analyze')
-  const browser = await puppeteer.launch({
-    executablePath: CHROMIUM_PATH,
-    headless: 'new',
-    userDataDir: analyzeProfileDir,
-    args: [
-      '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-      '--disable-gpu', '--lang=pt-BR', '--disable-blink-features=AutomationControlled',
-      '--window-size=1920,1080',
-      ...(isWindows ? [] : ['--single-process', '--no-zygote']),
-    ],
-  })
+  // Usa browser compartilhado com perfil FB (tem cookies de login)
+  const browser = await getFbBrowser()
   const page = await browser.newPage()
   await setupPage(page)
 
@@ -763,16 +916,17 @@ async function scrapeAds(url, maxAds) {
       } catch { /* ignore */ }
     })
 
+    await fbRateWait('scrape-ads')
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 })
     await handleFacebookDialogs(page)
-    await sleep(3000)
+    await randomDelay(3000, 5000)
 
     // Handle challenge if needed
     let initHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
     if (initHtml.includes('__rd_verify') || initHtml.includes('executeChallenge')) {
       console.log(`[scrape-ads] Challenge detected, waiting...`)
       try { await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }) } catch {}
-      await sleep(3000)
+      await randomDelay(3000, 6000)
     }
 
     // Wait for ads to render in DOM
@@ -781,7 +935,7 @@ async function scrapeAds(url, maxAds) {
     } catch {
       console.log('[scrape-ads] No ad elements found, continuing...')
     }
-    await sleep(3000)
+    await randomDelay(3000, 5000)
 
     // Count archive IDs to track scroll progress (don't extract yet — do it once at the end)
     function countArchiveIds(h) {
@@ -802,7 +956,7 @@ async function scrapeAds(url, maxAds) {
 
     for (let i = 0; i < maxScrolls && currentCount < maxAds; i++) {
       await page.evaluate(() => { if (document.body) window.scrollTo(0, document.body.scrollHeight) })
-      await sleep(3000)
+      await randomDelay(3000, 6000)
 
       const scrollHtml = await page.evaluate(() => document.documentElement?.innerHTML || '')
       const newCount = countArchiveIds(scrollHtml)
@@ -901,7 +1055,6 @@ async function scrapeAds(url, maxAds) {
     return { ads: ads.slice(0, maxAds) }
   } finally {
     await page.close().catch(() => {})
-    await browser.close().catch(() => {})
   }
 }
 
@@ -999,31 +1152,53 @@ function extractAdsFromGraphQL(json, ads, seenIds) {
 }
 
 async function countAds(pageId) {
-  // HTTP-only: fetch SSR HTML directly, no Chromium — saves ~10MB per call
   const url = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${pageId}`
+
+  // 1ª: HTTP fetch (rápido, grátis)
   try {
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+        'User-Agent': randomUA(),
         'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
         'Accept': 'text/html,application/xhtml+xml',
       },
       signal: AbortSignal.timeout(15000),
     })
     const html = await res.text()
-    // Try count from text like "Aproximadamente X anúncios"
     const countMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
     if (countMatch) {
       const count = parseInt(countMatch[1].replace(/[.,]/g, ''))
-      console.log(`[count-ads] ${pageId}: ${count}`)
+      if (count > 0) { console.log(`[count-ads] ${pageId}: ${count} (HTTP)`); return count }
+    }
+    const ads = extractAdsFromHTML(html)
+    if (ads.length > 0) { console.log(`[count-ads] ${pageId}: ${ads.length} (SSR)`); return ads.length }
+  } catch (e) {
+    console.log(`[count-ads] ${pageId}: HTTP failed (${e.message})`)
+  }
+
+  // 2ª: Browser (sem rate limit — só lê um número)
+  try {
+    const browser = await getFbBrowser()
+    const page = await browser.newPage()
+    await setupPage(page)
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 })
+    await randomDelay(1500, 2500)
+    const html = await page.evaluate(() => document.documentElement?.innerHTML || '')
+    await page.close().catch(() => {})
+    const countMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
+    if (countMatch) {
+      const count = parseInt(countMatch[1].replace(/[.,]/g, ''))
+      console.log(`[count-ads] ${pageId}: ${count} (browser)`)
       return count
     }
-    // Fallback: count ads from SSR HTML
-    const ads = extractAdsFromHTML(html)
-    console.log(`[count-ads] ${pageId}: ${ads.length} (SSR)`)
-    return ads.length
+    const ids = new Set()
+    const m = html.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
+    for (const x of m) ids.add(x[1])
+    if (ids.size > 0) { console.log(`[count-ads] ${pageId}: ${ids.size} (browser SSR)`); return ids.size }
+    console.log(`[count-ads] ${pageId}: 0 (browser)`)
+    return 0
   } catch (e) {
-    console.log(`[count-ads] ${pageId}: failed (${e.message})`)
+    console.log(`[count-ads] ${pageId}: browser failed (${e.message})`)
     return null
   }
 }
@@ -1035,7 +1210,7 @@ async function scrapeLanding(url) {
 
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
-    await sleep(2500)
+    await randomDelay(2500, 4000)
 
     const data = await page.evaluate(() => {
       const title = document.title || ''
@@ -1096,7 +1271,7 @@ async function scrapeLanding(url) {
   }
 }
 
-async function runMineJob(jobId, keyword, count) {
+async function runMineJob(jobId, keyword, count, isAutoMine = false) {
   const job = jobs.get(jobId)
   const searchUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered`
 
@@ -1142,6 +1317,7 @@ async function runMineJob(jobId, keyword, count) {
     })
 
     // Load page — use domcontentloaded to not wait for JS framework
+    await fbRateWait(`mine "${keyword}"`)
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
 
     // Detect and handle Facebook challenge (POST + reload)
@@ -1152,7 +1328,7 @@ async function runMineJob(jobId, keyword, count) {
       try {
         await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 })
       } catch { /* timeout = challenge didn't reload */ }
-      await sleep(2000)
+      await randomDelay(2000, 4000)
       // Check for second challenge (Facebook sometimes chains them)
       html = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
       if (html.includes('__rd_verify') || html.includes('executeChallenge')) {
@@ -1160,7 +1336,7 @@ async function runMineJob(jobId, keyword, count) {
         try {
           await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 })
         } catch {}
-        await sleep(2000)
+        await randomDelay(2000, 4000)
       }
     }
 
@@ -1174,7 +1350,7 @@ async function runMineJob(jobId, keyword, count) {
     } catch {
       console.log(`[mine] No ad elements found after 10s, continuing with SSR data...`)
     }
-    await sleep(3000)
+    await randomDelay(3000, 5000)
 
     // Extract from captured SSR HTML first
     let ssrAds = capturedHtml ? extractAdsFromHTML(capturedHtml) : []
@@ -1194,8 +1370,7 @@ async function runMineJob(jobId, keyword, count) {
 
     // Se ainda vazio, esperar mais e tentar de novo
     if (ssrAds.length === 0) {
-      console.log(`[mine] No ads found, waiting 5s more...`)
-      // Debug: checar o que o DOM tem
+      console.log(`[mine] No ads found, waiting more...`)
       const debugText = await page.evaluate(() => {
         const text = document.body?.innerText || ''
         return text.slice(0, 500)
@@ -1203,7 +1378,7 @@ async function runMineJob(jobId, keyword, count) {
       const hasArchiveId = (domHtml || '').includes('ad_archive_id')
       const hasNoResults = debugText.includes('Nenhum an') || debugText.includes('No ads')
       console.log(`[mine] DEBUG: ad_archive_id in HTML: ${hasArchiveId}, noResults: ${hasNoResults}, bodyText: ${debugText.slice(0, 200)}`)
-      await sleep(5000)
+      await randomDelay(5000, 8000)
       html = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
       ssrAds = extractAdsFromHTML(html)
     }
@@ -1226,7 +1401,7 @@ async function runMineJob(jobId, keyword, count) {
     let staleScrolls = 0
     for (let i = 0; i < 30 && pages.size < count; i++) {
       await page.evaluate(() => { if (document.body) window.scrollTo(0, document.body.scrollHeight) }).catch(() => {})
-      await sleep(3500)
+      await randomDelay(3500, 6000)
       // Extract ads from updated DOM after scroll
       const scrollHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
       if (scrollHtml) {
@@ -1281,16 +1456,19 @@ async function runMineJob(jobId, keyword, count) {
       })
 
     // Pegar contagem real via browser (navega, lê "~X resultados", fecha)
-    const toCount = preliminary.filter(p => p.keyword_hits >= 1).slice(0, 30)
-    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${toCount.length} with 1+ keyword hits, counting real ads...`)
+    // Limitar a 15 páginas por mine job pra não estourar rate limit
+    const toCount = preliminary.filter(p => p.keyword_hits >= 1).slice(0, 15)
+    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${toCount.length} to count (capped at 15)`)
 
     const countPage = await browser.newPage()
     await setupPage(countPage)
     for (const p of toCount) {
       try {
+        if (isAutoMine) await waitForManualJobs()
+        await fbRateWait(`count ${p.pagina_nome}`)
         const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
         await countPage.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
-        await sleep(3000)
+        await randomDelay(3000, 6000)
         const html = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
         // Pegar "Aproximadamente X anúncios" ou contar ad_archive_ids
         const approxMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
@@ -1322,7 +1500,7 @@ async function runMineJob(jobId, keyword, count) {
             return false
           })
           if (sobreClicked) {
-            await sleep(2000)
+            await randomDelay(2000, 4000)
             const aboutHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
             // Procurar padrão: @handle + "X,X mil seguidores" ou "X seguidores" perto de ícone Instagram
             const igAboutMatch = aboutHtml.match(/@([a-zA-Z0-9_.]{2,30})\s*(?:<[^>]*>)*\s*(?:<[^>]*>)*\s*([\d.,]+)\s*(?:mil|mi|K|M)?\s*seguidores/i)
@@ -1361,7 +1539,7 @@ async function runMineJob(jobId, keyword, count) {
           try {
             const igBlacklist = ['p', 'reel', 'reels', 'explore', 'stories', 'accounts', 'about', 'login', '_n', '_u', 'share', 'direct', 'developer', 'legal', 'help', 'rsrc.php', 'rsrc', 'whatsapp', 'facebook', 'instagram', 'tiktok', 'youtube', 'twitter', 'google', 'meta', 'threads']
             const landRes = await fetch(p.landing_url, {
-              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36' },
+              headers: { 'User-Agent': randomUA() },
               signal: AbortSignal.timeout(6000),
               redirect: 'follow',
             })
@@ -1535,6 +1713,7 @@ const WARP_CLI = process.platform === 'win32'
 
 async function getNewWarpIP() {
   if (browserInstance) { await browserInstance.close().catch(() => {}); browserInstance = null }
+  if (fbBrowserInstance) { await fbBrowserInstance.close().catch(() => {}); fbBrowserInstance = null }
   const oldIP = lastKnownIP
   // Tenta até 3 reconexões pra garantir IP diferente
   for (let i = 0; i < 3; i++) {
@@ -1571,10 +1750,10 @@ async function testFacebookAccess() {
     let html = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
     if (html.includes('__rd_verify') || html.includes('executeChallenge')) {
       try { await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }) } catch {}
-      await sleep(2000)
+      await randomDelay(2000, 4000)
     }
     await page.waitForNetworkIdle({ timeout: 10000 }).catch(() => {})
-    await sleep(3000)
+    await randomDelay(3000, 5000)
     // Checa se tem resultados
     const hasResults = await page.evaluate(() => {
       const html = document.documentElement?.innerHTML || ''
@@ -1586,6 +1765,8 @@ async function testFacebookAccess() {
       return cards.length > 5
     }).catch(() => false)
     console.log(`[recovery] Facebook test: ${hasResults ? 'OK' : 'BLOCKED'}`)
+    if (!hasResults) FB_RATE.consecutiveErrors++
+    else FB_RATE.consecutiveErrors = 0
     return hasResults
   } catch (e) {
     console.log(`[recovery] Facebook test error: ${e.message}`)
@@ -1599,38 +1780,31 @@ async function autoRecover() {
   console.log(`[recovery] Starting auto-recovery (attempt ${recoveryAttempts + 1}/${MAX_RECOVERY_ATTEMPTS})...`)
   recoveryAttempts++
 
-  // Estratégia 1: Trocar IP via WARP
-  console.log(`[recovery] Step 1: Getting new WARP IP...`)
-  useWarpProxy = true
-  const newIP = await getNewWarpIP()
+  // Fechar browsers pra pegar novo IP no próximo launch
+  if (browserInstance) { await browserInstance.close().catch(() => {}); browserInstance = null }
+  if (fbBrowserInstance) { await fbBrowserInstance.close().catch(() => {}); fbBrowserInstance = null }
 
-  if (newIP) {
-    // Testar se o novo IP funciona
-    const works = await testFacebookAccess()
-    if (works) {
-      console.log(`[recovery] SUCCESS — IP ${newIP} works`)
-      recoveryAttempts = 0
-      return true
+  // Estratégia: rotacionar WARP IP (NUNCA usar IP residencial — protege o usuario)
+  for (let i = 0; i < 3; i++) {
+    console.log(`[recovery] Rotating WARP IP (attempt ${i + 1}/3)...`)
+    const newIP = await getNewWarpIP()
+    if (newIP) {
+      const works = await testFacebookAccess()
+      if (works) {
+        console.log(`[recovery] SUCCESS — WARP IP ${newIP} works`)
+        recoveryAttempts = 0
+        return true
+      }
     }
+    // Cooldown curto entre tentativas
+    await new Promise(r => setTimeout(r, 30000))
   }
 
-  // Estratégia 2: Tentar IP residencial (sem WARP)
-  console.log(`[recovery] Step 2: Trying residential IP (no WARP)...`)
-  useWarpProxy = false
-  if (browserInstance) { await browserInstance.close().catch(() => {}); browserInstance = null }
-  const residentialWorks = await testFacebookAccess()
-  if (residentialWorks) {
-    console.log(`[recovery] SUCCESS — residential IP works`)
-    recoveryAttempts = 0
-    return true
-  }
-
-  // Estratégia 3: Voltar pro WARP com novo IP + esperar cooldown
-  console.log(`[recovery] Step 3: Both IPs blocked. Waiting cooldown (${5 * recoveryAttempts}min)...`)
-  useWarpProxy = true
-  if (browserInstance) { await browserInstance.close().catch(() => {}); browserInstance = null }
-  // Cooldown progressivo: 5min, 10min, 15min, 20min, 25min
-  await new Promise(r => setTimeout(r, 5 * 60 * 1000 * recoveryAttempts))
+  // Se 3 IPs falharam, cooldown progressivo
+  const cooldownMin = 5 * recoveryAttempts
+  console.log(`[recovery] 3 WARP IPs blocked. Cooldown ${cooldownMin}min...`)
+  await new Promise(r => setTimeout(r, cooldownMin * 60 * 1000))
+  if (fbBrowserInstance) { await fbBrowserInstance.close().catch(() => {}); fbBrowserInstance = null }
   await getNewWarpIP()
   const afterCooldown = await testFacebookAccess()
   if (afterCooldown) {
@@ -1650,12 +1824,14 @@ async function runAutoMineLoop(callbackUrl) {
   console.log(`[auto-mine] Starting loop with ${AUTO_MINE_KEYWORDS.length} keywords, callback: ${callbackUrl}`)
   let consecutiveEmpty = 0
   while (autoMineRunning) {
+    // Yield to manual jobs — wait until no manual jobs are running
+    await waitForManualJobs()
     const keyword = AUTO_MINE_KEYWORDS[autoMineIndex % AUTO_MINE_KEYWORDS.length]
     console.log(`[auto-mine] [${autoMineIndex + 1}/${AUTO_MINE_KEYWORDS.length}] Mining "${keyword}"...`)
     try {
       const jobId = 'auto_' + Date.now().toString(36)
       jobs.set(jobId, { status: 'running', results: null, error: null })
-      await runMineJob(jobId, keyword, 300)
+      await runMineJob(jobId, keyword, 300, true)
       const job = jobs.get(jobId)
       if (job?.status === 'done' && job.results) {
         const results = job.results
@@ -1716,8 +1892,9 @@ async function runAutoMineLoop(callbackUrl) {
       await refreshOfferCounts(callbackUrl)
       autoMineIndex = 0
     }
-    // 10 min entre keywords (evita rate limit do Facebook)
-    await sleep(600000)
+
+    // 30 min entre keywords — Facebook rate limita se for mais rápido
+    await sleep(1800000)
   }
   console.log(`[auto-mine] Loop stopped`)
 }
@@ -1741,14 +1918,15 @@ async function refreshOfferCounts(callbackUrl) {
 
     for (const o of offers) {
       try {
+        await waitForManualJobs()
+        await fbRateWait(`refresh ${o.page_name}`)
         const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${o.page_id}&sort_data[direction]=desc&sort_data[mode]=relevancy_monthly_grouped&search_type=page&media_type=all`
         await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
-        await sleep(3000)
+        await randomDelay(3000, 5000)
         const html = await page.evaluate(() => document.documentElement?.innerHTML || '')
         const approxMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
         const newCount = approxMatch ? parseInt(approxMatch[1].replace(/[.,]/g, '')) : null
         if (newCount !== null && newCount !== o.ad_count) {
-          // Atualizar via callback
           await fetch(callbackUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` },
@@ -1757,7 +1935,6 @@ async function refreshOfferCounts(callbackUrl) {
           }).catch(() => {})
           console.log(`[refresh] ${o.page_name}: ${o.ad_count} -> ${newCount} ads`)
         }
-        await sleep(2000)
       } catch (e) {
         console.log(`[refresh] ${o.page_name}: error ${e.message}`)
       }
@@ -1785,9 +1962,10 @@ app.post('/enrich-ig', async (req, res) => {
       let igFollowers = null
 
       // Método 1: Ad Library "Sobre" — pega IG handle + followers da transparência
+      await fbRateWait(`enrich ${o.page_id}`)
       const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${o.page_id}`
       await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
-      await sleep(3000)
+      await randomDelay(3000, 5000)
 
       // Clicar "Sobre"
       const sobreClicked = await page.evaluate(() => {
@@ -1798,7 +1976,7 @@ app.post('/enrich-ig', async (req, res) => {
       })
 
       if (sobreClicked) {
-        await sleep(2000)
+        await randomDelay(2000, 4000)
         const aboutHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
 
         // Padrão 1: @handle seguido de seguidores
@@ -1833,7 +2011,7 @@ app.post('/enrich-ig', async (req, res) => {
         try {
           const igBlacklist = ['p', 'reel', 'reels', 'explore', 'stories', 'accounts', 'about', 'login', '_n', '_u', 'share', 'direct', 'developer', 'legal', 'help', 'whatsapp', 'facebook', 'instagram', 'tiktok', 'youtube', 'twitter', 'google', 'meta', 'threads']
           const landRes = await fetch(o.landing_url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36' },
+            headers: { 'User-Agent': randomUA() },
             signal: AbortSignal.timeout(6000),
             redirect: 'follow',
           })
@@ -1856,7 +2034,7 @@ app.post('/enrich-ig', async (req, res) => {
         results.push({ page_id: o.page_id, ig_handle: igHandle, ig_followers: igFollowers })
       }
 
-      await sleep(1000)
+      await randomDelay(1000, 3000)
     } catch (e) {
       console.log(`[enrich] ${o.page_name}: error ${e.message}`)
     }
@@ -1884,7 +2062,7 @@ app.post('/transcribe', async (req, res) => {
     // Download video
     const vidRes = await fetch(url, {
       signal: AbortSignal.timeout(30000),
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36' },
+      headers: { 'User-Agent': randomUA() },
     })
     if (!vidRes.ok) return res.status(502).json({ error: `Download falhou (HTTP ${vidRes.status})` })
     const buf = Buffer.from(await vidRes.arrayBuffer())

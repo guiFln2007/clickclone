@@ -84,12 +84,9 @@ async function scrapeAdsLocal(url: string): Promise<Record<string, unknown>[] | 
 }
 
 async function scrapeAds(url: string): Promise<Record<string, unknown>[]> {
-  // Tenta local primeiro
   const local = await scrapeAdsLocal(url)
   if (local && local.length > 0) return normalizeAds(local)
-  // Fallback Apify
-  console.log('[Phase1] Local indisponível, tentando Apify...')
-  return scrapeAdsFromApify(cleanAdLibraryUrl(url))
+  throw new Error('Scraper local indisponível ou não retornou anúncios. Tente novamente em alguns segundos.')
 }
 
 // Normalize ads from local scraper to Apify-like shape
@@ -280,15 +277,35 @@ RETORNE APENAS O JSON ABAIXO, sem texto antes ou depois:
   "top_criativos": [
     {
       "index": 1,
-      "texto_completo": "full ad copy text",
-      "hook": "first sentence/hook of the ad",
+      "texto_completo": "copy completa do anúncio 1",
+      "hook": "primeira frase/hook",
       "formato": "vídeo|imagem|carrossel",
-      "dias_rodando": 0,
-      "score": 0,
-      "angulo": "short angle description"
+      "dias_rodando": 42,
+      "score": 9,
+      "angulo": "descrição curta do ângulo"
+    },
+    {
+      "index": 2,
+      "texto_completo": "copy completa do anúncio 2",
+      "hook": "primeira frase/hook",
+      "formato": "vídeo|imagem|carrossel",
+      "dias_rodando": 30,
+      "score": 8,
+      "angulo": "descrição curta do ângulo"
+    },
+    {
+      "index": 3,
+      "texto_completo": "copy completa do anúncio 3",
+      "hook": "primeira frase/hook",
+      "formato": "vídeo|imagem|carrossel",
+      "dias_rodando": 15,
+      "score": 7,
+      "angulo": "descrição curta do ângulo"
     }
   ]
 }
+
+REGRA OBRIGATÓRIA: top_criativos DEVE ter entre 3 e 6 itens. Selecione os anúncios com TEXTOS MAIS DIFERENTES entre si (hooks e ângulos distintos). Ordene por score decrescente. Se houver menos de 3 anúncios únicos, inclua todos.
 
 ━━━ CÁLCULO DA NOTA DE ENTRADA (0-10) ━━━
 A nota é a SOMA EXATA de 3 critérios. Siga rigorosamente:
@@ -301,10 +318,10 @@ CRITÉRIO 1 — Volume de anúncios ativos (0 a 4 pontos):
 
 CRITÉRIO 2 — Tempo rodando (0 a 3 pontos):
 Use o campo "TEMPO RODANDO" fornecido no prompt (já calculado pelo sistema).
-- Menos de 10 dias → 0 pts
-- 10-20 dias → 1 pt
-- 21-40 dias → 2 pts
-- 41+ dias → 3 pts
+- Menos de 2 dias → 0 pts
+- 2 dias → 1 pt
+- 3 dias → 2 pts
+- 4+ dias → 3 pts
 - Se "Data não disponível" → o sistema vai desconsiderar este critério automaticamente
 
 CRITÉRIO 3 — Expert identificável (0 a 3 pontos):
