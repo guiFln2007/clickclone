@@ -344,6 +344,21 @@ export async function GET(req: NextRequest) {
 
     console.log(`[Mine] Returning ${ofertas.length}/${results.length} offers (${minAnuncios}-${maxAnuncios} ads, ${minDias}+ days, <${maxFollowers} followers)`)
 
+    // Fire-and-forget: enrich IG em background pras ofertas sem ig_handle
+    if (ofertas.length > 0 && SCRAPER_URL) {
+      const noIg = ofertas.filter(o => !o.ig_handle && o.landing_url)
+      if (noIg.length > 0) {
+        fetch(`${SCRAPER_URL}/enrich-ig`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+          body: JSON.stringify({ offers: noIg.map(o => ({ page_id: o.ad_library_url?.match(/page_id=(\d+)/)?.[1] || '', page_name: o.pagina_nome, landing_url: o.landing_url })) }),
+          signal: AbortSignal.timeout(120000),
+        }).then(r => r.json()).then(d => {
+          console.log(`[Mine] Background enrich: ${d.enriched?.length || 0} offers got IG data`)
+        }).catch(() => {})
+      }
+    }
+
     // Bug fix: não cachear resultado vazio — permite re-minerar sem esperar 6h
     if (ofertas.length === 0 && runId) {
       const keyword = req.nextUrl.searchParams.get('keyword') || ''

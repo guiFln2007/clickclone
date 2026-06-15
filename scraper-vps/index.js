@@ -98,11 +98,11 @@ function randomDelay(min, max) { return new Promise(r => setTimeout(r, min + Mat
 // Rate limiter controla requests globalmente, não por endpoint.
 const FB_RATE = {
   requests: [],                    // timestamps de cada request ao Facebook
-  MAX_PER_HOUR: 40,                // máximo de page navigations por hora
-  MAX_PER_10MIN: 10,               // máximo por janela de 10min
-  MIN_DELAY_MS: 8000,              // mínimo entre requests (8s)
-  BACKOFF_DELAY_MS: 30000,         // delay quando próximo do limite (30s)
-  COOLDOWN_DELAY_MS: 120000,       // cooldown quando atingiu limite (2min)
+  MAX_PER_HOUR: 80,                // máximo de page navigations por hora
+  MAX_PER_10MIN: 18,               // máximo por janela de 10min
+  MIN_DELAY_MS: 4000,              // mínimo entre requests (4s)
+  BACKOFF_DELAY_MS: 15000,         // delay quando próximo do limite (15s)
+  COOLDOWN_DELAY_MS: 60000,        // cooldown quando atingiu limite (1min)
   consecutiveErrors: 0,
   lastRequestTime: 0,
 }
@@ -146,7 +146,7 @@ async function fbRateWait(label = '') {
 
   // Backoff progressivo por erros consecutivos
   if (FB_RATE.consecutiveErrors > 0) {
-    const errorDelay = Math.min(FB_RATE.consecutiveErrors * 15000, 120000)
+    const errorDelay = Math.min(FB_RATE.consecutiveErrors * 10000, 60000)
     console.log(`[rate] ${FB_RATE.consecutiveErrors} consecutive errors, extra delay ${Math.round(errorDelay/1000)}s`)
     await sleep(errorDelay)
   }
@@ -1314,8 +1314,8 @@ async function countOnePage(countPage, p, isAutoMine) {
     if (isAutoMine) await waitForManualJobs()
     await fbRateWait(`count ${p.pagina_nome}`)
     const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
-    await countPage.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
-    await randomDelay(2000, 4000)
+    await countPage.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
+    await randomDelay(1500, 2500)
     const html = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
     const approxMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
     let realCount = approxMatch ? parseInt(approxMatch[1].replace(/[.,]/g, '')) : 0
@@ -1336,65 +1336,7 @@ async function countOnePage(countPage, p, isAutoMine) {
     const likeM = (html + fullHtml).match(/"page_like_count"\s*:\s*(\d+)/)
     if (likeM) p.fb_followers = parseInt(likeM[1])
 
-    // IG handle + followers: clicar "Sobre"
-    try {
-      const sobreClicked = await countPage.evaluate(() => {
-        const links = [...document.querySelectorAll('a, span, div[role="tab"], div[role="button"]')]
-        const sobre = links.find(el => /^Sobre$/i.test(el.textContent?.trim() || ''))
-        if (sobre) { sobre.click(); return true }
-        return false
-      })
-      if (sobreClicked) {
-        await randomDelay(1500, 3000)
-        const aboutHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-        const igAboutMatch = aboutHtml.match(/@([a-zA-Z0-9_.]{2,30})\s*(?:<[^>]*>)*\s*(?:<[^>]*>)*\s*([\d.,]+)\s*(?:mil|mi|K|M)?\s*seguidores/i)
-        if (igAboutMatch) {
-          p.ig_handle = '@' + igAboutMatch[1]
-          let igNum = parseFloat(igAboutMatch[2].replace(/\./g, '').replace(',', '.'))
-          const multiplier = aboutHtml.slice(aboutHtml.indexOf(igAboutMatch[0]), aboutHtml.indexOf(igAboutMatch[0]) + igAboutMatch[0].length + 20)
-          if (/mil/i.test(igAboutMatch[0]) || /mil/i.test(multiplier)) igNum *= 1000
-          if (/\bmi\b/i.test(igAboutMatch[0])) igNum *= 1000000
-          p.ig_followers = Math.round(igNum)
-        }
-        if (!p.ig_handle) {
-          const igHandleM = aboutHtml.match(/instagram[^@]*@([a-zA-Z0-9_.]{2,30})/i)
-          if (igHandleM) {
-            p.ig_handle = '@' + igHandleM[1]
-            const afterHandle = aboutHtml.slice(aboutHtml.indexOf(igHandleM[0]))
-            const segM = afterHandle.match(/([\d.,]+)\s*(?:mil|mi|K|M)?\s*seguidores/i)
-            if (segM) {
-              let n = parseFloat(segM[1].replace(/\./g, '').replace(',', '.'))
-              if (/mil/i.test(segM[0])) n *= 1000
-              if (/\bmi\b/i.test(segM[0])) n *= 1000000
-              p.ig_followers = Math.round(n)
-            }
-          }
-        }
-      }
-    } catch {}
-
-    // Fallback: IG da landing page (só se não achou no Sobre)
-    if (!p.ig_handle && p.landing_url) {
-      try {
-        const igBlacklist = ['p', 'reel', 'reels', 'explore', 'stories', 'accounts', 'about', 'login', '_n', '_u', 'share', 'direct', 'developer', 'legal', 'help', 'rsrc.php', 'rsrc', 'whatsapp', 'facebook', 'instagram', 'tiktok', 'youtube', 'twitter', 'google', 'meta', 'threads']
-        const landRes = await fetch(p.landing_url, {
-          headers: { 'User-Agent': randomUA() },
-          signal: AbortSignal.timeout(6000),
-          redirect: 'follow',
-        })
-        if (landRes.ok) {
-          const landHtml = await landRes.text()
-          const landIgMatches = [...landHtml.matchAll(/instagram\.com\/([a-zA-Z0-9_.]{2,30})/gi)]
-          const handles = [...new Set(landIgMatches.map(m => m[1]).filter(h => !igBlacklist.includes(h)))]
-          if (handles.length > 0) p.ig_handle = '@' + handles[0]
-        }
-      } catch {}
-    }
-
-    // Buscar followers via curl se achou handle sem followers
-    if (p.ig_handle && !p.ig_followers) {
-      p.ig_followers = await fetchInstagramFollowers(p.ig_handle)
-    }
+    // IG enrich skipped during mine — done separately via /enrich-ig endpoint for speed
 
     if (realCount > 0) {
       const fStr = p.fb_followers ? `, fb=${p.fb_followers}` : ''
@@ -1478,16 +1420,16 @@ async function runMineJob(jobId, keyword, count, isAutoMine = false) {
     }
 
     // Wait for React to render ads (Facebook Ad Library is a SPA now)
-    await page.waitForNetworkIdle({ timeout: 15000 }).catch(() => {})
+    await page.waitForNetworkIdle({ timeout: 8000 }).catch(() => {})
     await handleFacebookDialogs(page)
     // Wait for ad results to appear in DOM
     try {
-      await page.waitForSelector('[class*="ad"], [data-ad], [aria-label*="anúncio"], [aria-label*="Ad "]', { timeout: 10000 })
+      await page.waitForSelector('[class*="ad"], [data-ad], [aria-label*="anúncio"], [aria-label*="Ad "]', { timeout: 6000 })
       console.log(`[mine] Ad elements found in DOM`)
     } catch {
-      console.log(`[mine] No ad elements found after 10s, continuing with SSR data...`)
+      console.log(`[mine] No ad elements found after 6s, continuing with SSR data...`)
     }
-    await randomDelay(3000, 5000)
+    await randomDelay(1500, 3000)
 
     // Extract from captured SSR HTML first
     let ssrAds = capturedHtml ? extractAdsFromHTML(capturedHtml) : []
@@ -1536,9 +1478,9 @@ async function runMineJob(jobId, keyword, count, isAutoMine = false) {
     // Scroll to load more — extract from DOM each scroll (GraphQL listener alone misses ads)
     let lastSize = pages.size
     let staleScrolls = 0
-    for (let i = 0; i < 30 && pages.size < count; i++) {
+    for (let i = 0; i < 15 && pages.size < count; i++) {
       await page.evaluate(() => { if (document.body) window.scrollTo(0, document.body.scrollHeight) }).catch(() => {})
-      await randomDelay(3500, 6000)
+      await randomDelay(2000, 3500)
       // Extract ads from updated DOM after scroll
       const scrollHtml = await page.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
       if (scrollHtml) {
@@ -1566,7 +1508,7 @@ async function runMineJob(jobId, keyword, count, isAutoMine = false) {
       }).catch(() => {})
       if (pages.size === lastSize) {
         staleScrolls++
-        if (staleScrolls >= 5) break
+        if (staleScrolls >= 3) break
       } else {
         staleScrolls = 0
         lastSize = pages.size
@@ -1600,8 +1542,8 @@ async function runMineJob(jobId, keyword, count, isAutoMine = false) {
       .slice(0, 8)
     console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${toCount.length} to count (capped at 8)`)
 
-    // Contar em paralelo com 2 tabs
-    const PARALLEL_TABS = 2
+    // Contar em paralelo com 3 tabs
+    const PARALLEL_TABS = 3
     const countPages = []
     for (let t = 0; t < PARALLEL_TABS; t++) {
       const cp = await browser.newPage()
