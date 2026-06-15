@@ -18,7 +18,7 @@ app.use(express.json())
 
 const PORT = process.env.PORT || 3000
 const SECRET = process.env.SCRAPER_SECRET || ''
-const CHROMIUM_PATH = process.env.CHROMIUM_PATH || (process.platform === 'win32' ? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe' : '/usr/bin/chromium-browser')
+const CHROMIUM_PATH = process.env.CHROMIUM_PATH || (process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '/usr/bin/chromium-browser')
 const PROXY_URL = process.env.PROXY_URL || '' // ex: http://user:pass@host:port
 
 // Parse proxy URL into components for Chrome
@@ -183,6 +183,19 @@ async function waitForManualJobs() {
   }
 }
 
+// Auto-fix: se manualJobsRunning ficou travado (leak), reseta a cada 10min
+setInterval(() => {
+  if (manualJobsRunning > 0) {
+    // Checa se realmente tem jobs running
+    const runningJobs = [...jobs.values()].filter(j => j.status === 'running')
+    if (runningJobs.length === 0 && manualJobsRunning > 0) {
+      console.log(`[priority] LEAK FIX: manualJobsRunning=${manualJobsRunning} but 0 running jobs. Resetting.`)
+      manualJobsRunning = 0
+      autoMinePaused = false
+    }
+  }
+}, 600000)
+
 // Endpoint pra ver status do rate limiter
 app.get('/rate-status', (req, res) => {
   fbRateCleanup()
@@ -195,7 +208,16 @@ app.get('/rate-status', (req, res) => {
     lastRequest: FB_RATE.lastRequestTime ? new Date(FB_RATE.lastRequestTime).toISOString() : null,
     manualJobsRunning,
     autoMinePaused,
+    activeJobs: jobs.size,
   })
+})
+
+// POST /rate-status — reset manual counters
+app.post('/rate-status', (req, res) => {
+  console.log(`[rate] Manual reset: manualJobsRunning ${manualJobsRunning} -> 0`)
+  manualJobsRunning = 0
+  autoMinePaused = false
+  res.json({ ok: true })
 })
 
 // Browser pool — reuse browser instance
@@ -226,12 +248,19 @@ async function getBrowser() {
   } else if (proxyServer) {
     launchArgs.push(`--proxy-server=${proxyServer}`)
   }
-  browserInstance = await puppeteer.launch({
-    executablePath: CHROMIUM_PATH,
-    headless: 'new',
-    args: launchArgs,
-  })
-  return browserInstance
+  try {
+    browserInstance = await puppeteer.launch({
+      executablePath: CHROMIUM_PATH,
+      headless: 'new',
+      args: launchArgs,
+    })
+    return browserInstance
+  } catch (e) {
+    browserInstance = null
+    console.error(`[getBrowser] Launch failed: ${e.message}`)
+    console.error(`[getBrowser] Executable: ${CHROMIUM_PATH}`)
+    throw new Error(`Browser launch failed: ${e.message}`)
+  }
 }
 
 // Browser com perfil persistente (pra manter login do Facebook)
@@ -244,19 +273,26 @@ let fbBrowserInstance = null
 async function getFbBrowser(headless = true) {
   if (fbBrowserInstance && fbBrowserInstance.connected) return fbBrowserInstance
   const isWindows = process.platform === 'win32'
-  fbBrowserInstance = await puppeteer.launch({
-    executablePath: CHROMIUM_PATH,
-    headless,
-    userDataDir: FB_PROFILE_DIR,
-    args: [
-      '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-      '--disable-gpu', '--lang=pt-BR',
-      '--disable-blink-features=AutomationControlled',
-      '--window-size=1920,1080',
-      ...(isWindows ? [] : ['--single-process', '--no-zygote']),
-    ],
-  })
-  return fbBrowserInstance
+  try {
+    fbBrowserInstance = await puppeteer.launch({
+      executablePath: CHROMIUM_PATH,
+      headless,
+      userDataDir: FB_PROFILE_DIR,
+      args: [
+        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+        '--disable-gpu', '--lang=pt-BR',
+        '--disable-blink-features=AutomationControlled',
+        '--window-size=1920,1080',
+        ...(isWindows ? [] : ['--single-process', '--no-zygote']),
+      ],
+    })
+    return fbBrowserInstance
+  } catch (e) {
+    fbBrowserInstance = null
+    console.error(`[getFbBrowser] Launch failed: ${e.message}`)
+    console.error(`[getFbBrowser] Executable: ${CHROMIUM_PATH}`)
+    throw new Error(`FB Browser launch failed: ${e.message}`)
+  }
 }
 
 // Endpoint pra login manual no Facebook (abre browser visível)
@@ -580,9 +616,11 @@ app.get('/mine', (req, res) => {
   if (job.status === 'running') return res.json({ status: 'running' })
   if (job.status === 'failed') return res.json({ status: 'failed', error: job.error })
 
-  // Clean up after delivering results
+  // Clean up after delivering results (only if finished)
   const result = { status: 'done', results: job.results }
-  setTimeout(() => jobs.delete(jobId), 60000)
+  if (job.status === 'done' || job.status === 'failed') {
+    setTimeout(() => jobs.delete(jobId), 60000)
+  }
   res.json(result)
 })
 
@@ -1271,8 +1309,107 @@ async function scrapeLanding(url) {
   }
 }
 
+async function countOnePage(countPage, p, isAutoMine) {
+  try {
+    if (isAutoMine) await waitForManualJobs()
+    await fbRateWait(`count ${p.pagina_nome}`)
+    const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
+    await countPage.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
+    await randomDelay(2000, 4000)
+    const html = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+    const approxMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
+    let realCount = approxMatch ? parseInt(approxMatch[1].replace(/[.,]/g, '')) : 0
+    if (!realCount) {
+      const ids = new Set()
+      const m = html.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
+      for (const x of m) ids.add(x[1])
+      realCount = ids.size
+    }
+    // Corrigir page_name
+    const nameMatch = html.match(/"page_name"\s*:\s*"([^"]+)"/)
+    if (nameMatch) {
+      const decoded = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
+      if (decoded && decoded.length > 1) p.pagina_nome = decoded
+    }
+    // FB followers
+    const fullHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+    const likeM = (html + fullHtml).match(/"page_like_count"\s*:\s*(\d+)/)
+    if (likeM) p.fb_followers = parseInt(likeM[1])
+
+    // IG handle + followers: clicar "Sobre"
+    try {
+      const sobreClicked = await countPage.evaluate(() => {
+        const links = [...document.querySelectorAll('a, span, div[role="tab"], div[role="button"]')]
+        const sobre = links.find(el => /^Sobre$/i.test(el.textContent?.trim() || ''))
+        if (sobre) { sobre.click(); return true }
+        return false
+      })
+      if (sobreClicked) {
+        await randomDelay(1500, 3000)
+        const aboutHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
+        const igAboutMatch = aboutHtml.match(/@([a-zA-Z0-9_.]{2,30})\s*(?:<[^>]*>)*\s*(?:<[^>]*>)*\s*([\d.,]+)\s*(?:mil|mi|K|M)?\s*seguidores/i)
+        if (igAboutMatch) {
+          p.ig_handle = '@' + igAboutMatch[1]
+          let igNum = parseFloat(igAboutMatch[2].replace(/\./g, '').replace(',', '.'))
+          const multiplier = aboutHtml.slice(aboutHtml.indexOf(igAboutMatch[0]), aboutHtml.indexOf(igAboutMatch[0]) + igAboutMatch[0].length + 20)
+          if (/mil/i.test(igAboutMatch[0]) || /mil/i.test(multiplier)) igNum *= 1000
+          if (/\bmi\b/i.test(igAboutMatch[0])) igNum *= 1000000
+          p.ig_followers = Math.round(igNum)
+        }
+        if (!p.ig_handle) {
+          const igHandleM = aboutHtml.match(/instagram[^@]*@([a-zA-Z0-9_.]{2,30})/i)
+          if (igHandleM) {
+            p.ig_handle = '@' + igHandleM[1]
+            const afterHandle = aboutHtml.slice(aboutHtml.indexOf(igHandleM[0]))
+            const segM = afterHandle.match(/([\d.,]+)\s*(?:mil|mi|K|M)?\s*seguidores/i)
+            if (segM) {
+              let n = parseFloat(segM[1].replace(/\./g, '').replace(',', '.'))
+              if (/mil/i.test(segM[0])) n *= 1000
+              if (/\bmi\b/i.test(segM[0])) n *= 1000000
+              p.ig_followers = Math.round(n)
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // Fallback: IG da landing page (só se não achou no Sobre)
+    if (!p.ig_handle && p.landing_url) {
+      try {
+        const igBlacklist = ['p', 'reel', 'reels', 'explore', 'stories', 'accounts', 'about', 'login', '_n', '_u', 'share', 'direct', 'developer', 'legal', 'help', 'rsrc.php', 'rsrc', 'whatsapp', 'facebook', 'instagram', 'tiktok', 'youtube', 'twitter', 'google', 'meta', 'threads']
+        const landRes = await fetch(p.landing_url, {
+          headers: { 'User-Agent': randomUA() },
+          signal: AbortSignal.timeout(6000),
+          redirect: 'follow',
+        })
+        if (landRes.ok) {
+          const landHtml = await landRes.text()
+          const landIgMatches = [...landHtml.matchAll(/instagram\.com\/([a-zA-Z0-9_.]{2,30})/gi)]
+          const handles = [...new Set(landIgMatches.map(m => m[1]).filter(h => !igBlacklist.includes(h)))]
+          if (handles.length > 0) p.ig_handle = '@' + handles[0]
+        }
+      } catch {}
+    }
+
+    // Buscar followers via curl se achou handle sem followers
+    if (p.ig_handle && !p.ig_followers) {
+      p.ig_followers = await fetchInstagramFollowers(p.ig_handle)
+    }
+
+    if (realCount > 0) {
+      const fStr = p.fb_followers ? `, fb=${p.fb_followers}` : ''
+      const igStr = p.ig_followers ? `, ig=${p.ig_followers}` : ''
+      console.log(`[mine] ${p.pagina_nome}: ${p.keyword_hits} hits -> ${realCount} real ads${fStr}${igStr}`)
+      p.total_anuncios = realCount
+    }
+  } catch (e) {
+    console.log(`[mine] Count failed for ${p.pagina_nome}: ${e.message}`)
+  }
+}
+
 async function runMineJob(jobId, keyword, count, isAutoMine = false) {
   const job = jobs.get(jobId)
+  if (!job) { console.error(`[mine] Job ${jobId} not found in map, aborting`); return }
   const searchUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered`
 
   // Usa browser com perfil FB pra evitar challenges
@@ -1456,122 +1593,32 @@ async function runMineJob(jobId, keyword, count, isAutoMine = false) {
       })
 
     // Pegar contagem real via browser (navega, lê "~X resultados", fecha)
-    // Limitar a 15 páginas por mine job pra não estourar rate limit
-    const toCount = preliminary.filter(p => p.keyword_hits >= 1).slice(0, 15)
-    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${toCount.length} to count (capped at 15)`)
+    // Cap de 8 páginas — as mais promissoras (mais keyword_hits)
+    const toCount = preliminary
+      .filter(p => p.keyword_hits >= 1)
+      .sort((a, b) => b.keyword_hits - a.keyword_hits)
+      .slice(0, 8)
+    console.log(`[mine] "${keyword}": ${preliminary.length} pages, ${toCount.length} to count (capped at 8)`)
 
-    const countPage = await browser.newPage()
-    await setupPage(countPage)
-    for (const p of toCount) {
-      try {
-        if (isAutoMine) await waitForManualJobs()
-        await fbRateWait(`count ${p.pagina_nome}`)
-        const pageUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=BR&view_all_page_id=${p.page_id}`
-        await countPage.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
-        await randomDelay(3000, 6000)
-        const html = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-        // Pegar "Aproximadamente X anúncios" ou contar ad_archive_ids
-        const approxMatch = html.match(/(?:aproximadamente|approximately|exibindo|~)\s*(\d[\d.,]*)\s*(?:an[uú]ncios|ads|resultados)/i)
-        let realCount = approxMatch ? parseInt(approxMatch[1].replace(/[.,]/g, '')) : 0
-        if (!realCount) {
-          const ids = new Set()
-          const m = html.matchAll(/"ad_archive_id"\s*:\s*"(\d+)"/g)
-          for (const x of m) ids.add(x[1])
-          realCount = ids.size
-        }
-        // Corrigir page_name
-        const nameMatch = html.match(/"page_name"\s*:\s*"([^"]+)"/)
-        if (nameMatch) {
-          const decoded = nameMatch[1].replace(/\\u[\dA-Fa-f]{4}/g, c => String.fromCharCode(parseInt(c.slice(2), 16)))
-          if (decoded && decoded.length > 1) p.pagina_nome = decoded
-        }
-        // ── EXTRAIR SEGUIDORES ──
-        // 1. FB followers: page_like_count do JSON no HTML (SSR ou browser)
-        const fullHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-        const likeM = (html + fullHtml).match(/"page_like_count"\s*:\s*(\d+)/)
-        if (likeM) p.fb_followers = parseInt(likeM[1])
+    // Contar em paralelo com 2 tabs
+    const PARALLEL_TABS = 2
+    const countPages = []
+    for (let t = 0; t < PARALLEL_TABS; t++) {
+      const cp = await browser.newPage()
+      await setupPage(cp)
+      countPages.push(cp)
+    }
 
-        // 2. IG handle + followers: clicar "Sobre" na Ad Library (mais confiável)
-        try {
-          const sobreClicked = await countPage.evaluate(() => {
-            const links = [...document.querySelectorAll('a, span, div[role="tab"], div[role="button"]')]
-            const sobre = links.find(el => /^Sobre$/i.test(el.textContent?.trim() || ''))
-            if (sobre) { sobre.click(); return true }
-            return false
-          })
-          if (sobreClicked) {
-            await randomDelay(2000, 4000)
-            const aboutHtml = await countPage.evaluate(() => document.documentElement?.innerHTML || '').catch(() => '')
-            // Procurar padrão: @handle + "X,X mil seguidores" ou "X seguidores" perto de ícone Instagram
-            const igAboutMatch = aboutHtml.match(/@([a-zA-Z0-9_.]{2,30})\s*(?:<[^>]*>)*\s*(?:<[^>]*>)*\s*([\d.,]+)\s*(?:mil|mi|K|M)?\s*seguidores/i)
-            if (igAboutMatch) {
-              p.ig_handle = '@' + igAboutMatch[1]
-              let igNum = parseFloat(igAboutMatch[2].replace(/\./g, '').replace(',', '.'))
-              const multiplier = aboutHtml.slice(aboutHtml.indexOf(igAboutMatch[0]), aboutHtml.indexOf(igAboutMatch[0]) + igAboutMatch[0].length + 20)
-              if (/mil/i.test(igAboutMatch[0]) || /mil/i.test(multiplier)) igNum *= 1000
-              if (/\bmi\b/i.test(igAboutMatch[0])) igNum *= 1000000
-              p.ig_followers = Math.round(igNum)
-              console.log(`[mine] ${p.pagina_nome} IG from Sobre: ${p.ig_handle} = ${p.ig_followers}`)
-            }
-            // Fallback: procurar texto com instagram e seguidores separados
-            if (!p.ig_handle) {
-              // Padrão: ícone IG + @handle em uma linha, seguidores na próxima
-              const igHandleM = aboutHtml.match(/instagram[^@]*@([a-zA-Z0-9_.]{2,30})/i)
-              if (igHandleM) {
-                p.ig_handle = '@' + igHandleM[1]
-                // Procurar seguidores perto do handle
-                const afterHandle = aboutHtml.slice(aboutHtml.indexOf(igHandleM[0]))
-                const segM = afterHandle.match(/([\d.,]+)\s*(?:mil|mi|K|M)?\s*seguidores/i)
-                if (segM) {
-                  let n = parseFloat(segM[1].replace(/\./g, '').replace(',', '.'))
-                  if (/mil/i.test(segM[0])) n *= 1000
-                  if (/\bmi\b/i.test(segM[0])) n *= 1000000
-                  p.ig_followers = Math.round(n)
-                }
-                console.log(`[mine] ${p.pagina_nome} IG from Sobre(2): ${p.ig_handle} = ${p.ig_followers}`)
-              }
-            }
-          }
-        } catch {}
-
-        // 2b. Fallback: buscar na landing page da oferta
-        if (!p.ig_handle && p.landing_url) {
-          try {
-            const igBlacklist = ['p', 'reel', 'reels', 'explore', 'stories', 'accounts', 'about', 'login', '_n', '_u', 'share', 'direct', 'developer', 'legal', 'help', 'rsrc.php', 'rsrc', 'whatsapp', 'facebook', 'instagram', 'tiktok', 'youtube', 'twitter', 'google', 'meta', 'threads']
-            const landRes = await fetch(p.landing_url, {
-              headers: { 'User-Agent': randomUA() },
-              signal: AbortSignal.timeout(6000),
-              redirect: 'follow',
-            })
-            if (landRes.ok) {
-              const landHtml = await landRes.text()
-              const landIgMatches = [...landHtml.matchAll(/instagram\.com\/([a-zA-Z0-9_.]{2,30})/gi)]
-              const handles = [...new Set(landIgMatches.map(m => m[1]).filter(h => !igBlacklist.includes(h)))]
-              if (handles.length > 0) {
-                p.ig_handle = '@' + handles[0]
-                console.log(`[mine] ${p.pagina_nome} IG from landing: ${p.ig_handle}`)
-              }
-            }
-          } catch {}
-        }
-
-        // 2c. Se achou handle mas não followers, buscar via curl no Instagram
-        if (p.ig_handle && !p.ig_followers) {
-          p.ig_followers = await fetchInstagramFollowers(p.ig_handle)
-          if (p.ig_followers) console.log(`[mine] ${p.pagina_nome} IG ${p.ig_handle}: ${p.ig_followers} followers (curl)`)
-        }
-
-        if (realCount > 0) {
-          const fStr = p.fb_followers ? `, fb=${p.fb_followers}` : ''
-          const igStr = p.ig_followers ? `, ig=${p.ig_followers}` : ''
-          console.log(`[mine] ${p.pagina_nome}: ${p.keyword_hits} hits -> ${realCount} real ads${fStr}${igStr}`)
-          p.total_anuncios = realCount
-        }
-      } catch (e) {
-        console.log(`[mine] Count failed for ${p.pagina_nome}: ${e.message}`)
+    const countQueue = [...toCount]
+    async function countWorker(tabPage, tabIdx) {
+      while (countQueue.length > 0) {
+        const p = countQueue.shift()
+        if (!p) break
+        await countOnePage(tabPage, p, isAutoMine)
       }
     }
-    await countPage.close().catch(() => {})
+    await Promise.all(countPages.map((cp, i) => countWorker(cp, i)))
+    for (const cp of countPages) await cp.close().catch(() => {})
 
     const counted = toCount.filter(p => p.total_anuncios > 0)
     console.log(`[mine] "${keyword}": ${counted.length} pages with real counts`)
@@ -1583,11 +1630,10 @@ async function runMineJob(jobId, keyword, count, isAutoMine = false) {
       ig_handle: p.ig_handle || null,
     }))
 
-    job.status = 'done'
-    job.results = results
+    if (job) { job.status = 'done'; job.results = results }
   } catch (e) {
-    job.status = 'failed'
-    job.error = e.message
+    if (job) { job.status = 'failed'; job.error = e.message }
+    else console.error(`[mine] Job ${jobId} gone from map, error lost: ${e.message}`)
   } finally {
     await page.close()
   }

@@ -811,7 +811,13 @@ export default function ToolPage() {
         }
       }
       throw new Error('Tempo esgotado. Tente novamente.')
-    } catch (err) { setMineError(err instanceof Error ? err.message : 'Erro') } finally { setMining(false); setMineStatus(''); setMineProgress(0) }
+    } catch (err) {
+      let msg = err instanceof Error ? err.message : 'Erro'
+      if (msg.includes('aborted') || msg.includes('timeout') || msg.includes('Failed to fetch')) {
+        msg = 'Conexão com o servidor falhou. Tente novamente em alguns segundos.'
+      }
+      setMineError(msg)
+    } finally { setMining(false); setMineStatus(''); setMineProgress(0) }
   }
 
   // toggleNicho removido — agora usa input de keyword
