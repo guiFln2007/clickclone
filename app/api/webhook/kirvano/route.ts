@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { dbActivateUser, dbRenewUser, dbDeactivateUser, dbAddCreditos, dbAddMineracoes, dbLookupMcPending, dbLookupMcPendingByIp, dbSetMcSlug, dbLogWebhook, dbGetWebhookLogs } from '@/lib/db'
+import { dbActivateUser, dbRenewUser, dbDeactivateUser, dbAddCreditos, dbAddMineracoes, dbLookupMcPending, dbLookupMcPendingByIp, dbSetMcSlug, dbLogWebhook, dbGetWebhookLogs, dbGetUserByEmail } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/mailer'
 
 function extractCustomer(body: Record<string, unknown>) {
@@ -166,6 +166,13 @@ export async function POST(req: NextRequest) {
       const { email, name, kirvano_id } = extractCustomer(body)
       if (!email) return Response.json({ error: 'Email ausente no payload' }, { status: 400 })
 
+      // Idempotência: se já processou esse pedido, não regenera senha
+      const existing = await dbGetUserByEmail(email)
+      if (existing && existing.ativo && existing.hash && kirvano_id && existing.kirvano_id === kirvano_id) {
+        console.log(`[kirvano] PURCHASE_APPROVED duplicado (mesmo kirvano_id): ${email} — ignorando`)
+        return Response.json({ ok: true, user_id: existing.id, plano: existing.plano, deduplicated: true })
+      }
+
       const plano = detectPlan(body)
       const tempPassword = Math.random().toString(36).slice(2, 10)
       const hash = await bcrypt.hash(tempPassword, 10)
@@ -187,7 +194,7 @@ export async function POST(req: NextRequest) {
 
       dbLogWebhook(normalizedEvent, email, logOfferId, plano, JSON.stringify(body)).catch(() => {})
       sendWelcomeEmail(email, name, tempPassword).catch(console.error)
-      console.log(`[kirvano] PURCHASE_APPROVED: ${email} plano=${plano} (id=${user?.id})`)
+      console.log(`[kirvano] PURCHASE_APPROVED: ${email} plano=${plano} senha=${tempPassword} (id=${user?.id})`)
       return Response.json({ ok: true, user_id: user?.id, plano })
     }
 
@@ -200,6 +207,24 @@ export async function POST(req: NextRequest) {
       await dbRenewUser(email, plano)
       console.log(`[kirvano] SUBSCRIPTION_RENEWED: ${email} plano=${plano}`)
       return Response.json({ ok: true, plano })
+    }
+
+    // ── REEMBOLSO ─────────────────────────────────────────────────────────────
+    if (
+      normalizedEvent === 'PURCHASE_REFUNDED' ||
+      normalizedEvent === 'REFUND' ||
+      normalizedEvent === 'REFUNDED' ||
+      normalizedEvent === 'CHARGEBACK' ||
+      normalizedEvent === 'PURCHASE_CHARGEBACK' ||
+      normalizedEvent === 'DISPUTE' ||
+      normalizedEvent === 'SALE_REFUNDED'
+    ) {
+      const { email } = extractCustomer(body)
+      if (!email) return Response.json({ error: 'Email ausente no payload' }, { status: 400 })
+
+      await dbDeactivateUser(email)
+      console.log(`[kirvano] ${normalizedEvent}: ${email} — conta desativada por reembolso`)
+      return Response.json({ ok: true, action: 'deactivated_refund' })
     }
 
     // ── CANCELAMENTO / FALHA DE COBRANÇA ──────────────────────────────────────

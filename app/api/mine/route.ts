@@ -23,6 +23,66 @@ const BRAND_BLACKLIST = [
   'loreal', "l'oréal", 'maybelline', 'avon', 'natura', 'boticário', 'o boticario',
 ]
 
+// ── MAPA DE NICHOS → KEYWORDS ──
+const NICHO_KEYWORDS: Record<string, { label: string; keywords: string[] }> = {
+  espiritualidade: {
+    label: 'Espiritualidade',
+    keywords: ['lei da atração', '21 dias transformação', 'ho\'oponopono', 'despertar espiritual', 'meditação guiada', 'mapa astral', 'tarot online', 'energia positiva', 'manifestação'],
+  },
+  emagrecimento: {
+    label: 'Emagrecimento',
+    keywords: ['truque pra emagrecer', 'secar barriga', 'café bariátrico', 'glicemia', 'chá emagrecedor', 'jejum intermitente', 'receita detox', 'truque da gelatina', 'derreter gordura'],
+  },
+  relacionamento: {
+    label: 'Relacionamento',
+    keywords: ['reconquistar ex', 'mensagem que conquista', 'ex de volta', 'como conquistar', 'frases de conquista', 'sedução', 'mensagem secreta'],
+  },
+  financas: {
+    label: 'Finanças',
+    keywords: ['renda extra', 'ganhar dinheiro', 'trader iniciante', 'investir pouco', 'afiliado digital', 'primeiro mil reais', 'trabalhar em casa'],
+  },
+  saude: {
+    label: 'Saúde',
+    keywords: ['diabetes tipo 2', 'pressão alta', 'dor nas costas', 'zumbido no ouvido', 'remédio natural', 'ansiedade', 'insônia', 'colesterol alto', 'ácido úrico'],
+  },
+  beleza: {
+    label: 'Beleza',
+    keywords: ['skincare caseiro', 'manchas no rosto', 'queda de cabelo', 'unhas decoradas', 'sobrancelha perfeita', 'rejuvenescimento facial', 'rugas'],
+  },
+  maternidade: {
+    label: 'Maternidade',
+    keywords: ['bebê dormindo', 'amamentação', 'desenvolvimento infantil', 'atividades infantis', 'mãe de primeira viagem', 'desfralde', 'papinha bebê'],
+  },
+  pets: {
+    label: 'Pets',
+    keywords: ['adestrar cachorro', 'cachorro latindo', 'gato comportamento', 'pet saudável', 'ração natural', 'filhote', 'passeio cachorro'],
+  },
+  culinaria: {
+    label: 'Culinária',
+    keywords: ['receitas fáceis', 'confeitaria', 'bolo caseiro', 'marmita fit', 'brigadeiro gourmet', 'renda com doces', 'salgados pra vender'],
+  },
+  artesanato: {
+    label: 'Artesanato',
+    keywords: ['crochê iniciante', 'bordado', 'costura', 'sublimação', 'artesanato pra vender', 'pack de artes', 'moldes grátis'],
+  },
+  educacao: {
+    label: 'Educação',
+    keywords: ['simulado ENEM', 'concurso público', 'redação nota mil', 'apostila', 'material pedagógico', 'atividades prontas', 'alfabetização'],
+  },
+  masculino: {
+    label: 'Masculino',
+    keywords: ['disfunção erétil', 'vigor masculino', 'desempenho masculino', 'testosterona', 'libido masculina', 'calvície'],
+  },
+  direito: {
+    label: 'Direito',
+    keywords: ['simulado OAB', 'pack direito', 'vade mecum', 'peças processuais', 'concurso jurídico', 'advocacia'],
+  },
+  fitness: {
+    label: 'Fitness',
+    keywords: ['treino em casa', 'pilates', 'yoga iniciante', 'exercício funcional', 'hipertrofia', 'protocolo treino', 'personal trainer'],
+  },
+}
+
 const SCRAPER_URL = process.env.SCRAPER_URL || ''
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || ''
 const APIFY_TOKEN = process.env.APIFY_TOKEN || ''
@@ -152,7 +212,7 @@ function processApifyAds(items: ApifyAd[]): MineResult[] {
 
 // ── ROUTES ──
 
-// POST — Start mining (tenta scraper local, fallback Apify)
+// POST — Start mining by nicho (multiple keywords) or single keyword
 export async function POST(req: NextRequest) {
   const userId = Number(req.headers.get('x-user-id'))
   if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
@@ -164,28 +224,70 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Limite de minera\u00e7\u00f5es atingido. Adquirir Vers\u00e3o Completa.' }, { status: 402 })
   }
 
-  const { keyword } = await req.json()
+  const body = await req.json()
+  const nicho = (body.nicho || '') as string
+  const keyword = (body.keyword || '') as string
   const minAnuncios = 5
   const minDias = 3
-  if (!keyword?.trim()) return NextResponse.json({ error: 'Digite uma palavra-chave' }, { status: 400 })
 
-  // Strip stop words pra busca mais ampla (ex: "truque para emagrecer" → "truque emagrecer")
+  // Modo nicho: busca múltiplas keywords automaticamente
+  if (nicho) {
+    const nichoConfig = NICHO_KEYWORDS[nicho.toLowerCase()]
+    if (!nichoConfig) return NextResponse.json({ error: 'Nicho não encontrado' }, { status: 400 })
+
+    // Cache por nicho (6h)
+    const cacheKey = `nicho:${nicho.toLowerCase()}`
+    const cachedRunId = getCachedRun(cacheKey)
+    if (cachedRunId) {
+      console.log(`[Mine] Cache HIT pra nicho "${nicho}", reusando runId ${cachedRunId}`)
+      return NextResponse.json({ runId: cachedRunId, nicho, nichoLabel: nichoConfig.label, keywords: nichoConfig.keywords.length, minAnuncios, minDias, cached: true })
+    }
+
+    // Decrementa 1 mineração (1 nicho = 1 crédito, múltiplas keywords)
+    await dbDecrementMineracoes(userId)
+    console.log(`[Mine] Starting nicho "${nichoConfig.label}" with ${nichoConfig.keywords.length} keywords (${(user.mineracoes ?? 1) - 1} restantes)`)
+
+    if (!SCRAPER_URL) {
+      return NextResponse.json({ error: 'Scraper offline.' }, { status: 503 })
+    }
+
+    try {
+      const res = await fetch(`${SCRAPER_URL}/mine-nicho`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+        body: JSON.stringify({ keywords: nichoConfig.keywords, count: 300 }),
+        signal: AbortSignal.timeout(15000),
+      })
+      if (res.ok) {
+        const data = await res.json() as Record<string, unknown>
+        const jobId = data.jobId as string
+        if (jobId) {
+          const runId = `local:${jobId}`
+          setCachedRun(cacheKey, runId)
+          return NextResponse.json({ runId, nicho, nichoLabel: nichoConfig.label, keywords: nichoConfig.keywords.length, minAnuncios, minDias })
+        }
+      }
+    } catch {
+      console.warn('[Mine] Scraper falhou')
+    }
+
+    return NextResponse.json({ error: 'Scraper offline.' }, { status: 503 })
+  }
+
+  // Modo keyword legado (fallback)
+  if (!keyword?.trim()) return NextResponse.json({ error: 'Selecione um nicho' }, { status: 400 })
+
   const STOP_WORDS = new Set(['para', 'pra', 'de', 'do', 'da', 'dos', 'das', 'com', 'que', 'no', 'na', 'nos', 'nas', 'em', 'um', 'uma', 'o', 'a', 'os', 'as', 'e', 'ou', 'se'])
   const stripped = keyword.trim().split(/\s+/).filter((w: string) => !STOP_WORDS.has(w.toLowerCase()))
   const kw = stripped.length >= 2 ? stripped.join(' ') : keyword.trim()
 
-  // SAFEGUARD: cache de 6h por keyword
   const cachedRunId = getCachedRun(kw)
   if (cachedRunId) {
-    console.log(`[Mine] Cache HIT pra "${kw}", reusando runId ${cachedRunId}`)
     return NextResponse.json({ runId: cachedRunId, keyword: kw, minAnuncios, minDias, cached: true })
   }
 
-  // Decrementa quota de mineracao
   await dbDecrementMineracoes(userId)
-  console.log(`[Mine] Starting for keyword: "${kw}" (${(user.mineracoes ?? 1) - 1} mineracoes restantes)`)
 
-  // 1ª tentativa: scraper local (Mac via Cloudflare Tunnel)
   if (SCRAPER_URL) {
     try {
       const res = await fetch(`${SCRAPER_URL}/mine`, {
@@ -198,20 +300,17 @@ export async function POST(req: NextRequest) {
         const data = await res.json() as Record<string, unknown>
         const jobId = data.jobId as string
         if (jobId) {
-          console.log('[Mine] Local scraper job started:', jobId)
           const runId = `local:${jobId}`
           setCachedRun(kw, runId)
           return NextResponse.json({ runId, keyword: kw, minAnuncios, minDias })
         }
       }
     } catch {
-      console.warn('[Mine] Local scraper falhou, caindo no Apify')
+      console.warn('[Mine] Local scraper falhou')
     }
   }
 
-  return NextResponse.json({
-    error: 'Scraper local offline. Verifique se o PC está ligado e o tunnel ativo.'
-  }, { status: 503 })
+  return NextResponse.json({ error: 'Scraper offline.' }, { status: 503 })
 }
 
 // GET — Poll for results
@@ -270,7 +369,10 @@ export async function GET(req: NextRequest) {
 
       const status = data.status as string
 
-      if (status === 'running') return NextResponse.json({ status: 'running' })
+      if (status === 'running') {
+        const progress = data.progress as Record<string, unknown> | undefined
+        return NextResponse.json({ status: 'running', progress: progress || null })
+      }
       if (status === 'failed') return NextResponse.json({ status: 'failed', error: data.error || 'Scraper falhou' })
       if (status !== 'done') return NextResponse.json({ status: 'failed', error: `Scraper status: ${status}` })
 

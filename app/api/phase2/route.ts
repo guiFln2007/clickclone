@@ -82,52 +82,36 @@ async function fetchPageMedia(url: string): Promise<{ images: string[], videos: 
   }
 }
 
-const SYSTEM_PROMPT_PHASE2 = `Você é um especialista em construir funis de vendas de alta conversão no mercado brasileiro de infoprodutos low ticket.
+const SYSTEM_PROMPT_PHASE2 = `Você é um especialista em análise competitiva de funis de vendas no mercado brasileiro de infoprodutos low ticket.
 
-Sua tarefa: baseado na análise dos criativos (Fase 1) e no texto da página do concorrente, gere um PROMPT PRONTO para o usuário colar no Lovable/Bolt e ter o funil completo criado automaticamente.
+Sua tarefa: baseado na análise dos criativos (Fase 1) e no texto da página do concorrente, faça uma análise completa da estratégia de funil e página de vendas.
 
 Retorne APENAS o JSON abaixo, sem texto antes ou depois:
 
 {
   "url_analisada": "...",
   "tipo_de_funil": "página de vendas | quiz | vsl | freemium | typebot | híbrido",
-  "promessa_central": "a promessa principal modelada em 1-2 frases",
-  "prompt_lovable": "O PROMPT COMPLETO AQUI — veja regras abaixo",
-  "estrutura_funil": ["Etapa 1: descrição curta", "Etapa 2: ...", "Etapa 3: ..."],
-  "diferenciais_aplicados": ["O que foi melhorado em relação ao concorrente 1", "Melhoria 2", "Melhoria 3"]
+  "promessa_central": "a promessa principal da oferta em 1-2 frases",
+  "estrutura_pagina": "descrição da estrutura da página (seções, ordem, CTAs)",
+  "gatilhos_mentais": ["gatilho 1", "gatilho 2", ...],
+  "estrategia_preco": "como apresentam o preço (âncora, parcelamento, bônus, etc)",
+  "pontos_fortes_pagina": ["ponto forte 1", "ponto forte 2", ...],
+  "pontos_fracos_pagina": ["ponto fraco 1", "ponto fraco 2", ...],
+  "oportunidades": ["oportunidade que o concorrente não explora 1", "oportunidade 2", ...]
 }
 
-REGRAS PARA O prompt_lovable:
-- Deve ser um prompt COMPLETO e DETALHADO que o usuário cola direto no Lovable ou Bolt.new
-- O prompt DEVE instruir a usar as URLS DE MÍDIA REAIS fornecidas abaixo (imagens e vídeos do concorrente)
-- ESTRUTURA OBRIGATÓRIA DO FUNIL (nesta ordem exata):
-  1. Hero (primeira seção) — headline forte, subheadline, CTA principal, imagem hero do concorrente
-  2. O que você vai receber — lista de benefícios/módulos com ícones
-  3. Bônus Exclusivos — grid de bônus com valores riscados
-  4. Depoimentos — cards com foto, nome, cidade e resultado
-  5. Oferta — preço âncora, preço real, botão CTA grande
-  6. Garantia — selo de 7 dias, texto de confiança
-  7. Dúvidas Frequentes — accordion com 5+ perguntas
-  8. Rodapé — links, disclaimer, copyright
-- O prompt deve incluir as URLs de imagens reais para que o Lovable as use diretamente
-- Copy em português BR, tom informal/emocional (padrão low ticket)
-- NÃO incluir preços ou links de checkout — o usuário preenche depois
-- O prompt deve ter no mínimo 1000 palavras para ser detalhado o suficiente
-- Incluir instruções de design: cores sugeridas, estilo visual, mobile-first, dark mode
-
-REGRAS PARA estrutura_funil:
-- Liste as etapas do funil na ordem que o visitante percorre
-- Ex: ["Quiz de 5 perguntas com barra de progresso", "Página de resultado personalizado", "Página de vendas com VSL e depoimentos", "Checkout com order bump"]
-
-REGRAS PARA diferenciais_aplicados:
-- Liste 3-5 melhorias concretas que o funil gerado tem em relação ao concorrente
-- Baseado nos pontos fracos e "o que corrigir" da Fase 1
+REGRAS:
+- Analise a página como um estrategista de tráfego pago avaliando um concorrente
+- Foque em elementos práticos: headline, sub, CTAs, prova social, garantia, preço, urgência
+- gatilhos_mentais: liste todos os gatilhos usados (escassez, autoridade, prova social, reciprocidade, etc)
+- pontos_fortes_pagina: o que a página faz bem e vale modelar
+- pontos_fracos_pagina: falhas, elementos faltando, copy fraca, mobile quebrado, etc
+- oportunidades: ângulos e elementos que o concorrente NÃO usa e você poderia usar
 
 TRATAMENTO DE PÁGINA INACESSÍVEL:
 Se o conteúdo da página for "PAGINA_VAZIA_OU_BLOQUEADA" ou "ERRO_AO_ACESSAR_PAGINA":
-- Gere o prompt baseado APENAS nos dados dos anúncios da Fase 1
-- Use o ângulo dominante, nicho e gatilhos para construir o funil
-- Ainda assim gere um prompt completo e funcional`
+- Analise baseado APENAS nos dados dos anúncios da Fase 1
+- Infira a estratégia de funil pelo ângulo dos criativos`
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()
@@ -197,7 +181,7 @@ Gere o prompt pronto para Lovable/Bolt com o funil completo modelado a partir de
         // Usar streaming pra manter conexão viva no Hostinger (evita timeout)
         const stream = client.messages.stream({
           model: 'claude-sonnet-4-6',
-          max_tokens: 16000,
+          max_tokens: 8000,
           system: SYSTEM_PROMPT_PHASE2,
           messages: [{ role: 'user', content: prompt }],
         })
@@ -216,32 +200,68 @@ Gere o prompt pronto para Lovable/Bolt com o funil completo modelado a partir de
 
         let report: Record<string, unknown>
         try {
-          // Try to find the outermost JSON object
-          let jsonStr = rawText
-          const firstBrace = rawText.indexOf('{')
-          const lastBrace = rawText.lastIndexOf('}')
+          // Strip markdown code fences if present
+          let cleaned = rawText.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '')
+          // Find outermost JSON object
+          const firstBrace = cleaned.indexOf('{')
+          const lastBrace = cleaned.lastIndexOf('}')
           if (firstBrace >= 0 && lastBrace > firstBrace) {
-            jsonStr = rawText.slice(firstBrace, lastBrace + 1)
+            cleaned = cleaned.slice(firstBrace, lastBrace + 1)
           }
-          report = JSON.parse(jsonStr)
+          report = JSON.parse(cleaned)
         } catch {
-          // If JSON is truncated (stop_reason=max_tokens), try to fix it
-          console.error('[Phase2] JSON parse failed, attempting repair. Raw length:', rawText.length)
+          console.error('[Phase2] JSON parse failed, attempting repair. Raw length:', rawText.length, 'stop:', finalMessage.stop_reason)
           try {
             let fixable = rawText.slice(rawText.indexOf('{'))
-            // Close any unclosed strings and braces
-            const openBraces = (fixable.match(/{/g) || []).length
-            const closeBraces = (fixable.match(/}/g) || []).length
-            if (openBraces > closeBraces) {
-              // Truncate at last complete field, close the JSON
-              const lastComma = fixable.lastIndexOf('",')
-              if (lastComma > 0) fixable = fixable.slice(0, lastComma + 1)
+            // Fix common issues: control chars inside strings
+            fixable = fixable.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, ' ')
+
+            // Try parse as-is first (maybe just had leading/trailing junk)
+            try { report = JSON.parse(fixable) } catch {
+              // Truncated JSON repair: find last cleanly closed field
+              // Look for the last complete "key": "value" or "key": [...] pattern
+              const lastCleanCut = Math.max(
+                fixable.lastIndexOf('",\n'),
+                fixable.lastIndexOf('",\r'),
+                fixable.lastIndexOf('"\n'),
+                fixable.lastIndexOf('"],'),
+                fixable.lastIndexOf(']'),
+              )
+              if (lastCleanCut > fixable.length * 0.3) {
+                fixable = fixable.slice(0, lastCleanCut + 1)
+              }
+              // Close unclosed strings
+              const quoteCount = (fixable.match(/(?<!\\)"/g) || []).length
+              if (quoteCount % 2 !== 0) fixable += '"'
+              // Close unclosed arrays
+              const openBrackets = (fixable.match(/\[/g) || []).length
+              const closeBrackets = (fixable.match(/\]/g) || []).length
+              for (let i = 0; i < openBrackets - closeBrackets; i++) fixable += ']'
+              // Close unclosed braces
+              const openBraces = (fixable.match(/{/g) || []).length
+              const closeBraces = (fixable.match(/}/g) || []).length
               for (let i = 0; i < openBraces - closeBraces; i++) fixable += '}'
+              report = JSON.parse(fixable)
             }
-            report = JSON.parse(fixable)
-          } catch {
-            console.error('[Phase2] Repair also failed:', rawText.slice(0, 500))
-            throw new Error('Claude retornou JSON inválido na Fase 2')
+          } catch (repairErr) {
+            console.error('[Phase2] Repair failed:', (repairErr as Error).message, '| First 500 chars:', rawText.slice(0, 500))
+            // Last resort: extract what we can with regex
+            const extract = (key: string) => {
+              const m = rawText.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`))
+              return m?.[1]?.replace(/\\n/g, '\n').replace(/\\"/g, '"') || ''
+            }
+            report = {
+              url_analisada: url,
+              tipo_de_funil: extract('tipo_de_funil') || 'página de vendas',
+              promessa_central: extract('promessa_central'),
+              prompt_lovable: extract('prompt_lovable'),
+              estrutura_funil: [],
+              diferenciais_aplicados: [],
+              _repaired: true,
+            }
+            if (!report.prompt_lovable) {
+              throw new Error('Claude retornou JSON inválido na Fase 2 — tente novamente')
+            }
           }
         }
 

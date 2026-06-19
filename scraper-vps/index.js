@@ -613,7 +613,7 @@ app.get('/mine', (req, res) => {
   const job = jobs.get(jobId)
   if (!job) return res.status(404).json({ error: 'Job not found' })
 
-  if (job.status === 'running') return res.json({ status: 'running' })
+  if (job.status === 'running') return res.json({ status: 'running', progress: job.progress || null })
   if (job.status === 'failed') return res.json({ status: 'failed', error: job.error })
 
   // Clean up after delivering results (only if finished)
@@ -622,6 +622,71 @@ app.get('/mine', (req, res) => {
     setTimeout(() => jobs.delete(jobId), 60000)
   }
   res.json(result)
+})
+
+// ── MINE-NICHO (multiple keywords, one job, deduplicated) ──
+app.post('/mine-nicho', async (req, res) => {
+  const { keywords, count = 300 } = req.body
+  if (!Array.isArray(keywords) || keywords.length === 0) return res.status(400).json({ error: 'keywords array required' })
+
+  const jobId = randomUUID().slice(0, 8)
+  jobs.set(jobId, { status: 'running', results: null, error: null, progress: { done: 0, total: keywords.length, current: keywords[0] } })
+
+  markManualStart()
+  ;(async () => {
+    const job = jobs.get(jobId)
+    const allPages = new Map() // pageId -> { name, count, earliestDate, landing, fb_followers, ig_followers, ig_handle }
+
+    for (let i = 0; i < keywords.length; i++) {
+      const kw = keywords[i]
+      if (job) job.progress = { done: i, total: keywords.length, current: kw }
+      console.log(`[mine-nicho] ${jobId}: keyword ${i + 1}/${keywords.length}: "${kw}"`)
+
+      // Create a temp sub-job and run mine
+      const subId = `${jobId}_sub_${i}`
+      jobs.set(subId, { status: 'running', results: null, error: null })
+
+      try {
+        await runMineWithRecovery(subId, kw, count)
+        const subJob = jobs.get(subId)
+        if (subJob && subJob.results) {
+          for (const r of subJob.results) {
+            const existing = allPages.get(r.page_id)
+            if (existing) {
+              // Merge: keep highest count, earliest date, first landing
+              if (r.total_anuncios > existing.total_anuncios) existing.total_anuncios = r.total_anuncios
+              if (r.dias_rodando !== null && (existing.dias_rodando === null || r.dias_rodando > existing.dias_rodando)) existing.dias_rodando = r.dias_rodando
+              if (!existing.landing_url && r.landing_url) existing.landing_url = r.landing_url
+              if (!existing.ig_handle && r.ig_handle) existing.ig_handle = r.ig_handle
+              existing.keyword_hits = (existing.keyword_hits || 0) + (r.keyword_hits || 1)
+            } else {
+              allPages.set(r.page_id, { ...r, keyword_hits: r.keyword_hits || 1 })
+            }
+          }
+          console.log(`[mine-nicho] "${kw}": ${subJob.results.length} results, total unique: ${allPages.size}`)
+        }
+      } catch (e) {
+        console.error(`[mine-nicho] "${kw}" failed:`, e.message)
+      }
+      jobs.delete(subId)
+
+      // Small delay between keywords to not hammer Facebook
+      if (i < keywords.length - 1) await new Promise(r => setTimeout(r, 3000))
+    }
+
+    if (job) {
+      job.status = 'done'
+      job.results = Array.from(allPages.values())
+      job.progress = { done: keywords.length, total: keywords.length, current: null }
+      console.log(`[mine-nicho] ${jobId} DONE: ${job.results.length} unique pages from ${keywords.length} keywords`)
+    }
+  })().catch(e => {
+    console.error('[mine-nicho] Fatal:', e.message)
+    const job = jobs.get(jobId)
+    if (job) { job.status = 'failed'; job.error = e.message }
+  }).finally(() => markManualDone())
+
+  res.json({ jobId, keywords: keywords.length })
 })
 
 // ════════════════════════════════════════

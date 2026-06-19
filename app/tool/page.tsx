@@ -210,11 +210,6 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
   const usaPraVender: string[] = phase1.o_que_usa_pra_vender || []
   const angulosNaoExplorados: string[] = phase1.angulos_nao_explorados || []
 
-  // Phase 2 data
-  const promptLovable: string = phase2.prompt_lovable || ''
-  const estruturaFunil: string[] = phase2.estrutura_funil || []
-  const diferenciaisAplicados: string[] = phase2.diferenciais_aplicados || []
-  const [promptCopied, setPromptCopied] = useState(false)
   const r = 40, circ = 2 * Math.PI * r, dash = (score / 10) * circ
   const verdict = score >= 9 ? { label: 'Oportunidade Excelente', cls: 'vrd-green' }
     : score >= 7 ? { label: 'Vale Entrar', cls: 'vrd-green' }
@@ -351,40 +346,21 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
           </div>
         )}
 
-        {/* ══ BLOCO 4 — PROMPT LOVABLE/BOLT ══ */}
-        <div className="rpt-divider" />
-        <div className="rpt-sec-title">PROMPT PRONTO {'\u2014'} LOVABLE / BOLT <span className="rpt-sec-count">{phase2.tipo_de_funil || ''}</span></div>
+        {/* ══ BLOCO 4 — ANÁLISE DA PÁGINA ══ */}
+        {(phase2.pontos_fortes_pagina?.length > 0 || phase2.pontos_fracos_pagina?.length > 0 || phase2.gatilhos_mentais?.length > 0) && (<>
+          <div className="rpt-divider" />
+          <div className="rpt-sec-title">AN{'\u00C1'}LISE DA P{'\u00C1'}GINA <span className="rpt-sec-count">{phase2.tipo_de_funil || ''}</span></div>
 
-        {promptLovable && (
-          <div className="rpt-card" style={{ position: 'relative' }}>
-            <div className="rpt-card-lbl" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>PROMPT {'\u2014'} COPIE E COLE NO LOVABLE</span>
-              <button
-                onClick={() => { navigator.clipboard.writeText(promptLovable); setPromptCopied(true); setTimeout(() => setPromptCopied(false), 2000) }}
-                style={{ background: promptCopied ? '#10B981' : '#FF6B00', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background .2s' }}
-              >
-                {promptCopied ? '\u2713 Copiado!' : 'Copiar prompt'}
-              </button>
-            </div>
-            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12.5, lineHeight: 1.7, color: '#ccc', background: 'rgba(0,0,0,.3)', padding: 16, borderRadius: 8, maxHeight: 400, overflowY: 'auto', marginTop: 10, border: '1px solid rgba(255,255,255,.06)' }}>{promptLovable}</pre>
-          </div>
-        )}
+          {phase2.promessa_central && <div className="rpt-card rpt-card-orange"><div className="rpt-card-lbl">PROMESSA CENTRAL</div><div className="rpt-card-val">{phase2.promessa_central}</div></div>}
+          {phase2.estrutura_pagina && <div className="rpt-card"><div className="rpt-card-lbl">ESTRUTURA DA P{'\u00C1'}GINA</div><div className="rpt-card-val" style={{ fontSize: 13, color: '#a1a1aa', lineHeight: 1.7 }}>{phase2.estrutura_pagina}</div></div>}
+          {phase2.estrategia_preco && <div className="rpt-card"><div className="rpt-card-lbl">ESTRAT{'\u00C9'}GIA DE PRE{'\u00C7'}O</div><div className="rpt-card-val" style={{ fontSize: 13, color: '#a1a1aa', lineHeight: 1.7 }}>{phase2.estrategia_preco}</div></div>}
+          {phase2.gatilhos_mentais?.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">GATILHOS MENTAIS USADOS</div><div className="rpt-list">{(phase2.gatilhos_mentais as string[]).map((g: string, i: number) => <div key={i} className="rpt-list-item"><span className="ic" style={{ color: '#FF6B00' }}>{'\u2022'}</span><span>{g}</span></div>)}</div></div>}
+          {phase2.pontos_fortes_pagina?.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">PONTOS FORTES DA P{'\u00C1'}GINA</div><div className="rpt-list">{(phase2.pontos_fortes_pagina as string[]).map((p: string, i: number) => <div key={i} className="rpt-list-item strong"><span className="ic">{'\u2713'}</span><span>{p}</span></div>)}</div></div>}
+          {phase2.pontos_fracos_pagina?.length > 0 && <div className="rpt-card"><div className="rpt-card-lbl">PONTOS FRACOS DA P{'\u00C1'}GINA</div><div className="rpt-list">{(phase2.pontos_fracos_pagina as string[]).map((p: string, i: number) => <div key={i} className="rpt-list-item weak"><span className="ic">{'\u2715'}</span><span>{p}</span></div>)}</div></div>}
+          {phase2.oportunidades?.length > 0 && <div className="rpt-card rpt-card-orange"><div className="rpt-card-lbl">OPORTUNIDADES</div><div className="rpt-list">{(phase2.oportunidades as string[]).map((o: string, i: number) => <div key={i} className="rpt-list-item info"><span className="ic">{'\u2192'}</span><span>{o}</span></div>)}</div></div>}
+        </>)}
 
-        {estruturaFunil.length > 0 && (
-          <div className="rpt-card">
-            <div className="rpt-card-lbl">ESTRUTURA DO FUNIL</div>
-            <div className="rpt-list">{estruturaFunil.map((e, i) => <div key={i} className="rpt-list-item info"><span className="ic" style={{ color: '#FF6B00', fontWeight: 800 }}>{i + 1}.</span><span>{e}</span></div>)}</div>
-          </div>
-        )}
-
-        {diferenciaisAplicados.length > 0 && (
-          <div className="rpt-card rpt-card-orange">
-            <div className="rpt-card-lbl">MELHORIAS EM RELA{'\u00C7\u00C3'}O AO CONCORRENTE</div>
-            <div className="rpt-list">{diferenciaisAplicados.map((d, i) => <div key={i} className="rpt-list-item strong"><span className="ic">{'\u2713'}</span><span>{d}</span></div>)}</div>
-          </div>
-        )}
-
-        {/* ══ BLOCO 5 — AN{'\u00C1'}LISE GERAL ══ */}
+        {/* ══ BLOCO 5 — ANÁLISE GERAL ══ */}
         <div className="rpt-divider" />
         <div className="rpt-sec-title">AN{'\u00C1'}LISE GERAL DA OFERTA</div>
 
@@ -449,6 +425,7 @@ export default function ToolPage() {
   const [totalAlerts, setTotalAlerts] = useState(0)
 
   // Mine
+  const [mineNicho, setMineNicho] = useState<string | null>(null)
   const [mineKeyword, setMineKeyword] = useState(() => {
     if (typeof window === 'undefined') return ''
     return localStorage.getItem('mineKeyword') || ''
@@ -771,42 +748,88 @@ export default function ToolPage() {
     } catch (e) { console.error('Delete error:', e) }
   }
 
+  // ── NICHOS DISPONIVEIS ──
+  const nichoIcon = (id: string, active: boolean) => {
+    const c = active ? '#FF8C00' : '#888'
+    const s = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: c, strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+    switch (id) {
+      case 'espiritualidade': return <svg {...s}><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/><circle cx="12" cy="12" r="8" strokeDasharray="2 3" opacity=".4"/></svg>
+      case 'emagrecimento': return <svg {...s}><path d="M12 22c-4-3-7-6-7-10a7 7 0 0 1 14 0c0 4-3 7-7 10z"/><path d="M12 13V8m-2 3l2-3 2 3" opacity=".6"/></svg>
+      case 'relacionamento': return <svg {...s}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      case 'financas': return <svg {...s}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      case 'saude': return <svg {...s}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      case 'beleza': return <svg {...s}><circle cx="12" cy="8" r="5"/><path d="M12 13v8"/><path d="M9 18h6"/><path d="M8 5c0-1.5 1.5-3 4-3s4 1.5 4 3" opacity=".4"/></svg>
+      case 'maternidade': return <svg {...s}><circle cx="12" cy="6" r="3"/><path d="M12 9c-4 0-7 2-7 5v1h14v-1c0-3-3-5-7-5z"/><circle cx="12" cy="18" r="2.5" strokeDasharray="2 2"/></svg>
+      case 'pets': return <svg {...s}><circle cx="7" cy="7" r="2"/><circle cx="17" cy="7" r="2"/><circle cx="5" cy="13" r="1.5"/><circle cx="19" cy="13" r="1.5"/><path d="M12 22c-3 0-5-3-5-6 0-2 2-4 5-4s5 2 5 4c0 3-2 6-5 6z"/></svg>
+      case 'culinaria': return <svg {...s}><path d="M3 11h18M5 11V6c0-1 1-3 3-3m8 8V6c0-1-1-3-3-3"/><rect x="3" y="11" width="18" height="4" rx="1"/><path d="M8 15v4m8-4v4"/></svg>
+      case 'artesanato': return <svg {...s}><path d="M14.5 2c1 1.5.5 3.5-1 5l-8 8-3 3 3-1 8-8c1.5-1.5 3.5-2 5-1"/><circle cx="6" cy="18" r="1.5" fill={c} opacity=".3"/><path d="M18 13l3 3m-5 1l3 3" opacity=".5"/></svg>
+      case 'educacao': return <svg {...s}><path d="M2 7l10 5 10-5-10-5z"/><path d="M6 9v6c0 2 3 3 6 3s6-1 6-3V9"/><line x1="22" y1="7" x2="22" y2="15"/></svg>
+      case 'masculino': return <svg {...s}><path d="M7 20V4h4l3 7 3-7h4v16"/><path d="M7 12h10" opacity=".4"/></svg>
+      case 'direito': return <svg {...s}><line x1="12" y1="2" x2="12" y2="22"/><path d="M4 7h16"/><path d="M4 7l2 7h4L8 7"/><path d="M20 7l-2 7h-4l2-7"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+      case 'fitness': return <svg {...s}><path d="M6.5 6.5h-2a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h2"/><path d="M17.5 6.5h2a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2"/><rect x="6.5" y="4" width="3" height="16" rx=".5"/><rect x="14.5" y="4" width="3" height="16" rx=".5"/><line x1="9.5" y1="12" x2="14.5" y2="12"/></svg>
+      default: return null
+    }
+  }
+  const NICHOS_LIST = [
+    { id: 'espiritualidade', label: 'Espiritualidade' },
+    { id: 'emagrecimento', label: 'Emagrecimento' },
+    { id: 'relacionamento', label: 'Relacionamento' },
+    { id: 'financas', label: 'Finan\u00e7as' },
+    { id: 'saude', label: 'Sa\u00fade' },
+    { id: 'beleza', label: 'Beleza' },
+    { id: 'maternidade', label: 'Maternidade' },
+    { id: 'pets', label: 'Pets' },
+    { id: 'culinaria', label: 'Culin\u00e1ria' },
+    { id: 'educacao', label: 'Educa\u00e7\u00e3o' },
+    { id: 'masculino', label: 'Masculino' },
+    { id: 'fitness', label: 'Fitness' },
+  ]
+
   // ── MINE ──
   async function handleMine() {
-    if (!mineKeyword.trim() || mining) return
+    if (!mineNicho || mining) return
     setMining(true); setMineError(''); setMineResults([]); setMineProgress(5); setMineStatus('Conectando \u00E0 biblioteca de an\u00FAncios...')
     try {
       // 1. Start the mining run
-      const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ keyword: mineKeyword.trim() }) })
+      const startRes = await fetch('/api/mine', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ nicho: mineNicho }) })
       if (startRes.status === 402) { if (plano === 'trial') setUpgradeModal(true); else setCreditsModal(true); setMining(false); return }
       if (!startRes.ok) { const e = await startRes.json().catch(() => ({})); throw new Error(e.error || 'Erro ao iniciar') }
-      const { runId } = await startRes.json()
+      const startData = await startRes.json()
+      const runId = startData.runId
+      const totalKeywords = startData.keywords || 1
       if (!runId) throw new Error('Falha ao iniciar busca')
 
-      setMineStatus('Minerando an\u00FAncios na biblioteca...'); setMineProgress(15)
+      setMineStatus(`Minerando com ${totalKeywords} termos do nicho...`); setMineProgress(10)
 
       // 2. Poll every 5s until done
-      const statusMsgs = ['Vasculhando bibliotecas de an\u00FAncios...', 'Analisando p\u00E1ginas encontradas...', 'Filtrando ofertas validadas...', 'Isso pode levar alguns minutos...', 'Processando resultados...', 'Quase l\u00E1...']
-      let msgIdx = 0
-      for (let attempt = 0; attempt < 240; attempt++) { // max 20 min
+      const nichoLabel = NICHOS_LIST.find(n => n.id === mineNicho)?.label || mineNicho
+      for (let attempt = 0; attempt < 360; attempt++) { // max 30 min (multiple keywords take longer)
         await new Promise(r => setTimeout(r, 5000))
-        // Progresso gradual: 15% -> 92% ao longo dos polls
-        const prog = Math.min(92, 15 + attempt * 3)
-        setMineProgress(prog)
-        if (attempt % 6 === 5) { msgIdx = Math.min(msgIdx + 1, statusMsgs.length - 1); setMineStatus(statusMsgs[msgIdx]) }
 
-        const pollRes = await fetch(`/api/mine?runId=${runId}&nicho=${encodeURIComponent(mineKeyword.trim())}`, { headers: authHeaders() })
+        const pollRes = await fetch(`/api/mine?runId=${runId}&nicho=${encodeURIComponent(nichoLabel)}`, { headers: authHeaders() })
         if (!pollRes.ok) continue
         const data = await pollRes.json()
 
-        if (data.status === 'running') continue
+        if (data.status === 'running') {
+          // Show progress from scraper if available
+          const progress = data.progress
+          if (progress) {
+            const pct = Math.min(90, 10 + Math.floor((progress.done / progress.total) * 80))
+            setMineProgress(pct)
+            setMineStatus(`Buscando "${progress.current}"... (${progress.done}/${progress.total} termos)`)
+          } else {
+            setMineProgress(Math.min(90, 10 + attempt * 2))
+            setMineStatus('Minerando ofertas...')
+          }
+          continue
+        }
         if (data.status === 'failed') throw new Error(data.error || 'Minera\u00E7\u00E3o falhou')
         if (data.status === 'done') {
           setMineProgress(100)
           const ofertas = data.ofertas || []
           setMineResults(ofertas)
-          try { localStorage.setItem('mineResults', JSON.stringify(ofertas)); localStorage.setItem('mineKeyword', mineKeyword.trim()) } catch {}
-          if (!ofertas.length) setMineError('Nenhuma oferta encontrada com esses filtros. Tente diminuir o m\u00EDnimo de an\u00FAncios.')
+          try { localStorage.setItem('mineResults', JSON.stringify(ofertas)); localStorage.setItem('mineKeyword', nichoLabel) } catch {}
+          if (!ofertas.length) setMineError('Nenhuma oferta encontrada nesse nicho.')
           setMining(false); setMineStatus(''); setMineProgress(0); return
         }
       }
@@ -814,7 +837,7 @@ export default function ToolPage() {
     } catch (err) {
       let msg = err instanceof Error ? err.message : 'Erro'
       if (msg.includes('aborted') || msg.includes('timeout') || msg.includes('Failed to fetch')) {
-        msg = 'Conexão com o servidor falhou. Tente novamente em alguns segundos.'
+        msg = 'Conex\u00e3o com o servidor falhou. Tente novamente em alguns segundos.'
       }
       setMineError(msg)
     } finally { setMining(false); setMineStatus(''); setMineProgress(0) }
@@ -1303,8 +1326,8 @@ export default function ToolPage() {
                       <div className="explainer-icon">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
                       </div>
-                      <div className="explainer-card-title">Prompt Lovable/Bolt</div>
-                      <div className="explainer-card-desc">Prompt pronto pra gerar uma landing page melhor que a do concorrente</div>
+                      <div className="explainer-card-title">An{'\u00E1'}lise de P{'\u00E1'}gina</div>
+                      <div className="explainer-card-desc">Escaneia a landing page e identifica a estrat{'\u00E9'}gia do funil</div>
                     </div>
                   </div>
                   <div className="explainer-tip">
@@ -1404,25 +1427,48 @@ export default function ToolPage() {
               <div className="mine-hero">
                 <div className="tool-sec-label"><span>Descoberta de ofertas</span></div>
                 <h1 className="mine-title">Minerador <span className="acc">Autom{'\u00E1'}tico</span></h1>
-                <p className="mine-sub">Encontre ofertas validadas no seu nicho em segundos</p>
+                <p className="mine-sub">Escolha um nicho e descubra as melhores ofertas rodando agora</p>
               </div>
 
               <div className="mine-filters">
-                <div className="rpt-card-lbl" style={{ marginBottom: 10 }}>PALAVRA-CHAVE</div>
-                <input
-                  type="text"
-                  className="mine-keyword-input"
-                  placeholder="Ex: emagrecer r&#225;pido, renda extra, tarot..."
-                  value={mineKeyword}
-                  onChange={e => setMineKeyword(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && mineKeyword.trim() && !mining) handleMine() }}
-                  disabled={mining}
-                  style={{ width: '100%', padding: '12px 16px', fontSize: 15, borderRadius: 8, border: '1px solid #444', background: '#1a1a1a', color: '#fff', marginBottom: 20, outline: 'none' }}
-                />
-                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Filtros usados pelos maiores players: <span style={{ color: '#e8a040' }}>5-300 an{'\u00FA'}ncios</span>, <span style={{ color: '#e8a040' }}>3+ dias rodando</span>, <span style={{ color: '#e8a040' }}>&lt;30k seguidores</span>, sem marcas grandes.</p>
+                <div className="rpt-card-lbl" style={{ marginBottom: 12 }}>ESCOLHA O NICHO</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
+                  {NICHOS_LIST.map(n => {
+                    const active = mineNicho === n.id
+                    return (
+                    <button
+                      key={n.id}
+                      onClick={() => !mining && setMineNicho(active ? null : n.id)}
+                      disabled={mining}
+                      style={{
+                        padding: '14px 10px',
+                        borderRadius: 10,
+                        border: active ? '2px solid #FF8C00' : '1px solid #333',
+                        background: active ? 'rgba(255,140,0,.12)' : '#1a1a1a',
+                        color: active ? '#FF8C00' : '#ccc',
+                        fontSize: 13,
+                        fontWeight: active ? 700 : 500,
+                        cursor: mining ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 6,
+                        transition: 'all .15s',
+                      }}
+                    >
+                      {nichoIcon(n.id, active)}
+                      <span>{n.label}</span>
+                    </button>
+                    )
+                  })}
+                </div>
+                <p style={{ color: '#888', fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>
+                  Cada nicho busca <span style={{ color: '#e8a040' }}>7-9 termos automaticamente</span>.
+                  Filtros: <span style={{ color: '#e8a040' }}>5-300 an{'\u00FA'}ncios</span>, <span style={{ color: '#e8a040' }}>3+ dias</span>, <span style={{ color: '#e8a040' }}>&lt;30k seguidores</span>.
+                </p>
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-                  <button className="mine-btn" onClick={handleMine} disabled={!mineKeyword.trim() || mining}>
-                    {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : <>{'\u26CF\uFE0F'} Minerar Agora</>}
+                  <button className="mine-btn" onClick={handleMine} disabled={!mineNicho || mining}>
+                    {mining ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Minerando...</> : <>{'\u26CF\uFE0F'} Minerar Nicho</>}
                   </button>
                 </div>
                 {mineError && <div className="err" style={{ marginTop: 12 }}>{mineError}</div>}
@@ -1436,7 +1482,7 @@ export default function ToolPage() {
                   <div className="status-text"><span className="st-pulse" /><span>{mineStatus}</span></div>
                 </div>
               )}
-              {!mining && mineResults.length === 0 && !mineError && <div className="mine-hint">Digite uma palavra-chave e clique em Minerar</div>}
+              {!mining && mineResults.length === 0 && !mineError && <div className="mine-hint">Selecione um nicho acima e clique em Minerar</div>}
 
               {/* Results */}
               {mineResults.length > 0 && (

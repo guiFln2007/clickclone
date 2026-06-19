@@ -26,6 +26,12 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, message: 'Ja tem plano superior' })
     }
 
+    // Idempotência: se já é curso ativo com hash, não regenera senha
+    if (existing && existing.ativo && existing.hash && existing.kirvano_id === 'curso') {
+      console.log(`[webhook/curso-lta] Duplicado: ${email} — ignorando`)
+      return Response.json({ ok: true, message: 'Ja processado', deduplicated: true })
+    }
+
     const tempPassword = Math.random().toString(36).slice(2, 10)
     const hash = await bcrypt.hash(tempPassword, 10)
 

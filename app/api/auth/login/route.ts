@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     } else {
       const ok = await bcrypt.compare(password, user.hash)
       if (!ok) {
+        console.warn(`[login] Senha incorreta para ${user.email} (hash existe, compare=false, input_len=${password.length})`)
         return Response.json({ error: 'Email ou senha incorretos' }, { status: 401 })
       }
     }
