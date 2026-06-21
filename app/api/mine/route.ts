@@ -243,12 +243,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ runId: cachedRunId, nicho, nichoLabel: nichoConfig.label, keywords: nichoConfig.keywords.length, minAnuncios, minDias, cached: true })
     }
 
-    // Decrementa 1 mineração (1 nicho = 1 crédito, múltiplas keywords)
-    await dbDecrementMineracoes(userId)
-    console.log(`[Mine] Starting nicho "${nichoConfig.label}" with ${nichoConfig.keywords.length} keywords (${(user.mineracoes ?? 1) - 1} restantes)`)
-
     if (!SCRAPER_URL) {
-      return NextResponse.json({ error: 'Scraper offline.' }, { status: 503 })
+      return NextResponse.json({ error: 'Scraper indisponível no momento. Tente novamente mais tarde.' }, { status: 503 })
     }
 
     try {
@@ -262,6 +258,9 @@ export async function POST(req: NextRequest) {
         const data = await res.json() as Record<string, unknown>
         const jobId = data.jobId as string
         if (jobId) {
+          // Só debita DEPOIS do scraper confirmar o job
+          await dbDecrementMineracoes(userId)
+          console.log(`[Mine] Starting nicho "${nichoConfig.label}" with ${nichoConfig.keywords.length} keywords (${(user.mineracoes ?? 1) - 1} restantes)`)
           const runId = `local:${jobId}`
           setCachedRun(cacheKey, runId)
           return NextResponse.json({ runId, nicho, nichoLabel: nichoConfig.label, keywords: nichoConfig.keywords.length, minAnuncios, minDias })
@@ -271,7 +270,7 @@ export async function POST(req: NextRequest) {
       console.warn('[Mine] Scraper falhou')
     }
 
-    return NextResponse.json({ error: 'Scraper offline.' }, { status: 503 })
+    return NextResponse.json({ error: 'Scraper indisponível no momento. Tente novamente mais tarde.' }, { status: 503 })
   }
 
   // Modo keyword legado (fallback)
@@ -286,31 +285,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ runId: cachedRunId, keyword: kw, minAnuncios, minDias, cached: true })
   }
 
-  await dbDecrementMineracoes(userId)
-
-  if (SCRAPER_URL) {
-    try {
-      const res = await fetch(`${SCRAPER_URL}/mine`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
-        body: JSON.stringify({ keyword: kw, count: 300 }),
-        signal: AbortSignal.timeout(10000),
-      })
-      if (res.ok) {
-        const data = await res.json() as Record<string, unknown>
-        const jobId = data.jobId as string
-        if (jobId) {
-          const runId = `local:${jobId}`
-          setCachedRun(kw, runId)
-          return NextResponse.json({ runId, keyword: kw, minAnuncios, minDias })
-        }
-      }
-    } catch {
-      console.warn('[Mine] Local scraper falhou')
-    }
+  if (!SCRAPER_URL) {
+    return NextResponse.json({ error: 'Scraper indisponível no momento. Tente novamente mais tarde.' }, { status: 503 })
   }
 
-  return NextResponse.json({ error: 'Scraper offline.' }, { status: 503 })
+  try {
+    const res = await fetch(`${SCRAPER_URL}/mine`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SCRAPER_SECRET}` },
+      body: JSON.stringify({ keyword: kw, count: 300 }),
+      signal: AbortSignal.timeout(10000),
+    })
+    if (res.ok) {
+      const data = await res.json() as Record<string, unknown>
+      const jobId = data.jobId as string
+      if (jobId) {
+        // Só debita DEPOIS do scraper confirmar o job
+        await dbDecrementMineracoes(userId)
+        const runId = `local:${jobId}`
+        setCachedRun(kw, runId)
+        return NextResponse.json({ runId, keyword: kw, minAnuncios, minDias })
+      }
+    }
+  } catch {
+    console.warn('[Mine] Local scraper falhou')
+  }
+
+  return NextResponse.json({ error: 'Scraper indisponível no momento. Tente novamente mais tarde.' }, { status: 503 })
 }
 
 // GET — Poll for results
