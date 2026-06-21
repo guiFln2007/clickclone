@@ -386,8 +386,10 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
 
 /* ─────────── MAIN PAGE ─────────── */
 
-export default function ToolPage() {
-  // ========== MANUTENCAO ==========
+// ========== MANUTENCAO ==========
+const MAINTENANCE = true
+
+function MaintenancePage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-6">
       <div className="max-w-lg w-full text-center space-y-6">
@@ -409,9 +411,12 @@ export default function ToolPage() {
       </div>
     </div>
   )
-  // ========== FIM MANUTENCAO ==========
+}
+// ========== FIM MANUTENCAO ==========
 
-  // eslint-disable-next-line no-unreachable
+export default function ToolPage() {
+  if (MAINTENANCE) return <MaintenancePage />
+
   type Tab = 'home' | 'ofertas' | 'analise' | 'rastreamento' | 'minerador'
   const [activeTab, setActiveTab] = useState<Tab>('home')
   const [showReport, setShowReport] = useState(false)
