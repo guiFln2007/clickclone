@@ -415,8 +415,6 @@ function MaintenancePage() {
 // ========== FIM MANUTENCAO ==========
 
 export default function ToolPage() {
-  if (MAINTENANCE) return <MaintenancePage />
-
   type Tab = 'home' | 'ofertas' | 'analise' | 'rastreamento' | 'minerador'
   const [activeTab, setActiveTab] = useState<Tab>('home')
   const [showReport, setShowReport] = useState(false)
@@ -1452,7 +1450,13 @@ export default function ToolPage() {
           )}
 
           {/* ── ABA MINERADOR ── */}
-          {activeTab === 'minerador' && (
+          {activeTab === 'minerador' && MAINTENANCE && (
+            <div className="tab-content">
+              <MaintenancePage />
+            </div>
+          )}
+
+          {activeTab === 'minerador' && !MAINTENANCE && (
             <div className="tab-content">
               <div className="mine-hero">
                 <div className="tool-sec-label"><span>Descoberta de ofertas</span></div>
