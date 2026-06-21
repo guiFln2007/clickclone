@@ -387,6 +387,31 @@ function ReportView({ phase1, phase2, onBack, onSaveToRadar, saving }: {
 /* ─────────── MAIN PAGE ─────────── */
 
 export default function ToolPage() {
+  // ========== MANUTENCAO ==========
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-6">
+      <div className="max-w-lg w-full text-center space-y-6">
+        <div className="text-6xl">🐀🔧</div>
+        <h1 className="text-3xl font-extrabold text-white tracking-tight">
+          Em Manutenção
+        </h1>
+        <p className="text-zinc-400 text-lg leading-relaxed">
+          Uma nova versão do RatoAds está vindo, <span className="text-orange-400 font-bold">1000x melhor</span>.
+        </p>
+        <p className="text-zinc-500 text-sm">
+          Estamos reconstruindo a ferramenta do zero pra te entregar algo absurdo. Aguarde.
+        </p>
+        <div className="pt-4">
+          <a href="/app" className="inline-block px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-sm font-medium transition">
+            ← Voltar pro painel
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+  // ========== FIM MANUTENCAO ==========
+
+  // eslint-disable-next-line no-unreachable
   type Tab = 'home' | 'ofertas' | 'analise' | 'rastreamento' | 'minerador'
   const [activeTab, setActiveTab] = useState<Tab>('home')
   const [showReport, setShowReport] = useState(false)
