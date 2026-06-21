@@ -391,24 +391,15 @@ const MAINTENANCE = true
 
 function MaintenancePage() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-6">
-      <div className="max-w-lg w-full text-center space-y-6">
-        <div className="text-6xl">🐀🔧</div>
-        <h1 className="text-3xl font-extrabold text-white tracking-tight">
-          Em Manutenção
-        </h1>
-        <p className="text-zinc-400 text-lg leading-relaxed">
-          Uma nova versão do RatoAds está vindo, <span className="text-orange-400 font-bold">1000x melhor</span>.
-        </p>
-        <p className="text-zinc-500 text-sm">
-          Estamos reconstruindo a ferramenta do zero pra te entregar algo absurdo. Aguarde.
-        </p>
-        <div className="pt-4">
-          <a href="/app" className="inline-block px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-sm font-medium transition">
-            ← Voltar pro painel
-          </a>
-        </div>
-      </div>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', flexDirection: 'column', gap: 16 }}>
+      <div style={{ fontSize: 48 }}>{'\uD83D\uDC00\uD83D\uDD27'}</div>
+      <h2 style={{ fontSize: 24, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>Em Manuten{'\u00e7\u00e3'}o</h2>
+      <p style={{ color: '#999', fontSize: 15, textAlign: 'center', maxWidth: 400 }}>
+        Uma nova vers{'\u00e3'}o do RatoAds est{'\u00e1'} vindo, <span style={{ color: '#FF8C00', fontWeight: 700 }}>1000x melhor</span>.
+      </p>
+      <p style={{ color: '#666', fontSize: 13, textAlign: 'center', maxWidth: 400 }}>
+        Estamos reconstruindo a ferramenta do zero pra te entregar algo absurdo. Aguarde.
+      </p>
     </div>
   )
 }
@@ -416,8 +407,9 @@ function MaintenancePage() {
 
 export default function ToolPage() {
   type Tab = 'home' | 'ofertas' | 'analise' | 'rastreamento' | 'minerador'
-  const [activeTab, setActiveTab] = useState<Tab>('home')
+  const [activeTab, setActiveTab] = useState<Tab>('ofertas')
   const [showReport, setShowReport] = useState(false)
+  const [sidebarMineOpen, setSidebarMineOpen] = useState(true)
 
   // Analysis
   const [url, setUrl] = useState('')
@@ -967,63 +959,67 @@ export default function ToolPage() {
   return (
     <>
       <style>{CSS}</style>
-      <div className="app">
-        {/* HEADER */}
-        <header className="header">
-          <div className="header-left">
-            <div className="header-logo-circle" onClick={() => setActiveTab('home')} style={{ cursor: 'pointer' }}>
-              <img src="/rato-mascot.png" alt="RatoAds" style={{ height: 38, width: 'auto', filter: 'drop-shadow(0 0 8px rgba(255,140,0,.5))' }} />
-            </div>
+      <div className="app" style={{ flexDirection: 'row' }}>
+        {/* SIDEBAR */}
+        <aside className="sidebar">
+          <div className="sidebar-brand">
+            <img src="/rato-mascot.png" alt="RatoAds" style={{ height: 28, width: 'auto' }} />
+            <span className="sidebar-brand-text">RatoAds</span>
           </div>
-          <nav className="header-tabs">
-            {[
-              {
-                id: 'ofertas' as Tab,
-                label: 'Ofertas',
-                svg: (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
-                  </svg>
-                ),
-              },
-              {
-                id: 'minerador' as Tab,
-                label: 'Minera\u00e7\u00e3o',
-                svg: (
-                  <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M3 13 Q16 3 24 6 Q32 3 45 13 Q32 9 24 11 Q16 9 3 13 Z" fill="currentColor"/><rect x="22" y="10" width="4" height="32" rx="1.4" fill="currentColor"/><rect x="20.5" y="40" width="7" height="4" rx="1.5" fill="currentColor"/>
-                  </svg>
-                ),
-              },
-              {
-                id: 'analise' as Tab,
-                label: 'An\u00e1lise',
-                svg: (
-                  <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="19" cy="19" r="15" stroke="currentColor" strokeWidth="4.5"/><rect x="9" y="22" width="4" height="7" rx="1" fill="currentColor"/><rect x="15" y="18" width="4" height="11" rx="1" fill="currentColor"/><rect x="21" y="14" width="4" height="15" rx="1" fill="currentColor"/><line x1="30" y1="30" x2="44" y2="44" stroke="currentColor" strokeWidth="5.5" strokeLinecap="round"/>
-                  </svg>
-                ),
-              },
-              {
-                id: 'rastreamento' as Tab,
-                label: 'Radar',
-                svg: (
-                  <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M24 4c-7.7 0-14 6.1-14 13.6 0 9.9 12.3 22.6 13.1 23.4a1.3 1.3 0 0 0 1.8 0c.8-.8 13.1-13.5 13.1-23.4C38 10.1 31.7 4 24 4Z" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round"/><circle cx="24" cy="18" r="6" stroke="currentColor" strokeWidth="3" fill="none"/><circle cx="24" cy="18" r="1.8" fill="currentColor"/>
-                  </svg>
-                ),
-                badge: 0,
-              },
-            ].map(t => (
-              <button key={t.id} className={`header-tab${activeTab === t.id ? ' active' : ''}`} onClick={() => setActiveTab(t.id)}>
-                <span className="tab-icon">{t.svg}</span>
-                <span className="tab-label">{t.label}</span>
-                {t.badge ? <span className="tab-badge">{t.badge}</span> : null}
-              </button>
-            ))}
-          </nav>
+
+          <div className="sidebar-section">
+            <div className="sidebar-section-title">MENU</div>
+            <div className="sidebar-section-label" onClick={() => setSidebarMineOpen(o => !o)} style={{ cursor: 'pointer' }}>
+              Minera{'\u00e7\u00e3'}o
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 'auto', transform: sidebarMineOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform .2s' }}><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            {sidebarMineOpen && (
+              <nav className="sidebar-nav">
+                {[
+                  { id: 'rastreamento' as Tab, label: 'Rastreamento de Ofertas', icon: '\u{1F4CD}' },
+                  { id: 'minerador' as Tab, label: 'Ofertas Mineradas', icon: '\u{26CF}\uFE0F' },
+                  { id: 'ofertas' as Tab, label: 'Swipe', icon: '\u{1F4E6}' },
+                  { id: 'analise' as Tab, label: 'An\u00e1lise de Tr\u00e1fego', icon: '\u{1F4CA}' },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    className={`sidebar-item${activeTab === item.id ? ' active' : ''}`}
+                    onClick={() => setActiveTab(item.id)}
+                  >
+                    <span style={{ fontSize: 14, width: 20, textAlign: 'center' }}>{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+            )}
+          </div>
+
+          <div className="sidebar-section">
+            <div className="sidebar-section-title">Ajuda</div>
+            <nav className="sidebar-nav">
+              <a href="/settings/plans" className="sidebar-item" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <span style={{ fontSize: 14, width: 20, textAlign: 'center' }}>{'\u{1F4B3}'}</span>
+                Gerenciar plano
+              </a>
+            </nav>
+          </div>
+
+          <div style={{ marginTop: 'auto', padding: '16px 12px', borderTop: '1px solid var(--border)', fontSize: 11, color: '#555' }}>
+            Precisa de ajuda? <span style={{ cursor: 'pointer', color: '#888' }}>?</span>
+          </div>
+        </aside>
+
+        {/* MAIN AREA */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* HEADER */}
+        <header className="header" style={{ gridTemplateColumns: '1fr auto', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>
+              {activeTab === 'ofertas' ? 'Swipe' : activeTab === 'minerador' ? 'Ofertas Mineradas' : activeTab === 'analise' ? 'An\u00e1lise de Tr\u00e1fego' : activeTab === 'rastreamento' ? 'Rastreamento de Ofertas' : 'RatoAds'}
+            </h2>
+          </div>
           <div className="header-right" ref={profileRef}>
-            <div className="header-saldo">{plano === 'trial' ? 'Trial' : plano === 'premium' ? 'Premium' : 'Starter'}</div>
+            <div className="header-saldo">{plano === 'trial' ? 'Trial' : plano === 'premium' ? 'Premium' : plano === 'curso' ? 'Curso' : 'Starter'}</div>
             <button className="header-avatar" onClick={() => setProfileOpen(o => !o)}>
               {userName ? userName[0].toUpperCase() : '?'}
             </button>
@@ -1130,8 +1126,13 @@ export default function ToolPage() {
             </div>
           )}
 
+          {/* ── MANUTENCAO para abas desativadas ── */}
+          {MAINTENANCE && (activeTab === 'home' || activeTab === 'minerador' || activeTab === 'analise' || activeTab === 'rastreamento') && (
+            <div className="tab-content"><MaintenancePage /></div>
+          )}
+
           {/* ── ABA HOME ── */}
-          {activeTab === 'home' && (
+          {!MAINTENANCE && activeTab === 'home' && (
             <div className="tab-content">
               <div className="home-wrap">
                 <div className="home-header">
@@ -1226,7 +1227,7 @@ export default function ToolPage() {
           )}
 
           {/* ── ABA ANALISE ── */}
-          {(activeTab === 'analise' || activeTab === 'minerador' || activeTab === 'rastreamento') && (() => {
+          {!MAINTENANCE && (activeTab === 'analise' || activeTab === 'minerador' || activeTab === 'rastreamento') && (() => {
             const MAINTENANCE_MODE = false
             if (MAINTENANCE_MODE) return (
               <div className="tab-content" style={{ maxWidth: 600, textAlign: 'center', padding: '80px 20px', margin: '0 auto' }}>
@@ -1245,7 +1246,7 @@ export default function ToolPage() {
             )
             return null
           })()}
-          {activeTab === 'analise' && (
+          {!MAINTENANCE && activeTab === 'analise' && (
             <div className="tab-content">
               <div className="analyze-hero">
                 <div className="tool-sec-label"><span>Intelig{'\u00ea'}ncia competitiva</span></div>
@@ -1368,7 +1369,7 @@ export default function ToolPage() {
           )}
 
           {/* ── ABA RASTREAMENTO ── */}
-          {activeTab === 'rastreamento' && (
+          {!MAINTENANCE && activeTab === 'rastreamento' && (
             <div className="tab-content rdr-full">
               {radarLoading && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 10, color: '#666' }}>
@@ -1450,13 +1451,7 @@ export default function ToolPage() {
           )}
 
           {/* ── ABA MINERADOR ── */}
-          {activeTab === 'minerador' && MAINTENANCE && (
-            <div className="tab-content">
-              <MaintenancePage />
-            </div>
-          )}
-
-          {activeTab === 'minerador' && !MAINTENANCE && (
+          {!MAINTENANCE && activeTab === 'minerador' && (
             <div className="tab-content">
               <div className="mine-hero">
                 <div className="tool-sec-label"><span>Descoberta de ofertas</span></div>
@@ -1556,6 +1551,7 @@ export default function ToolPage() {
             </div>
           )}
         </main>
+        </div>{/* end main area wrapper */}
       </div>
 
       {/* ── MODALS ── */}
@@ -1838,6 +1834,35 @@ html,body{height:100%;font-family:'Inter',system-ui,-apple-system,sans-serif;bac
 
 /* LAYOUT */
 .app{min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1;overflow-x:hidden}
+
+/* SIDEBAR */
+.sidebar{
+  width:240px;flex-shrink:0;display:flex;flex-direction:column;
+  background:var(--bg-elev);border-right:1px solid var(--border);
+  height:100vh;position:sticky;top:0;overflow-y:auto;
+}
+.sidebar-brand{
+  display:flex;align-items:center;gap:10px;padding:18px 16px;
+  border-bottom:1px solid var(--border);
+}
+.sidebar-brand-text{font-size:16px;font-weight:800;color:#FF6B00}
+.sidebar-section{padding:12px 12px 0}
+.sidebar-section-title{font-size:10px;font-weight:700;color:#555;letter-spacing:.08em;padding:8px 8px 4px;text-transform:uppercase}
+.sidebar-section-label{
+  display:flex;align-items:center;gap:8px;padding:8px;
+  font-size:13px;font-weight:700;color:#ddd;border-radius:8px;
+  transition:background .15s;
+}
+.sidebar-section-label:hover{background:rgba(255,255,255,.04)}
+.sidebar-nav{display:flex;flex-direction:column;gap:1px;padding:4px 0}
+.sidebar-item{
+  display:flex;align-items:center;gap:10px;padding:9px 10px 9px 20px;
+  font-size:13px;font-weight:500;color:#888;border:none;background:transparent;
+  font-family:inherit;cursor:pointer;border-radius:8px;
+  transition:all .15s;text-align:left;width:100%;
+}
+.sidebar-item:hover{background:rgba(255,255,255,.04);color:#ccc}
+.sidebar-item.active{background:rgba(255,107,0,.08);color:#FF8C00;font-weight:600}
 
 /* HEADER */
 .header{
