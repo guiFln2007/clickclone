@@ -130,7 +130,94 @@ main > section#plans{display:none !important;}
 #ratoads-custom-plans .rp-cta.rp-cta-primary{background:#FF8C00;color:#000;border-color:#FF8C00;}
 #ratoads-custom-plans .rp-cta.rp-cta-primary:hover{background:#FFA01F;border-color:#FFA01F;}
 #ratoads-custom-plans .rp-footnote{text-align:center;color:#666;font-size:12px;margin-top:8px;}
-@media(max-width:720px){#ratoads-custom-plans .rp-grid{grid-template-columns:1fr;}#ratoads-custom-plans .rp-card{padding:28px 24px;}#ratoads-custom-plans .rp-price{font-size:48px;}}
+/* O conteúdo de cada <li> fica dentro de um <span>: o li é flex container, então sem o span
+   cada <strong> e cada trecho de texto vira um flex item separado e o gap abre buraco no
+   meio da frase. */
+#ratoads-custom-plans .rp-features li strong{color:#fff;font-weight:800;}
+#ratoads-custom-plans .rp-features li .rp-hl{color:#FF8C00;font-weight:800;}
+@media(max-width:720px){#ratoads-custom-plans .rp-grid{grid-template-columns:1fr;}#ratoads-custom-plans .rp-card{padding:28px 24px;}#ratoads-custom-plans .rp-price{font-size:48px;}
+  #ratoads-custom-plans .rp-features li{font-size:15px;}}
+/* === Ratoads Extensão section (entra no lugar da antiga seção "Análise Completa") === */
+#ratoads-ext-section{position:relative;background:#000;padding:100px 24px;font-family:'Sora',sans-serif;color:#fff;overflow:hidden;scroll-margin-top:80px;}
+#ratoads-ext-section .rx-wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1.05fr 0.95fr;gap:56px;align-items:center;}
+#ratoads-ext-section .rx-kicker{display:inline-block;font-size:12px;font-weight:700;letter-spacing:2.5px;color:#FF8C00;text-transform:uppercase;margin-bottom:18px;padding:6px 14px;background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.25);border-radius:999px;}
+#ratoads-ext-section .rx-title{font-size:clamp(28px,3.3vw,44px);font-weight:800;letter-spacing:-0.025em;line-height:1.14;margin:0 0 24px;color:#fff;}
+#ratoads-ext-section .rx-title .rx-acc{color:#FF8C00;}
+#ratoads-ext-section .rx-lead{font-size:16px;line-height:1.62;color:#9a9a9a;margin:0 0 18px;max-width:580px;}
+#ratoads-ext-section .rx-lead.rx-strong{color:#fff;font-weight:600;}
+#ratoads-ext-section .rx-label{font-size:15px;color:#777;margin:28px 0 14px;}
+#ratoads-ext-section .rx-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:0 0 34px;max-width:580px;}
+#ratoads-ext-section .rx-card{background:linear-gradient(160deg,#101010 0%,#060606 100%);border:1px solid rgba(255,140,0,0.18);border-radius:18px;padding:22px 14px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;font-size:13.5px;font-weight:600;color:#fff;line-height:1.35;transition:border-color .25s ease,transform .25s ease;}
+#ratoads-ext-section .rx-card:hover{border-color:#FF8C00;transform:translateY(-4px);}
+#ratoads-ext-section .rx-ico{width:42px;height:42px;border-radius:13px;background:rgba(255,140,0,0.10);display:flex;align-items:center;justify-content:center;color:#FF8C00;flex-shrink:0;}
+#ratoads-ext-section .rx-ico svg{width:20px;height:20px;display:block;}
+#ratoads-ext-section .rx-cta{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:#FF8C00;color:#0a0a0a;font-weight:700;font-size:17px;padding:20px 36px;border-radius:16px;text-decoration:none;box-shadow:0 8px 32px rgba(255,140,0,0.30);transition:background .2s ease,transform .2s ease,box-shadow .2s ease;}
+#ratoads-ext-section .rx-cta:hover{background:#FFA01F;transform:translateY(-2px);box-shadow:0 12px 40px rgba(255,140,0,0.45);}
+#ratoads-ext-section .rx-visual{display:flex;align-items:center;justify-content:center;}
+#ratoads-ext-section .rx-visual img{width:100%;max-width:470px;height:auto;display:block;filter:drop-shadow(0 30px 70px rgba(0,0,0,0.7));}
+@media(max-width:1024px){#ratoads-ext-section{padding:80px 24px;}#ratoads-ext-section .rx-wrap{grid-template-columns:1fr;gap:36px;}#ratoads-ext-section .rx-visual img{max-width:400px;}}
+/* CELULAR/TABLET: a imagem sai do fim da seção (onde caía depois do CTA) e sobe pra logo
+   abaixo do título, antes do "Ative a extensão...". No desktop ela continua na coluna da direita.
+   A .rx-visual é IRMÃ da .rx-copy, então sozinha ela só consegue ir antes ou depois do bloco de
+   texto inteiro — display:contents dissolve a .rx-copy e faz os filhos dela virarem itens do mesmo
+   grid, aí o order consegue encaixar a imagem no meio.
+   gap vai a 0 porque agora cada parágrafo é um item do grid: quem espaça são as margens de cada
+   elemento (kicker 18px, título 24px, lead 18px, label 28px, cards 34px), que já existiam. */
+@media(max-width:1024px){
+  #ratoads-ext-section .rx-wrap{gap:0;}
+  #ratoads-ext-section .rx-copy{display:contents;}
+  #ratoads-ext-section .rx-kicker{order:1;justify-self:start;}
+  #ratoads-ext-section .rx-title{order:2;}
+  #ratoads-ext-section .rx-visual{order:3;margin:2px 0 24px;}
+  #ratoads-ext-section .rx-copy > p,
+  #ratoads-ext-section .rx-copy > div,
+  #ratoads-ext-section .rx-copy > a{order:4;}
+  #ratoads-ext-section .rx-cta{justify-self:start;}
+}
+@media(max-width:640px){
+  /* centralizado: sem isso os itens inline (pill do kicker e o CTA) esticam a largura toda */
+  #ratoads-ext-section .rx-kicker{justify-self:center;}
+  #ratoads-ext-section .rx-cta{justify-self:center;}
+  #ratoads-ext-section{padding:56px 20px 64px;}
+  #ratoads-ext-section .rx-copy{text-align:center;}
+  #ratoads-ext-section .rx-title{font-size:20px !important;line-height:32px !important;font-weight:700 !important;margin-bottom:16px;}
+  #ratoads-ext-section .rx-lead{font-size:14px;margin:0 auto 14px;}
+  #ratoads-ext-section .rx-label{font-size:13px;margin:20px 0 12px;}
+  #ratoads-ext-section .rx-cards{grid-template-columns:1fr;gap:10px;margin:0 auto 26px;max-width:340px;}
+  #ratoads-ext-section .rx-card{flex-direction:row;justify-content:flex-start;text-align:left;padding:14px 16px;gap:14px;font-size:13px;}
+  #ratoads-ext-section .rx-ico{width:36px;height:36px;border-radius:11px;}
+  #ratoads-ext-section .rx-cta{display:flex;width:100%;max-width:280px;margin:0 auto;font-size:13px;padding:14px 24px;border-radius:14px;letter-spacing:0.02em;box-shadow:0 6px 24px rgba(255,140,0,0.25);}
+  #ratoads-ext-section .rx-visual img{max-width:300px;}
+}
+/* Seção ANÁLISE DE TRÁFEGO — clone da seção do mineraroi, layout centralizado, paleta nossa.
+   Entra logo depois do Rastreamento de Ofertas. Textos protegidos por data-ra-noswap. */
+#ratoads-trafego-section{position:relative;background:#000;padding:96px 24px;font-family:'Sora',sans-serif;color:#fff;overflow:hidden;scroll-margin-top:80px;}
+#ratoads-trafego-section .rt-wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;align-items:center;text-align:center;}
+#ratoads-trafego-section .rt-kicker{display:inline-block;font-size:12px;font-weight:700;letter-spacing:2.5px;color:#FF8C00;text-transform:uppercase;margin-bottom:26px;padding:8px 18px;background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.35);border-radius:999px;}
+#ratoads-trafego-section .rt-title{font-size:clamp(28px,3.4vw,44px);font-weight:800;letter-spacing:-0.025em;line-height:1.16;margin:0 0 26px;color:#fff;max-width:760px;}
+#ratoads-trafego-section .rt-title .rt-acc{color:#FF8C00;}
+#ratoads-trafego-section .rt-label{font-size:15px;color:#8d8d8d;margin:0 0 20px;}
+#ratoads-trafego-section .rt-list{list-style:none;margin:0 0 46px;padding:0;width:100%;max-width:580px;display:flex;flex-direction:column;gap:14px;}
+#ratoads-trafego-section .rt-item{display:flex;align-items:center;gap:16px;text-align:left;background:linear-gradient(160deg,#101010 0%,#060606 100%);border:1px solid rgba(255,140,0,0.18);border-radius:16px;padding:18px 22px;font-size:15px;line-height:1.4;color:#fff;transition:border-color .25s ease,transform .25s ease;}
+#ratoads-trafego-section .rt-item:hover{border-color:#FF8C00;transform:translateY(-2px);}
+#ratoads-trafego-section .rt-ico{flex-shrink:0;width:26px;height:26px;color:#FF8C00;display:flex;align-items:center;justify-content:center;}
+#ratoads-trafego-section .rt-ico svg{width:24px;height:24px;display:block;}
+#ratoads-trafego-section .rt-visual{width:100%;display:flex;justify-content:center;}
+#ratoads-trafego-section .rt-visual img{width:100%;max-width:820px;height:auto;display:block;filter:drop-shadow(0 30px 70px rgba(0,0,0,0.7));}
+@media(max-width:1024px){#ratoads-trafego-section{padding:80px 24px;}#ratoads-trafego-section .rt-visual img{max-width:640px;}}
+@media(max-width:640px){
+  /* O espaço até o kicker era 120px: 60 do padding da seção + 60 que a .rt-wrap ganha de fora
+     (nenhuma regra nossa dá padding a ela). Zerando a wrap e controlando só pela seção. */
+  #ratoads-trafego-section{padding:40px 20px 56px;}
+  #ratoads-trafego-section .rt-wrap{padding-top:0 !important;}
+  #ratoads-trafego-section .rt-kicker{font-size:11px;letter-spacing:2px;margin-bottom:18px;padding:6px 14px;}
+  #ratoads-trafego-section .rt-title{font-size:20px !important;line-height:32px !important;font-weight:700 !important;margin-bottom:18px;}
+  #ratoads-trafego-section .rt-label{font-size:13px;margin-bottom:14px;}
+  #ratoads-trafego-section .rt-list{max-width:340px;gap:10px;margin-bottom:32px;}
+  #ratoads-trafego-section .rt-item{padding:14px 16px;gap:14px;font-size:13px;border-radius:14px;}
+  #ratoads-trafego-section .rt-ico{width:22px;height:22px;}
+  #ratoads-trafego-section .rt-ico svg{width:20px;height:20px;}
+}
 /* But repaint text-clip gradients with orange instead of removing them */
 [class*="bg-clip-text"][class*="minera-dark"],
 [class*="bg-clip-text"][class*="from-sky"],
@@ -614,7 +701,8 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
 
 (function replaceFooter() {
   var FOOTER_HTML =
-    '<div id="ratoads-custom-footer" style="background:#0a0a0a;font-family:Sora,sans-serif;border-top:1px solid rgba(255,140,0,0.18);">' +
+    /* Nasce escondido de propósito — ver reveal() lá embaixo. */
+    '<div id="ratoads-custom-footer" data-ra-noswap="1" style="display:none;background:#0a0a0a;font-family:Sora,sans-serif;border-top:1px solid rgba(255,140,0,0.18);">' +
       '<div style="max-width:1100px;margin:0 auto;padding:64px 32px 48px;display:grid;grid-template-columns:2fr 1.2fr 1.2fr 1.2fr;gap:48px;">' +
 
         /* Coluna 1 — Logo + tagline + social */
@@ -638,7 +726,7 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
         '<div style="display:flex;flex-direction:column;gap:14px;">' +
           '<span style="font-size:14px;font-weight:700;color:#FF8C00;letter-spacing:0.06em;text-transform:uppercase;">Features</span>' +
           '<a href="#" style="font-size:14px;color:#888;text-decoration:none;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'">Rastreamento de Ofertas</a>' +
-          '<a href="#" style="font-size:14px;color:#888;text-decoration:none;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'">Análise Completa</a>' +
+          '<a href="#" style="font-size:14px;color:#888;text-decoration:none;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'">Extensão RatoAds</a>' +
           '<a href="#" style="font-size:14px;color:#888;text-decoration:none;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'">Swipe de Ofertas</a>' +
           '<a href="#" style="font-size:14px;color:#888;text-decoration:none;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'">Minerador Automático</a>' +
         '</div>' +
@@ -697,10 +785,27 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     }
     return false;
   }
+  /* O rodapé é injetado no DOMContentLoaded, mas o conteúdo da página só é renderizado pelo
+     bundle React ~250ms depois. Se ele nascer visível, nesse intervalo o <main> está vazio e o
+     rodapé aparece SOZINHO no topo da tela — o flash que o usuário via. Então ele nasce
+     display:none e só é liberado quando o React já montou as seções. O prazo de 5s é rede de
+     segurança: se um dia o bundle mudar e as seções não vierem, o rodapé aparece assim mesmo em
+     vez de sumir pra sempre. */
+  var revealT0 = Date.now(), revealed = false;
+  function reveal() {
+    if (revealed) return true;
+    var f = document.getElementById('ratoads-custom-footer');
+    if (!f) return false;
+    if (document.querySelectorAll('main > section').length < 10 && Date.now() - revealT0 < 5000) return false;
+    f.style.display = 'block';
+    revealed = true;
+    return true;
+  }
   function attempt(){ if (!tryReplace()) setTimeout(attempt, 300); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attempt);
-  else attempt();
-  var obs = new MutationObserver(function(){ tryReplace(); });
+  function revealAttempt(){ if (!reveal()) setTimeout(revealAttempt, 60); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ attempt(); revealAttempt(); });
+  else { attempt(); revealAttempt(); }
+  var obs = new MutationObserver(function(){ tryReplace(); reveal(); });
   obs.observe(document.documentElement, { childList: true, subtree: true });
 })();
 
@@ -861,11 +966,18 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
 
 (function injectAnaliseHeroImage() {
   function run() {
+    /* A seção da Análise foi substituída pela seção da Extensão. Se ela existe,
+       este injetor não tem mais alvo — e rodar nele é PERIGOSO: com a seção
+       escondida (display:none) todo filho tem offsetHeight 0, a subida de até 6
+       pais não para no lugar certo e o innerHTML de um container do React é
+       sobrescrito, apagando a página inteira. */
+    if (document.getElementById('ratoads-ext-section')) return;
     // Busca apenas pelo texto exato da legenda do placeholder, igual às outras seções
     var all = document.querySelectorAll('*');
     for (var i = 0; i < all.length; i++) {
       var el = all[i];
       if (el.getAttribute('data-ra-anal-img')) continue;
+      if (el.closest && el.closest('[data-ra-analise-hidden]')) continue;
       var own = '';
       if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
         own = (el.textContent || '').trim();
@@ -1122,7 +1234,9 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     rotBox.style.setProperty('height', 'auto', 'important');
     rotBox.style.setProperty('overflow', 'visible', 'important');
     rotBox.style.setProperty('display', 'block', 'important');
-    rotBox.innerHTML = '<div style="width:100%;aspect-ratio:16/9;background:#000;border-radius:' + br + ';overflow:hidden;"><img src="/demo-roteiros-v3.png" alt="Transcrição Automática RatoAds" style="width:100%;height:100%;object-fit:cover;display:block;"/></div>';
+    /* aspect 3/2 = o mesmo da imagem (1536x1024): assim ela entra inteira, sem o
+       corte de topo/base que o object-fit:cover fazia dentro de uma caixa 16/9 */
+    rotBox.innerHTML = '<div style="width:100%;aspect-ratio:3/2;background:#000;border-radius:' + br + ';overflow:hidden;"><img src="/demo-transcricao-ratoads.png" alt="Transcrição Automática RatoAds" style="width:100%;height:100%;object-fit:contain;display:block;"/></div>';
   }
   function attempt() { if (!document.querySelector('[data-ra-rot-cloned]')) { run(); setTimeout(attempt, 500); } }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attempt);
@@ -1131,18 +1245,23 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
   obs.observe(document.documentElement, { childList: true, subtree: true });
 })();
 
-(function injectTutoriaisImage() {
+(function injectClonagemImage() {
   function run() {
     if (document.querySelector('[data-ra-tut-injected]')) return;
+    /* O card virou "Clonagem de Funil", mas o alt vem do bundle e o motor de replace só
+       mexe em text node — por isso o seletor continua sendo o alt original. */
     var tutImg = document.querySelector('img[alt="Tutoriais Minera ROI"]');
     if (!tutImg) return;
     var box = tutImg.parentElement;
     for (var k = 0; k < 8; k++) {
       if (!box || !box.parentElement) break;
       if (box.offsetHeight > 150 && box.offsetWidth > 150) break;
+      /* NUNCA sair da seção: se os pais ainda não têm layout (offsetHeight 0), a
+         subida chegava em <main>/<html> e o innerHTML abaixo apagava a página. */
+      if (/^(SECTION|MAIN|BODY|HTML)$/.test(box.parentElement.tagName)) break;
       box = box.parentElement;
     }
-    if (!box) return;
+    if (!box || /^(SECTION|MAIN|BODY|HTML)$/.test(box.tagName)) return;
     var br = window.getComputedStyle(box).borderRadius || '12px';
     box.setAttribute('data-ra-tut-injected', '1');
     box.setAttribute('data-ra-bonus-small', '1');
@@ -1150,7 +1269,9 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     box.style.setProperty('height', 'auto', 'important');
     box.style.setProperty('overflow', 'visible', 'important');
     box.style.setProperty('display', 'block', 'important');
-    box.innerHTML = '<div style="width:100%;aspect-ratio:16/9;background:#000;border-radius:' + br + ';overflow:hidden;"><img src="/demo-tutoriais-v2.png" alt="Tutoriais RatoAds" style="width:100%;height:100%;object-fit:cover;display:block;"/></div>';
+    /* aspect 3/2 + contain = o mesmo da imagem (1158x772) e do card irmão (Transcrição):
+       entra inteira, sem o corte de topo/base que o cover fazia numa caixa 16/9. */
+    box.innerHTML = '<div style="width:100%;aspect-ratio:3/2;background:#0A0A0A;border-radius:' + br + ';overflow:hidden;"><img src="/demo-clonagem.png" alt="Clonagem de Funil RatoAds" style="width:100%;height:100%;object-fit:contain;display:block;"/></div>';
   }
   function attempt() { if (!document.querySelector('[data-ra-tut-injected]')) { run(); setTimeout(attempt, 500); } }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attempt);
@@ -1231,7 +1352,7 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     var sections = main.querySelectorAll(':scope > section');
     for (var i = 0; i < sections.length; i++) {
       var t = sections[i].textContent || '';
-      if (/Roteiros\s*\+\s*Transcrição/.test(t) && /Tutoriais/.test(t)) { bonusSec = sections[i]; break; }
+      if (/Roteiros\s*\+\s*Transcrição/.test(t) && /(Tutoriais|Clonagem de Funil)/.test(t)) { bonusSec = sections[i]; break; }
     }
     if (!bonusSec) return;
     // Libera overflow em toda a cadeia de containers do bônus
@@ -1283,16 +1404,10 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
 
 (function injectVSLVideo() {
   var CSS = [
-    '#ra-player{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;cursor:pointer;border:2px solid #FF8C00;box-shadow:0 0 24px rgba(255,140,0,0.3);}',
+    /* Sem player: o mockup roda sozinho, em loop, mudo (a faixa de audio foi removida do arquivo).
+       Sem cursor:pointer nem overlay de play — nao ha nada pra clicar. */
+    '#ra-player{position:relative;width:100%;aspect-ratio:2/1;background:#000;border-radius:12px;overflow:hidden;border:2px solid #FF8C00;box-shadow:0 0 24px rgba(255,140,0,0.3);}',
     '#ra-player video{width:100%;height:100%;display:block;object-fit:cover;background:#000;}',
-    '#ra-player-controls{position:absolute;bottom:0;left:0;right:0;padding:10px 14px 12px;background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 100%);display:flex;align-items:center;justify-content:flex-end;gap:12px;font-family:Sora,sans-serif;opacity:1;transition:opacity 0.25s;}',
-    '#ra-player.ra-hide-ctrl #ra-player-controls{opacity:0;}',
-    '#ra-play-btn{flex-shrink:0;width:34px;height:34px;border-radius:50%;background:#FF8C00;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s;}',
-    '#ra-play-btn:hover{background:#FFA01F;}',
-    '#ra-play-btn svg{width:14px;height:14px;fill:#000;}',
-    '#ra-play-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(255,140,0,0.92);display:flex;align-items:center;justify-content:center;pointer-events:none;transition:opacity 0.2s;}',
-    '#ra-play-overlay svg{width:24px;height:24px;fill:#000;margin-left:4px;}',
-    '#ra-player.ra-playing #ra-play-overlay{opacity:0;}',
   ].join('');
   var style = document.createElement('style');
   style.textContent = CSS;
@@ -1315,64 +1430,65 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     }
     if (!ph) return;
     ph.setAttribute('data-ra-vsl-video', '1');
-    ph.style.cssText = 'display:block;width:100%;aspect-ratio:16/9;min-height:0;max-width:none;border-radius:12px;overflow:hidden;padding:0;border:none;background:#000;';
+    ph.style.cssText = 'display:block;width:100%;aspect-ratio:2/1;min-height:0;max-width:none;border-radius:12px;overflow:hidden;padding:0;border:none;background:#000;';
 
     var wrap = document.createElement('div');
     wrap.id = 'ra-player';
 
+    var SRC = '/mockup-ratoads-v2.mp4';
+
     var vid = document.createElement('video');
-    vid.src = '/mockup-ratoads.mp4';
-    vid.preload = 'metadata';
+    /* SEM src e com preload:none — o arquivo (7,6MB) so comeca a baixar quando a secao
+       chega perto da viewport. Quem sai no hero nao baixa nada. */
+    vid.preload = 'none';
+    /* data-ra-ph=1 faz o placeholderBrokenMedia PULAR esse video — sem src ele
+       pareceria "quebrado" e seria trocado por um placeholder. */
     vid.dataset.raPh = '1';
+    /* muted + playsinline sao OBRIGATORIOS pro autoplay passar no Chrome/Safari/iOS.
+       O arquivo nao tem faixa de audio, entao mudo nao tira nada. */
+    vid.muted = true;
+    vid.defaultMuted = true;
+    vid.loop = true;
     vid.playsInline = true;
-
-    /* play overlay */
-    var overlay = document.createElement('div');
-    overlay.id = 'ra-play-overlay';
-    overlay.innerHTML = '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
-
-    /* controls bar */
-    var bar = document.createElement('div');
-    bar.id = 'ra-player-controls';
-
-
+    vid.setAttribute('muted', '');
+    vid.setAttribute('loop', '');
+    vid.setAttribute('playsinline', '');
 
     wrap.appendChild(vid);
-    wrap.appendChild(overlay);
-    wrap.appendChild(bar);
 
     ph.innerHTML = '';
     ph.appendChild(wrap);
 
-    /* --- behaviour --- */
-    var hideTimer;
-
-    function showControls() {
-      wrap.classList.remove('ra-hide-ctrl');
-      clearTimeout(hideTimer);
-      if (!vid.paused) hideTimer = setTimeout(function(){ wrap.classList.add('ra-hide-ctrl'); }, 2500);
+    /* --- roda so enquanto esta visivel --- */
+    function play() {
+      if (!vid.getAttribute('src')) { vid.setAttribute('src', SRC); vid.load(); }
+      var p = vid.play();
+      if (p && p.catch) p.catch(function () {});
     }
 
-    wrap.addEventListener('mousemove', showControls);
-    wrap.addEventListener('touchstart', showControls);
-
-    function togglePlay() {
-      if (vid.paused) { vid.play(); } else { vid.pause(); }
+    if (typeof IntersectionObserver === 'function') {
+      /* rootMargin de 200px adianta o carregamento: quando a secao entra na tela o
+         video ja esta rodando, em vez de comecar preto e engasgar. */
+      var io = new IntersectionObserver(function (entries) {
+        for (var i = 0; i < entries.length; i++) {
+          if (entries[i].isIntersecting) play();
+          else if (!vid.paused) vid.pause();
+        }
+      }, { rootMargin: '200px 0px', threshold: 0.01 });
+      io.observe(wrap);
+    } else {
+      play(); /* navegador sem IntersectionObserver: carrega e roda direto */
     }
-    wrap.addEventListener('click', function(){ togglePlay(); });
 
-    vid.addEventListener('play', function(){
-      wrap.classList.add('ra-playing');
-      showControls();
+    /* Rede de seguranca: se o navegador recusar o autoplay (economia de dados, aba em
+       segundo plano), tenta de novo no primeiro toque/scroll — mas so se estiver na tela. */
+    ['touchstart', 'scroll', 'pointerdown'].forEach(function (evt) {
+      window.addEventListener(evt, function once() {
+        window.removeEventListener(evt, once);
+        var r = wrap.getBoundingClientRect();
+        if (vid.paused && r.top < window.innerHeight && r.bottom > 0) play();
+      }, { passive: true });
     });
-    vid.addEventListener('pause', function(){
-      wrap.classList.remove('ra-playing');
-      wrap.classList.remove('ra-hide-ctrl');
-      clearTimeout(hideTimer);
-    });
-
-
-
   }
 
   function attempt() { if (!document.querySelector('[data-ra-vsl-video]')) { run(); setTimeout(attempt, 500); } }
@@ -1416,7 +1532,7 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     var sections = main.querySelectorAll(':scope > section');
     for (var i = 0; i < sections.length; i++) {
       var t = sections[i].textContent || '';
-      if (/Roteiros\s*\+\s*Transcrição/.test(t) && /Tutoriais/.test(t)) { sec = sections[i]; break; }
+      if (/Roteiros\s*\+\s*Transcrição/.test(t) && /(Tutoriais|Clonagem de Funil)/.test(t)) { sec = sections[i]; break; }
     }
     if (!sec) return;
     // 1) Shrink the image placeholder wrapper (.mt-6 ... div with "IMAGEM")
@@ -1470,6 +1586,10 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     var sec = null;
     var analiseSec = null;
     for (var i = 0; i < sections.length; i++) {
+      /* Pula as NOSSAS seções: o kicker da #ratoads-trafego-section é "Análise de Tráfego" e ela
+         virava alvo deste ajuste, levando padding-top:60px inline !important nela e em todos os
+         filhos (120px de buraco acima do kicker, impossível de sobrescrever por CSS). */
+      if (sections[i].id && sections[i].id.indexOf('ratoads-') === 0) continue;
       if (/Swipe de Ofertas/.test(sections[i].textContent||'')) sec = sections[i];
       if (/Análise Completa|ANÁLISE COMPLETA|Análise de Tráfego/.test(sections[i].textContent||'')) analiseSec = sections[i];
     }
@@ -1652,7 +1772,7 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     var target = null;
     for (var i = 0; i < sections.length; i++) {
       var t = sections[i].textContent || '';
-      if (/Roteiros\s*\+\s*Transcrição/.test(t) && /Tutoriais/.test(t)) { target = sections[i]; break; }
+      if (/Roteiros\s*\+\s*Transcrição/.test(t) && /(Tutoriais|Clonagem de Funil)/.test(t)) { target = sections[i]; break; }
     }
     if (!target) return false;
     var container = target.firstElementChild || target;
@@ -1811,7 +1931,11 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
 })();
 
 (function injectRatoadsPlans() {
-  var PLANS_HTML = '<section id="ratoads-custom-plans">' +
+  /* data-ra-noswap: OBRIGATÓRIO. Os planos citam "Extensão RatoAds", e o rewriteFaqAnswers
+     esconde qualquer elemento curto que fale em "extensão" (regra do FAQ velho) — sem o
+     atributo ele sobe do <li> até o .rp-card e aplica display:none no CARD INTEIRO.
+     De quebra, protege a copy dos planos do motor de replace. */
+  var PLANS_HTML = '<section id="ratoads-custom-plans" data-ra-noswap="1">' +
     '<div class="rp-wrap">' +
       '<h2 class="rp-title" data-aos="fade-up">Escolha um plano ideal</h2>' +
       '<p class="rp-subtitle" data-aos="fade-up" data-aos-delay="120">Plataforma completa com recursos avançados e atualizações constantes.</p>' +
@@ -1826,13 +1950,19 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
             '<span class="rp-tag">STARTER</span>' +
           '</div>' +
           '<ul class="rp-features">' +
-            '<li>10 minerações por mês</li>' +
-            '<li>10 análises por mês</li>' +
-            '<li>10 slots de rastreamento</li>' +
-            '<li>3 scripts de CTV por análise</li>' +
-            '<li>Suporte 24h</li>' +
+            '<li><span><strong>30 minerações</strong> por mês</span></li>' +
+            '<li><span>Minerador automático</span></li>' +
+            '<li><span>Swipe de ofertas</span></li>' +
+            '<li><span>Extensão RatoAds</span></li>' +
+            '<li><span>Rastreamento de ofertas 24/7</span></li>' +
+            '<li><span>Análise de tráfego</span></li>' +
+            '<li><span>Roteiros + Transcrição</span></li>' +
+            '<li><span>Clonagem de funil</span></li>' +
+            '<li><span>Suporte 24h</span></li>' +
+            '<li><span>Garantia de 7 dias</span></li>' +
           '</ul>' +
-          '<a href="https://pay.kirvano.com/5def273b-7070-429d-bdc2-e0ebec1da6e9" class="rp-cta">Começar agora</a>' +
+          /* Starter (R$57,90/mês) — migrado pra Cakto em 28/07. */
+          '<a href="https://pay.cakto.com.br/37cxmqu_940368" class="rp-cta">Começar agora</a>' +
           '<div class="rp-footnote">Acesso imediato · Cancele quando quiser</div>' +
         '</div>' +
         '<div class="rp-card rp-featured" data-aos="fade-left" data-aos-delay="350">' +
@@ -1846,13 +1976,19 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
             '<span class="rp-tag rp-tag-popular">★ Mais Popular</span>' +
           '</div>' +
           '<ul class="rp-features">' +
-            '<li>20 minerações por mês</li>' +
-            '<li>20 análises por mês</li>' +
-            '<li>20 slots de rastreamento</li>' +
-            '<li>3 scripts de CTV por análise</li>' +
-            '<li>Suporte prioritário</li>' +
+            '<li><span class="rp-hl">Minerações ILIMITADAS</span></li>' +
+            '<li><span>Minerador automático</span></li>' +
+            '<li><span>Swipe de ofertas</span></li>' +
+            '<li><span>Extensão RatoAds</span></li>' +
+            '<li><span>Rastreamento de ofertas 24/7</span></li>' +
+            '<li><span>Análise de tráfego</span></li>' +
+            '<li><span>Roteiros + Transcrição</span></li>' +
+            '<li><span>Clonagem de funil</span></li>' +
+            '<li><span>Suporte prioritário</span></li>' +
+            '<li><span>Garantia de 7 dias</span></li>' +
           '</ul>' +
-          '<a href="https://pay.kirvano.com/de252cb4-0d77-43fb-83e4-fe13bea23c12" class="rp-cta rp-cta-primary">Quero o Premium</a>' +
+          /* Premium (R$147,90 trimestral) — migrado pra Cakto em 28/07. O Starter continua na Kirvano. */
+          '<a href="https://pay.cakto.com.br/y6szxy8_940369" class="rp-cta rp-cta-primary">Quero o Premium</a>' +
           '<div class="rp-footnote">Acesso imediato · Cancele quando quiser</div>' +
         '</div>' +
       '</div>' +
@@ -2020,7 +2156,7 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     // Pick the right media src: prefer the section's real video (mockup-ratoads.mp4), fallback to image
     btn.addEventListener('click', function(e){
       e.preventDefault(); e.stopPropagation();
-      var src = '/mockup-ratoads.mp4';
+      var src = '/mockup-ratoads-v2.mp4';
       // Try to discover the actual video src from the section (in case it changes)
       var realVid = sec.querySelector('video[src*=".mp4"], video source[src*=".mp4"]');
       if (realVid) src = realVid.getAttribute('src') || realVid.src || src;
@@ -2197,6 +2333,36 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
   }, true);
 })();
 
+(function ratoadsScrollNavToFaq() {
+  // "Dúvidas" e "Como funciona" do menu rolam até o FAQ.
+  // As âncoras #duvidas / #como-funciona NÃO existem no DOM do mineraroi — sem isso o clique
+  // não faz absolutamente nada. Mesmo padrão do ratoadsScrollCtasToPlans acima.
+  function faqEl() {
+    var main = document.querySelector('main');
+    if (!main) return null;
+    var secs = main.querySelectorAll(':scope > section');
+    for (var i = 0; i < secs.length; i++) {
+      if (window.getComputedStyle(secs[i]).display === 'none') continue;
+      if (/Perguntas Frequentes/i.test(secs[i].textContent || '')) return secs[i];
+    }
+    return null;
+  }
+  function scrollToFaq() {
+    var el = faqEl();
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // reajusta depois que as animacoes (AOS) assentam e mudam alturas durante o scroll
+    setTimeout(function(){ var e = faqEl(); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 750);
+  }
+  document.addEventListener('click', function(e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (!t.closest('a[href="#duvidas"], a[href="#como-funciona"]')) return;
+    e.preventDefault();
+    scrollToFaq();
+  }, true);
+})();
+
 (function injectRatoadsHero() {
   // Hero IGUALZINHO ao ratoads.com.br: backgrounds (dot-grid, bg-glow, noise) + headline + sub + form + chips + scroll hint
   var HERO_HTML = '<section id="ratoads-real-hero">' +
@@ -2340,6 +2506,149 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
   }
 })();
 
+(function injectRatoadsExtensao() {
+  /* Seção da EXTENSÃO — entra no lugar da antiga seção "Análise Completa"
+     (a análise saiu da ferramenta). Copy clonada da seção "Extensão Exclusiva!"
+     do mineraroi, só com o rebrand RatoAds; layout/paleta nossos.
+     data-ra-noswap="1" protege esses textos do motor de replace lá embaixo. */
+  var ICO_DOWNLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+  var ICO_SEARCH   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+  var ICO_BOOK     = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
+
+  var EXT_HTML = '<section id="ratoads-ext-section" data-ra-noswap="1">' +
+    '<div class="rx-wrap">' +
+      '<div class="rx-copy">' +
+        '<span class="rx-kicker">Extensão Exclusiva!</span>' +
+        '<h2 class="rx-title">Veja em Tempo Real Quais Criativos Estão <span class="rx-acc">Mais Escalados</span> na Biblioteca de Anúncios</h2>' +
+        '<p class="rx-lead rx-strong">Ative a extensão e veja nosso rato minerador buscando de forma 100% automática os anúncios mais escalados direto na biblioteca de anúncios.</p>' +
+        '<p class="rx-lead">Você terá um Arsenal Completo somente de anúncios mais escalados do seu nicho prontos para serem modelados. Assim você tem ideias infinitas de criativos e não precisa ficar gastando dinheiro tentando validar criativos.</p>' +
+        '<p class="rx-lead rx-strong">Nenhum Criativo ou Oferta escalada pode se esconder da Extensão RatoAds!</p>' +
+        '<p class="rx-label">Com 1 único clique você pode:</p>' +
+        '<div class="rx-cards">' +
+          '<div class="rx-card"><span class="rx-ico">' + ICO_DOWNLOAD + '</span><span>Baixar o Anúncio</span></div>' +
+          '<div class="rx-card"><span class="rx-ico">' + ICO_SEARCH + '</span><span>Ver as palavras chaves mais pesquisadas</span></div>' +
+          '<div class="rx-card"><span class="rx-ico">' + ICO_BOOK + '</span><span>Acompanhar a biblioteca</span></div>' +
+        '</div>' +
+        '<a class="rx-cta" href="#ratoads-custom-plans">Liberar Meu Acesso ao RatoAds <span>&rarr;</span></a>' +
+      '</div>' +
+      '<div class="rx-visual"><img src="/demo-extensao-hero.png" alt="Extensão RatoAds minerando na Biblioteca de Anúncios"/></div>' +
+    '</div>' +
+  '</section>';
+
+  /* Casa tanto o texto original do mineraroi quanto o já reescrito, porque o motor
+     de replace pode ainda não ter rodado quando este bloco executa. */
+  var ANALISE_RE  = /Análise Completa|Com um clique receba uma análise|Acompanhe em Tempo Real a escala das Suas Ofertas Mineradas|Salve até 250 Bibliotecas de Anúncio/;
+  /* Inclui os textos ORIGINAIS do mineraroi porque na hora que este bloco roda o
+     replace pode não ter acontecido ainda. A nossa própria seção é pulada pelo id. */
+  var RASTREIO_RE = /Rastreamento de Ofertas|Acompanhe em tempo real os ads ativos|Veja em Tempo Real Quais Criativos Estão Mais Escalados/;
+
+  function inject() {
+    if (document.getElementById('ratoads-ext-section')) return true;
+    var main = document.querySelector('main');
+    if (!main) return false;
+    var secs = main.querySelectorAll(':scope > section'), analise = null, rastreio = null;
+    for (var i = 0; i < secs.length; i++) {
+      var s = secs[i];
+      if (s.id === 'ratoads-ext-section') continue;
+      var t = s.textContent || '';
+      if (!analise && ANALISE_RE.test(t)) analise = s;
+      if (!rastreio && RASTREIO_RE.test(t) && s !== analise) rastreio = s;
+    }
+    if (!analise) return false;
+    analise.style.setProperty('display', 'none', 'important');
+    analise.setAttribute('data-replaced-by-ratoads', '1');
+    analise.setAttribute('data-ra-analise-hidden', '1');
+    // fica no slot que era da Análise: logo antes do Rastreamento
+    (rastreio || analise).insertAdjacentHTML('beforebegin', EXT_HTML);
+    return true;
+  }
+
+  /* Mesmo padrão do injectRatoadsPlans/injectRatoadsHero: tenta uma vez e, se a
+     seção ainda não existir, observa até conseguir e DESCONECTA. Observer vivo
+     mexendo no DOM do React durante a hidratação derruba a página inteira. */
+  if (!inject()) {
+    var extObs = new MutationObserver(function(){ if (inject()) extObs.disconnect(); });
+    extObs.observe(document.documentElement, { childList: true, subtree: true });
+    setTimeout(function(){ extObs.disconnect(); }, 15000);
+  }
+})();
+
+(function injectRatoadsTrafego() {
+  /* Seção ANÁLISE DE TRÁFEGO — clone da seção original do mineraroi (que no nosso DOM está
+     escondida com data-ra-hidden), refeita com layout/paleta nossos e entrando LOGO DEPOIS
+     do Rastreamento de Ofertas. data-ra-noswap="1" protege os textos do motor de replace
+     (sem isso ele reescreve "Análise de Tráfego" → "Análise de Concorrente"). */
+  var ICO_CHART = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>';
+  var ICO_TREND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="19" y2="5"/><polyline points="12 5 19 5 19 12"/></svg>';
+  var ICO_GLOBE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg>';
+
+  var TRAFEGO_HTML = '<section id="ratoads-trafego-section" data-ra-noswap="1">' +
+    '<div class="rt-wrap">' +
+      '<span class="rt-kicker">Análise de Tráfego</span>' +
+      '<h2 class="rt-title">Antes de subir ou modelar qualquer oferta, saiba se ela <span class="rt-acc">realmente está escalada</span>.</h2>' +
+      '<p class="rt-label">Tenha acesso:</p>' +
+      '<ul class="rt-list">' +
+        '<li class="rt-item"><span class="rt-ico">' + ICO_CHART + '</span><span>Quantas visitas o Anunciante está enviando para a página.</span></li>' +
+        '<li class="rt-item"><span class="rt-ico">' + ICO_TREND + '</span><span>Qual Fonte de tráfego ela está rodando</span></li>' +
+        '<li class="rt-item"><span class="rt-ico">' + ICO_GLOBE + '</span><span>Quais Países ele está escalando.</span></li>' +
+      '</ul>' +
+      '<div class="rt-visual"><img src="/demo-trafego.png" alt="Análise de Tráfego RatoAds"/></div>' +
+    '</div>' +
+  '</section>';
+
+  function inject() {
+    if (document.getElementById('ratoads-trafego-section')) return true;
+    var main = document.querySelector('main');
+    if (!main) return false;
+    var secs = main.querySelectorAll(':scope > section'), rastreio = null;
+    for (var i = 0; i < secs.length; i++) {
+      var s = secs[i];
+      /* pula as nossas seções: a da extensão casa "Veja em Tempo Real..." e viraria alvo */
+      if (s.id && s.id.indexOf('ratoads-') === 0) continue;
+      if (window.getComputedStyle(s).display === 'none') continue;
+      if (/Rastreamento de Ofertas|Acompanhe em tempo real os ads ativos/i.test(s.textContent || '')) { rastreio = s; break; }
+    }
+    if (!rastreio) return false;
+    rastreio.insertAdjacentHTML('afterend', TRAFEGO_HTML);
+    return true;
+  }
+
+  /* Mesmo padrão do injectRatoadsExtensao: tenta uma vez, observa se falhar e DESCONECTA. */
+  if (!inject()) {
+    var trObs = new MutationObserver(function(){ if (inject()) trObs.disconnect(); });
+    trObs.observe(document.documentElement, { childList: true, subtree: true });
+    setTimeout(function(){ trObs.disconnect(); }, 15000);
+  }
+})();
+
+(function swapClonagemIconToClip() {
+  /* Troca o ícone (play) do bullet do card "Clonagem de Funil" por um CLIPS.
+     O ícone vem do bundle do mineraroi, então é substituído no DOM. */
+  var CLIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;display:block;">' +
+    '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+  function run() {
+    if (document.querySelector('[data-ra-clip-icon]')) return;
+    var ps = document.querySelectorAll('main p');
+    for (var i = 0; i < ps.length; i++) {
+      var t = (ps[i].textContent || '').replace(/\s+/g, ' ').trim();
+      if (!/^Cole o link, receba a página clonada/.test(t)) continue;
+      var svg = ps[i].querySelector('svg');
+      if (!svg) return;
+      var holder = document.createElement('span');
+      holder.setAttribute('data-ra-clip-icon', '1');
+      holder.style.cssText = 'display:inline-flex;flex-shrink:0;margin-top:2px;color:#FF8C00;';
+      holder.innerHTML = CLIP;
+      svg.parentNode.replaceChild(holder, svg);
+      return;
+    }
+  }
+  function attempt() { if (!document.querySelector('[data-ra-clip-icon]')) { run(); setTimeout(attempt, 500); } }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attempt);
+  else attempt();
+  var clipObs = new MutationObserver(function(){ run(); });
+  clipObs.observe(document.documentElement, { childList: true, subtree: true });
+})();
+
 (function() {
   var replacements = [
     // Brand rebrand
@@ -2410,7 +2719,14 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     [/Baixar o Anúncio/g, 'Ads ativos hoje vs ontem'],
     [/Ver as palavras chaves mais pesquisadas/g, 'Variação de escala (sobe, mantém ou cai)'],
     [/Acompanhar a biblioteca/g, 'Tempo no ar (dias rodando)'],
-    [/Faça o upload do seu video\. Clique em "Transcrever" e receba o texto completo e na íntegra\./g, 'Cole o link da biblioteca de anúncios e receba transcrição de todos os criativos, prontos pra salvar.']
+    [/Faça o upload do seu video\. Clique em "Transcrever" e receba o texto completo e na íntegra\./g, 'Cole o link da biblioteca de anúncios e receba transcrição de todos os criativos, prontos pra salvar.'],
+    /* Bônus: o card de "Tutoriais" do mineraroi vira "Clonagem de Funil".
+       O badge é ancorado (^...$) pra não pegar a palavra em outros textos.
+       ATENÇÃO: os finders da seção de bônus (fixBonusSectionOverlap, shrinkBonusCards,
+       injectBonusHeadline) casam /(Tutoriais|Clonagem de Funil)/ — não remova o alternativo. */
+    [/^Tutoriais$/g, 'Clonagem de Funil'],
+    [/Aprenda na prática como usar e extrair o máximo das nossas funcionalidades\./g, 'Clone o funil da oferta que já tá escalando e edite do seu jeito.'],
+    [/Vídeos práticos e diretos!/g, 'Cole o link, receba a página clonada e pronta pra editar.']
   ];
 
   function swapText(node) {
@@ -2422,6 +2738,8 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
       }
       if (changed !== t) node.nodeValue = changed;
     } else if (node.nodeType === 1 && node.childNodes && !/^(SCRIPT|STYLE)$/.test(node.tagName)) {
+      // seções nossas (ex.: #ratoads-ext-section) já vêm com o texto final — não reescreve
+      if (node.hasAttribute && node.hasAttribute('data-ra-noswap')) return;
       for (var j = 0; j < node.childNodes.length; j++) swapText(node.childNodes[j]);
     }
   }
@@ -2473,6 +2791,8 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
     for (var j = 0; j < faqCandidates.length; j++) {
       var el2 = faqCandidates[j];
       if (el2.getAttribute('data-ra-ext-hidden')) continue;
+      /* Skip seções nossas (#ratoads-ext-section) — lá "extensão" é o produto, não FAQ velho */
+      if (el2.closest && el2.closest('[data-ra-noswap]')) continue;
       /* Skip if inside Rastreamento section — "Extensão RatoAds" caption legitimamente aparece lá */
       var skipSec = el2.closest('section');
       if (skipSec && /Rastreamento de Ofertas/.test(skipSec.textContent || '')) continue;
@@ -2482,11 +2802,15 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
         for (var k = 0; k < 10; k++) {
           if (!box.parentElement) break;
           var par = box.parentElement;
-          if (par.tagName === 'SECTION' || par.tagName === 'MAIN') break;
+          /* Para em BODY/HTML também: sem isso, um texto com "extensão" fora de
+             uma <section> (ex.: link do rodapé) fazia a subida chegar no <html>
+             e o display:none abaixo apagava a página inteira. */
+          if (/^(SECTION|MAIN|BODY|HTML)$/.test(par.tagName)) break;
           var cs = window.getComputedStyle(box);
           if (cs.borderRadius && parseFloat(cs.borderRadius) > 0) break;
           box = par;
         }
+        if (!box || /^(BODY|HTML|MAIN)$/.test(box.tagName)) continue;
         box.style.setProperty('display', 'none', 'important');
         box.setAttribute('data-ra-ext-hidden', '1');
         removed++;
@@ -2523,7 +2847,10 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
   // 2. Persist in localStorage (survives cookie clearing, lasts forever)
   try { localStorage.setItem('mc_slug', slug); } catch(e) {}
 
-  // 3. Append UTMs + src to all Kirvano checkout links (Utmify needs UTMs on checkout URL)
+  // 3. Append UTMs + src to all checkout links (Utmify needs UTMs on checkout URL).
+  //    Os dois planos migraram da Kirvano pra Cakto em 28/07; o seletor ainda casa a Kirvano
+  //    porque é inofensivo. Se trocar de gateway de novo, ADICIONE o host aqui — senão o link
+  //    novo sai sem UTM e a venda chega no Utmify sem origem.
   var utmParams = '';
   (function() {
     var sp = new URLSearchParams(window.location.search);
@@ -2537,7 +2864,7 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
   })();
 
   function tagLinks() {
-    document.querySelectorAll('a[href*="pay.kirvano.com"]').forEach(function(a) {
+    document.querySelectorAll('a[href*="pay.kirvano.com"], a[href*="pay.cakto.com.br"]').forEach(function(a) {
       var href = a.getAttribute('href');
       if (href.indexOf('utm_source=') === -1 && href.indexOf('src=') === -1) {
         a.setAttribute('href', href + (href.indexOf('?') === -1 ? '?' : '&') + utmParams);
@@ -2577,7 +2904,7 @@ div[class*="rounded-3xl"][class*="from-minera-dark-900"]:has(> h1.text-sm){displ
   });
   // Also save on checkout click
   document.addEventListener('click', function(e) {
-    var a = e.target.closest && e.target.closest('a[href*="pay.kirvano.com"]');
+    var a = e.target.closest && e.target.closest('a[href*="pay.kirvano.com"], a[href*="pay.cakto.com.br"]');
     if (a) trySaveEmail();
   });
 })();
