@@ -246,15 +246,15 @@ export async function sendRecoveryBlastEmail(email: string) {
   })
 }
 
-export async function sendCursoTrialEmail(email: string, tempPassword: string) {
+export async function sendCursoTrialEmail(email: string, tempPassword: string, courseName = 'Curso Low Ticket Automatizado') {
   if (!process.env.SMTP_USER) return
 
   await transporter.sendMail({
     from: `"RatoAds" <${process.env.SMTP_USER}>`,
     to: email,
-    subject: 'Seu acesso ao RatoAds (Curso Low Ticket Automatizado)',
+    subject: `Seu acesso ao RatoAds (${courseName})`,
     html: wrap(`
-    <p>Fala! Voc&ecirc; ativou seu acesso ao RatoAds pelo Curso Low Ticket Automatizado.</p>
+    <p>Fala! Voc&ecirc; ativou seu acesso ao RatoAds pelo ${courseName}.</p>
 
     <p>Seus dados de acesso:</p>
 

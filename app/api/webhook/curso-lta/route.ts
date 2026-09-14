@@ -7,16 +7,20 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    // Valida shape Kirvano: precisa ter event + customer.email
-    const customer = (body?.customer || body?.buyer || {}) as Record<string, unknown>
-    const email = ((customer?.email || body?.email || '') as string).toLowerCase().trim()
+    // Aceita shape Kirvano (customer na raiz) e Cakto (tudo dentro de data)
+    const data = (body?.data || body || {}) as Record<string, unknown>
+    const customer = (data?.customer || data?.buyer || {}) as Record<string, unknown>
+    const email = ((customer?.email || data?.email || '') as string).toLowerCase().trim()
+    const name = ((customer?.name || data?.name || '') as string).trim()
+    // Nome do curso pro email (LTM manda course: 'ltm')
+    const courseName = body?.course === 'ltm' ? 'Low Ticket Mapeado' : 'Curso Low Ticket Automatizado'
 
     if (!email || !email.includes('@')) {
       return Response.json({ error: 'Email invalido' }, { status: 400 })
     }
 
     // Ignora eventos que nao sao compra
-    const event = body?.event || ''
+    const event = String(body?.event || '').toUpperCase()
     if (event && !event.includes('APPROVED') && !event.includes('SALE') && !event.includes('PURCHASE')) {
       return Response.json({ ok: true, message: 'Evento ignorado: ' + event })
     }
@@ -35,11 +39,11 @@ export async function POST(req: NextRequest) {
     const tempPassword = Math.random().toString(36).slice(2, 10)
     const hash = await bcrypt.hash(tempPassword, 10)
 
-    const user = await dbActivateUser('curso', email, '', hash, 'curso')
+    const user = await dbActivateUser('curso', email, name, hash, 'curso')
     const swipeExpiry = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
     await dbSetSwipeExpiry(user.id, swipeExpiry)
 
-    sendCursoTrialEmail(email, tempPassword).catch(console.error)
+    sendCursoTrialEmail(email, tempPassword, courseName).catch(console.error)
 
     console.log(`[webhook/curso-lta] Trial criado: ${email}`)
     return Response.json({ ok: true, email, message: 'Trial curso criado' })
