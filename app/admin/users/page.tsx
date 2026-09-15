@@ -294,8 +294,8 @@ function AdminUsersContent() {
                   <td style={td}>
                     <span style={{
                       padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
-                      background: u.plano === 'premium' ? '#2a1f0a' : u.plano === 'starter' ? '#1a2e1a' : '#2a1a1a',
-                      color: u.plano === 'premium' ? '#FF8C00' : u.plano === 'starter' ? '#4ade80' : '#f87171',
+                      background: u.plano === 'premium_vitalicio' ? '#1a1a2e' : u.plano === 'premium' ? '#2a1f0a' : u.plano === 'starter' ? '#1a2e1a' : '#2a1a1a',
+                      color: u.plano === 'premium_vitalicio' ? '#818cf8' : u.plano === 'premium' ? '#FF8C00' : u.plano === 'starter' ? '#4ade80' : '#f87171',
                     }}>
                       {u.plano.toUpperCase()}
                     </span>
@@ -459,6 +459,7 @@ function AdminUsersContent() {
                         <option value="trial">Trial</option>
                         <option value="starter">Starter</option>
                         <option value="premium">Premium</option>
+                        <option value="premium_vitalicio">Mentorado (vitalício)</option>
                         <option value="pro">Pro</option>
                         <option value="inativo">Inativo</option>
                       </select>
@@ -534,6 +535,7 @@ function AdminUsersContent() {
                       <option value="trial">Trial (1/1/1)</option>
                       <option value="starter">Starter (10/10/10)</option>
                       <option value="premium">Premium (20/20/20)</option>
+                      <option value="premium_vitalicio">Mentorado (100/100/20, vitalício)</option>
                     </select>
                   </div>
                   <div style={{ display: 'flex', gap: 10 }}>

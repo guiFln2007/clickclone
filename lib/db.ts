@@ -296,6 +296,7 @@ export const PLANS: Record<string, { analises: number; mineracoes: number; slots
   curso: { analises: 3, mineracoes: 3, slots_radar: 3, label: 'Curso', periodo: 'teste', dias: 0 },
   starter: { analises: 10, mineracoes: 10, slots_radar: 10, label: 'Starter', periodo: 'mensal', dias: 30 },
   premium: { analises: 20, mineracoes: 20, slots_radar: 20, label: 'Premium', periodo: 'trimestral', dias: 90 },
+  premium_vitalicio: { analises: 100, mineracoes: 100, slots_radar: 20, label: 'Mentorado', periodo: 'vitalicio', dias: 36500 },
 }
 
 export type User = {
