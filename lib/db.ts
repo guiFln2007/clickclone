@@ -328,7 +328,33 @@ export type FreeUsage = {
   created_at: string
 }
 
+// Bonus do LTM (kirvano_id 'ltm') vale 3 dias: renova_em vencido = conta inativa.
+// O corte fica aqui porque todo getter de usuario passa por rowToUser, entao
+// login, /api/auth/me, mine, analyze, phase1/2, radar e credits ja barram sozinhos.
+// Restrito ao 'ltm' de proposito: o plano 'curso' do LTA (kirvano_id 'curso')
+// nunca expirou e continua como esta.
+function cursoVencido(plano: unknown, kirvanoId: unknown, renovaEm: unknown): boolean {
+  if (plano !== 'curso' || kirvanoId !== 'ltm') return false
+  if (typeof renovaEm !== 'string' || !renovaEm) return false
+  const t = Date.parse(renovaEm)
+  return Number.isFinite(t) && t < Date.now()
+}
+
+// Persiste o vencimento uma vez por usuario/instancia, so pra refletir no admin.
+const cursoVencidoPersistido = new Set<number>()
+function persistirCursoVencido(id: number): void {
+  if (cursoVencidoPersistido.has(id)) return
+  cursoVencidoPersistido.add(id)
+  db.execute({
+    sql: `UPDATE users SET ativo = 0, plano = 'inativo', analises = 0, mineracoes = 0
+          WHERE id = ? AND plano = 'curso' AND kirvano_id = 'ltm' AND ativo = 1`,
+    args: [id],
+  }).catch(() => { cursoVencidoPersistido.delete(id) })
+}
+
 function rowToUser(row: Record<string, unknown>): User {
+  const vencido = cursoVencido(row.plano, row.kirvano_id, row.renova_em)
+  if (vencido && Number(row.ativo) === 1) persistirCursoVencido(row.id as number)
   return {
     id: row.id as number,
     email: row.email as string,
@@ -341,7 +367,7 @@ function rowToUser(row: Record<string, unknown>): User {
     max_analises: (row.max_analises as number) ?? 5,
     max_mineracoes: (row.max_mineracoes as number) ?? 5,
     max_slots_radar: (row.max_slots_radar as number) ?? 5,
-    ativo: row.ativo as number,
+    ativo: vencido ? 0 : (row.ativo as number),
     kirvano_id: (row.kirvano_id as string) ?? null,
     renova_em: (row.renova_em as string) ?? null,
     trial_email_sent: (row.trial_email_sent as string) ?? null,
